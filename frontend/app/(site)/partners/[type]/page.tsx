@@ -193,10 +193,10 @@ export default async function PartnerTypePage({
   return (
     <>
       {/* 1. Hero — 2-col with image on the right */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden -mt-20">
         <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/50 via-surface to-surface" />
         <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-50" />
-        <div className="container-page py-16 md:py-20">
+        <div className="container-page pt-36 md:pt-40 pb-16 md:pb-20">
           <div className="text-sm">
             <Link href="/partners" className="text-muted-foreground hover:text-foreground">
               Partners
@@ -305,8 +305,8 @@ export default async function PartnerTypePage({
               </div>
               <p className="mt-3 text-sm text-muted-foreground">
                 Prefer a conversation first? Email{" "}
-                <a href="mailto:partnerships@quata.digital" className="text-primary font-medium">
-                  partnerships@quata.digital
+                <a href="mailto:partnerships@quatadigital.com" className="text-primary font-medium">
+                  partnerships@quatadigital.com
                 </a>{" "}
                 or visit our{" "}
                 <Link href="/contact" className="text-primary font-medium">

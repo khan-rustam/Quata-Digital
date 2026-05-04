@@ -68,8 +68,13 @@ export function HCaptcha({
   const widgetIdRef = React.useRef<string | null>(null);
   const onVerifyRef = React.useRef(onVerify);
   const onExpireRef = React.useRef(onExpire);
-  onVerifyRef.current = onVerify;
-  onExpireRef.current = onExpire;
+  // Keep latest callbacks in refs without re-rendering the captcha widget.
+  React.useEffect(() => {
+    onVerifyRef.current = onVerify;
+  }, [onVerify]);
+  React.useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
 
   React.useEffect(() => {
     if (!SITE_KEY || !ref.current) return;

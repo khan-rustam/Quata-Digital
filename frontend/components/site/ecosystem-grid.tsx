@@ -1,11 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import { products } from "@/lib/ecosystem";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 const statusVariant = {
   Live: "live",
@@ -38,34 +38,50 @@ export function EcosystemGrid() {
         >
           <Link
             href={`/ecosystem/${p.slug}`}
-            className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card ring-soft transition-all duration-300 hover:-translate-y-1 hover:ring-elevated"
+            className="group relative flex h-full flex-col rounded-2xl border border-border bg-card ring-soft transition-all duration-300 hover:-translate-y-1 hover:ring-elevated hover:border-primary/30 overflow-hidden"
           >
-            <div
-              className={cn(
-                "h-28 w-full bg-linear-to-br relative overflow-hidden",
-                p.accent
-              )}
-            >
-              <div className="absolute inset-0 mix-blend-overlay opacity-40 dot-grid transition-opacity duration-500 group-hover:opacity-60" />
-              <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-ink">
+            {/* Top row — category + arrow */}
+            <div className="flex items-center justify-between px-6 pt-5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {p.category}
-              </div>
-              <div className="absolute left-5 bottom-4 text-white text-2xl font-semibold tracking-tight drop-shadow-sm transition-transform duration-300 group-hover:translate-x-1">
-                {p.name}
-              </div>
+              </span>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-all duration-300 group-hover:text-primary group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </div>
-            <div className="flex flex-1 flex-col gap-3 p-5">
-              <div className="flex items-center justify-between">
-                <Badge variant={statusVariant[p.status]}>
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                  {p.status}
-                </Badge>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-all duration-300 group-hover:text-primary group-hover:-translate-y-1 group-hover:translate-x-1" />
-              </div>
-              <div className="text-base font-medium tracking-tight">
+
+            {/* Logo plate — big, centered, on a soft tinted panel */}
+            <div className="mx-6 mt-4 rounded-xl bg-surface-soft border border-border/60 h-32 flex items-center justify-center px-6">
+              <Image
+                src={p.logo}
+                alt={`${p.name} logo`}
+                width={400}
+                height={300}
+                className="max-h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+              />
+            </div>
+
+            {/* Status + tagline + description */}
+            <div className="flex flex-1 flex-col px-6 pt-5 pb-5">
+              <Badge variant={statusVariant[p.status]} className="self-start">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                {p.status}
+              </Badge>
+
+              <div className="mt-3 text-base font-semibold tracking-tight text-foreground">
                 {p.tagline}
               </div>
-              <p className="text-sm text-muted-foreground line-clamp-3">{p.description}</p>
+              <p className="mt-2 text-sm text-muted-foreground line-clamp-2 flex-1">
+                {p.shortDescription}
+              </p>
+
+              <div className="mt-5 pt-4 border-t border-border flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  {p.launch ?? "Roadmap"}
+                </span>
+                <span className="font-medium text-primary inline-flex items-center gap-1">
+                  Learn more
+                  <ArrowUpRight className="h-3 w-3 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </span>
+              </div>
             </div>
           </Link>
         </motion.div>

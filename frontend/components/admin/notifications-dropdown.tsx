@@ -17,15 +17,31 @@ type Event = {
 };
 
 const READ_KEY = "quata_notifications_seen_id";
+const SEEN_EVENT = "quata-notifications-seen";
+
+function readSeenId(): number {
+  if (typeof window === "undefined") return 0;
+  const v = Number(window.localStorage.getItem(READ_KEY) ?? "0");
+  return Number.isFinite(v) ? v : 0;
+}
+
+function subscribeSeenId(onChange: () => void) {
+  const onCustom = () => onChange();
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === READ_KEY) onChange();
+  };
+  window.addEventListener(SEEN_EVENT, onCustom);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(SEEN_EVENT, onCustom);
+    window.removeEventListener("storage", onStorage);
+  };
+}
 
 export function NotificationsDropdown() {
   const { data, loading } = useApi<Event[]>("/admin/activity");
-  const [seenId, setSeenId] = React.useState<number>(0);
-
-  React.useEffect(() => {
-    const v = Number(localStorage.getItem(READ_KEY) ?? "0");
-    setSeenId(Number.isFinite(v) ? v : 0);
-  }, []);
+  // useSyncExternalStore — re-renders if another tab marks notifications read.
+  const seenId = React.useSyncExternalStore(subscribeSeenId, readSeenId, () => 0);
 
   const events = (data ?? []).slice(0, 12);
   const unread = events.filter((e) => e.id > seenId).length;
@@ -34,7 +50,7 @@ export function NotificationsDropdown() {
     if (events[0]) {
       const newest = events[0].id;
       localStorage.setItem(READ_KEY, String(newest));
-      setSeenId(newest);
+      window.dispatchEvent(new CustomEvent(SEEN_EVENT));
     }
   }
 

@@ -62,6 +62,7 @@ export function productJsonLd(product: {
   tagline: string;
   description: string;
   category: string;
+  logo?: string;
 }) {
   return {
     "@context": "https://schema.org",
@@ -70,6 +71,7 @@ export function productJsonLd(product: {
     category: product.category,
     description: product.description || product.tagline,
     url: `${SITE}/ecosystem/${product.slug}`,
+    image: product.logo ? `${SITE}${product.logo}` : undefined,
     brand: { "@type": "Organization", name: "QUATA Digital" },
   };
 }

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="88BASKET placeholder logo">
+  <defs>
+    <linearGradient id="bk-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0369A1"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="bk-shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="56" y="56" width="400" height="400" rx="96" fill="url(#bk-bg)"/>
+  <rect x="56" y="56" width="400" height="200" rx="96" fill="url(#bk-shine)"/>
+  <g transform="translate(256 248)" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <!-- basket body -->
+    <path d="M-110 -28 L110 -28 L84 96 L-84 96 Z"/>
+    <!-- basket handle -->
+    <path d="M-66 -28 L-30 -94 L30 -94 L66 -28"/>
+    <!-- weave -->
+    <path d="M-78 26 L78 26"/>
+  </g>
+  <text x="256" y="430" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="44" fill="#ffffff" letter-spacing="2">88BASKET</text>
+</svg>

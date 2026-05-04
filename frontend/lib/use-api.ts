@@ -13,6 +13,7 @@ export function useApi<T>(path: string | null, options: ApiOptions = {}) {
 
   React.useEffect(() => {
     if (!path) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- no path means nothing to fetch; settle the loading flag.
       setLoading(false);
       return;
     }

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { apiUrl } from "@/lib/api";
-import { getConsent } from "@/components/site/cookie-banner";
+import { useConsent } from "@/components/site/cookie-banner";
 
 const VISITOR_KEY = "quata_visitor_id";
 
@@ -26,25 +26,14 @@ function getVisitorId(): string {
 export function PageViewTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  // Re-render when consent changes so a user accepting analytics mid-session
-  // starts being tracked from the next navigation.
-  const [consent, setConsent] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    setConsent(getConsent());
-    function onChange(e: Event) {
-      setConsent((e as CustomEvent<string>).detail);
-    }
-    window.addEventListener("quata-consent-change", onChange);
-    return () => window.removeEventListener("quata-consent-change", onChange);
-  }, []);
+  // Subscribed via useSyncExternalStore — re-renders when the user
+  // accepts/rejects analytics in the cookie banner.
+  const consent = useConsent();
 
   React.useEffect(() => {
     if (!pathname) return;
     if (pathname.startsWith("/admin")) return;
-    // Honour Do Not Track
     if (typeof navigator !== "undefined" && navigator.doNotTrack === "1") return;
-    // Honour the user's consent choice. Without explicit "accept analytics"
-    // we don't fire the tracker.
     if (consent !== "all") return;
 
     const visitor_id = getVisitorId();

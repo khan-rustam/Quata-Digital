@@ -6,18 +6,53 @@ import { Cookie, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "quata_cookie_consent";
+const CHANGE_EVENT = "quata-consent-change";
 
 export type ConsentValue = "all" | "essential";
 
-export function getConsent(): ConsentValue | null {
+function readConsent(): ConsentValue | null {
   if (typeof window === "undefined") return null;
   const v = window.localStorage.getItem(STORAGE_KEY);
   if (v === "all" || v === "essential") return v;
   return null;
 }
 
+/** Server-safe imperative read — kept for non-hook callers. */
+export function getConsent(): ConsentValue | null {
+  return readConsent();
+}
+
 /**
- * Audit (2026-05-03):
+ * useConsent — subscribes to consent changes (same-tab CustomEvent +
+ * cross-tab `storage` event) so any component re-renders when the user
+ * accepts / rejects.
+ *
+ * Implemented with `useSyncExternalStore`, the React 19-idiomatic way
+ * to read external mutable state without setState-in-effect.
+ */
+export function useConsent(): ConsentValue | null {
+  const subscribe = React.useCallback((onChange: () => void) => {
+    const onCustom = () => onChange();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) onChange();
+    };
+    window.addEventListener(CHANGE_EVENT, onCustom);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(CHANGE_EVENT, onCustom);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+  return React.useSyncExternalStore(subscribe, readConsent, () => null);
+}
+
+function setConsent(value: ConsentValue) {
+  window.localStorage.setItem(STORAGE_KEY, value);
+  window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: value }));
+}
+
+/**
+ * Audit (2026-05-04):
  *   - No third-party cookies are set by this site today.
  *   - Geist fonts are self-hosted by Next.js, so no Google cookie is set.
  *   - hCaptcha (when configured) only loads on form submit pages and sets
@@ -27,21 +62,15 @@ export function getConsent(): ConsentValue | null {
  *     disclosing for clarity.
  */
 export function CookieBanner() {
-  const [open, setOpen] = React.useState(false);
+  const consent = useConsent();
+  const [dismissed, setDismissed] = React.useState(false);
 
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!localStorage.getItem(STORAGE_KEY)) setOpen(true);
-  }, []);
+  if (consent !== null || dismissed) return null;
 
-  function set(value: ConsentValue) {
-    localStorage.setItem(STORAGE_KEY, value);
-    // Notify same-tab listeners (the page-view tracker reads this).
-    window.dispatchEvent(new CustomEvent("quata-consent-change", { detail: value }));
-    setOpen(false);
+  function choose(value: ConsentValue) {
+    setConsent(value);
+    setDismissed(true);
   }
-
-  if (!open) return null;
 
   return (
     <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:max-w-md z-50">
@@ -63,17 +92,17 @@ export function CookieBanner() {
               .
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => set("all")}>
+              <Button size="sm" onClick={() => choose("all")}>
                 Accept analytics
               </Button>
-              <Button size="sm" variant="outline" onClick={() => set("essential")}>
+              <Button size="sm" variant="outline" onClick={() => choose("essential")}>
                 Essential only
               </Button>
             </div>
           </div>
           <button
             aria-label="Dismiss"
-            onClick={() => set("essential")}
+            onClick={() => choose("essential")}
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />

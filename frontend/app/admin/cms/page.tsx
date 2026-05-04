@@ -397,7 +397,7 @@ function BlogBodyEditor({ defaultValue }: { defaultValue: string }) {
         className={`block w-full bg-transparent p-4 text-sm font-mono outline-none min-h-[260px] resize-y ${
           tab === "write" ? "" : "hidden"
         }`}
-        placeholder={"# Heading\n\nWrite your post in **Markdown**.\n\n- Lists\n- [Links](https://quata.digital)\n- `code`"}
+        placeholder={"# Heading\n\nWrite your post in **Markdown**.\n\n- Lists\n- [Links](https://quatadigital.com)\n- `code`"}
       />
       {tab === "preview" && (
         <div className="max-h-[420px] overflow-y-auto bg-card p-5">

@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const t = localStorage.getItem(TOKEN_KEY);
     if (!t) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- bootstrap auth from storage on mount.
       setLoading(false);
       return;
     }

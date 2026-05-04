@@ -100,7 +100,7 @@ export default function AdminLoginPage() {
               <form onSubmit={onCredentials} className="mt-8 grid gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="email">Work email</Label>
-                  <Input id="email" name="email" type="email" placeholder="you@quata.digital" required autoFocus />
+                  <Input id="email" name="email" type="email" placeholder="you@quatadigital.com" required autoFocus />
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center justify-between">

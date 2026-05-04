@@ -20,7 +20,7 @@ export function ProcessSteps({
   if (layout === "vertical") {
     return (
       <MotionList className="relative" staggerChildren={0.08}>
-        <span className="absolute left-[19px] top-2 bottom-2 w-px bg-border" aria-hidden />
+        <span className="absolute left-4.75 top-2 bottom-2 w-px bg-border" aria-hidden />
         {steps.map((step, i) => (
           <MotionItem key={i} y={12}>
             <div className="group relative pl-14 pb-8 last:pb-0">
@@ -43,7 +43,7 @@ export function ProcessSteps({
   }
 
   return (
-    <MotionList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" staggerChildren={0.08}>
+    <MotionList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" staggerChildren={0.08}>
       {steps.map((step, i) => (
         <MotionItem key={i}>
           <div className="group h-full relative rounded-2xl border border-border bg-card p-6 ring-soft transition-all duration-300 hover:-translate-y-0.5 hover:ring-elevated">

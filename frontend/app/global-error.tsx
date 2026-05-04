@@ -18,7 +18,6 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error("[QUATA root error boundary]", error);
   }, [error]);
 
@@ -117,6 +116,7 @@ export default function GlobalError({
             >
               Try again
             </button>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- global-error sits outside RootLayout, so next/link cannot be used here. */}
             <a
               href="/"
               style={{

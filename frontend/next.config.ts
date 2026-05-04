@@ -3,10 +3,30 @@ import type { NextConfig } from "next";
 /**
  * Security baseline.
  *
- * No CSP yet — script-src needs per-environment tuning (next/script, framer
- * inline styles, etc.). Add it in a follow-up after measuring violations
- * against `Content-Security-Policy-Report-Only` first.
+ * CSP is shipped in **Report-Only** mode for the first month after launch
+ * so violations surface in browser devtools and (optionally) a reporting
+ * endpoint without breaking the page. Promote `Content-Security-Policy-Report-Only`
+ * to `Content-Security-Policy` once the report stream is clean.
  */
+const cspReportOnly = [
+  "default-src 'self'",
+  // Next dev needs 'unsafe-eval'; in production we only need 'unsafe-inline'
+  // for the framer-motion inline styles + Next.js inline boot script. The
+  // 'self' covers /_next/static/* chunks.
+  "script-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  // Backend API + WebSocket. Falls back to localhost in dev.
+  "connect-src 'self' https://*.quatadigital.com wss://*.quatadigital.com http://localhost:8000 ws://localhost:8000 https://hcaptcha.com https://*.hcaptcha.com",
+  "frame-src https://hcaptcha.com https://*.hcaptcha.com",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const securityHeaders = [
   // Force HTTPS for two years and apply to subdomains. Don't add `preload`
   // until the apex domain is verified on https://hstspreload.org/.
@@ -24,6 +44,8 @@ const securityHeaders = [
   },
   // Cross-origin protections.
   { key: "X-DNS-Prefetch-Control", value: "on" },
+  // CSP in Report-Only — flip the header name to enforce after a clean window.
+  { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
 ];
 
 const nextConfig: NextConfig = {

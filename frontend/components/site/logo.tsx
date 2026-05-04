@@ -1,32 +1,53 @@
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+const SIZE_CLASSES = {
+  sm: "h-9",
+  md: "h-12",
+  lg: "h-14",
+  xl: "h-20",
+} as const;
+
+/**
+ * QUATA Digital wordmark.
+ *
+ * The artwork lives at `/public/logo.png` — a gold-on-transparent
+ * hexagon mark + wordmark, in landscape orientation. We use the same
+ * asset on light and dark surfaces; on dark backgrounds we lift it
+ * slightly with a subtle brightness so the gold reads at smaller sizes.
+ */
 export function Logo({
   className,
   variant = "dark",
+  size = "md",
+  href = "/",
 }: {
   className?: string;
+  /** "dark" = on light surface (default).  "light" = on dark surface. */
   variant?: "dark" | "light";
+  /** Visual size — md is the default for navbar, lg/xl for footer/hero. */
+  size?: keyof typeof SIZE_CLASSES;
+  href?: string;
 }) {
-  const ink = variant === "dark" ? "text-ink" : "text-white";
   return (
     <Link
-      href="/"
-      className={cn("group inline-flex items-center gap-2", className)}
+      href={href}
+      aria-label="QUATA Digital home"
+      className={cn("inline-flex items-center", className)}
     >
-      <span className="relative inline-flex h-7 w-7 items-center justify-center rounded-lg gradient-brand text-white">
-        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
-          <path
-            d="M4 12a8 8 0 1 1 14 5.4L20 20l-4-1.6A8 8 0 0 1 4 12Z"
-            fill="white"
-            opacity="0.95"
-          />
-          <circle cx="12" cy="12" r="3" fill="#0E5B4A" />
-        </svg>
-      </span>
-      <span className={cn("font-semibold tracking-tight text-[15px]", ink)}>
-        QUATA<span className="text-primary">.</span>
-      </span>
+      <Image
+        src="/logo.png"
+        alt="QUATA Digital"
+        width={840}
+        height={600}
+        priority
+        className={cn(
+          "w-auto select-none",
+          SIZE_CLASSES[size],
+          variant === "light" ? "brightness-110" : ""
+        )}
+      />
     </Link>
   );
 }

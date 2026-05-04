@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
                   autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@quata.digital"
+                  placeholder="you@quatadigital.com"
                 />
               </div>
               <Button type="submit" disabled={submitting} size="lg">

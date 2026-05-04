@@ -55,31 +55,39 @@ const groups = [
 export function Footer() {
   return (
     <footer className="mt-24 relative overflow-hidden border-t border-border bg-ink text-white">
-      {/* Giant watermark Q — sits behind everything, low-opacity, brand
-          gradient. Anchors the footer without shouting. */}
+      {/* Centered single-line text watermark — fluid font size keeps the
+          whole word on one line at every breakpoint. Brand-amber gradient
+          at low opacity so it reads as a flourish, not a billboard. */}
       <div
         aria-hidden
-        className="pointer-events-none select-none absolute -bottom-32 -right-12 sm:-right-24 text-[24rem] sm:text-[34rem] md:text-[44rem] font-bold tracking-tighter leading-none"
-        style={{
-          background: "linear-gradient(135deg,#0E5B4A 0%,#1c8a6e 45%,#34d3a7 100%)",
-          WebkitBackgroundClip: "text",
-          backgroundClip: "text",
-          color: "transparent",
-          opacity: 0.12,
-        }}
+        className="pointer-events-none select-none absolute inset-x-0 bottom-0 flex justify-center overflow-hidden"
       >
-        Q
+        <span
+          className="whitespace-nowrap font-extrabold leading-none"
+          style={{
+            fontSize: "clamp(3rem, 14vw, 14rem)",
+            background:
+              "linear-gradient(180deg, rgba(232,177,74,0.16) 0%, rgba(232,177,74,0.02) 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            color: "transparent",
+            letterSpacing: "-0.05em",
+            transform: "translateY(18%)",
+          }}
+        >
+          QUATA DIGITAL
+        </span>
       </div>
-      {/* Soft top fade so the dark footer feels intentional */}
+      {/* Soft accent rule across the very top of the footer */}
       <div
         aria-hidden
         className="absolute inset-x-0 top-0 h-px"
         style={{
           background:
-            "linear-gradient(90deg, transparent, rgba(52,211,167,0.6), transparent)",
+            "linear-gradient(90deg, transparent, rgba(232,177,74,0.55), transparent)",
         }}
       />
-      <div aria-hidden className="absolute inset-0 dot-grid opacity-[0.06]" />
+      <div aria-hidden className="absolute inset-0 dot-grid opacity-[0.05]" />
 
       <div className="container-page relative pt-20 pb-10">
         {/* Top hero strip — tagline + CTAs */}
@@ -125,7 +133,7 @@ export function Footer() {
         {/* Main grid: brand + contact + nav columns */}
         <div className="mt-12 grid grid-cols-2 md:grid-cols-6 gap-10 gap-y-12">
           <div className="col-span-2">
-            <Logo variant="light" />
+            <Logo variant="light" size="xl" />
             <p className="mt-5 max-w-sm text-sm text-white/70 leading-relaxed">
               QUATA Digital Enterprise is building Africa&apos;s connected
               digital ecosystem — payments, business operations and commerce
@@ -159,10 +167,17 @@ export function Footer() {
                   support@quatadigital.com
                 </a>
               </li>
-              <li className="flex items-center gap-2.5">
-                <Phone className="h-3.5 w-3.5 text-accent" />
-                <span className="text-white/60">+237 — live at launch</span>
-              </li>
+              {process.env.NEXT_PUBLIC_CONTACT_PHONE && (
+                <li className="flex items-center gap-2.5">
+                  <Phone className="h-3.5 w-3.5 text-accent" />
+                  <a
+                    href={`tel:${process.env.NEXT_PUBLIC_CONTACT_PHONE.replace(/\s+/g, "")}`}
+                    className="text-white/75 hover:text-white transition"
+                  >
+                    {process.env.NEXT_PUBLIC_CONTACT_PHONE}
+                  </a>
+                </li>
+              )}
             </ul>
 
             <div className="mt-7 flex items-center gap-2.5">

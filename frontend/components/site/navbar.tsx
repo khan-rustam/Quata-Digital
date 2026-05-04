@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ArrowRight, Search } from "lucide-react";
 import { Logo } from "./logo";
-import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -31,72 +30,79 @@ export function Navbar() {
   }, []);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close mobile menu when route changes.
     setOpen(false);
   }, [pathname]);
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 w-full border-b border-transparent transition-all",
-        scrolled
-          ? "bg-surface/85 backdrop-blur-md border-border"
-          : "bg-transparent"
+        "sticky top-0 z-40 w-full transition-all duration-300",
+        scrolled ? "py-3" : "py-0"
       )}
     >
-      <div className="container-page flex h-16 items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Logo />
-          <nav className="hidden md:flex items-center gap-1">
-            {links.map((link) => {
-              const active =
-                pathname === link.href || pathname.startsWith(link.href + "/");
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-sm transition-colors",
-                    active
-                      ? "text-foreground bg-secondary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-        <div className="hidden md:flex items-center gap-2">
-          <Link
-            href="/search"
-            aria-label="Search"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground hover:text-foreground hover:bg-secondary"
-          >
-            <Search className="h-4 w-4" />
-          </Link>
-          <ThemeToggle />
-          <Button variant="ghost" asChild>
-            <Link href="/admin/login">Sign in</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/partners">
-              Become a partner <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-        <button
-          aria-label="Toggle menu"
-          onClick={() => setOpen((v) => !v)}
-          className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface"
+      <div className="container-page">
+        <div
+          className={cn(
+            "flex items-center justify-between transition-all duration-300",
+            scrolled
+              ? "h-16 px-4 md:px-6 rounded-full border border-border bg-surface/85 backdrop-blur-xl shadow-[0_8px_30px_-12px_rgba(15,18,22,0.18),0_2px_6px_rgba(15,18,22,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]"
+              : "h-20 bg-transparent border border-transparent"
+          )}
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+          <div className="flex items-center gap-8">
+            <Logo size={scrolled ? "md" : "lg"} />
+            <nav className="hidden md:flex items-center gap-1">
+              {links.map((link) => {
+                const active =
+                  pathname === link.href || pathname.startsWith(link.href + "/");
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-sm transition-colors",
+                      active
+                        ? "text-foreground bg-secondary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+          <div className="hidden md:flex items-center gap-2">
+            <Link
+              href="/search"
+              aria-label="Search"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground hover:text-foreground hover:bg-secondary"
+            >
+              <Search className="h-4 w-4" />
+            </Link>
+            <Button variant="ghost" asChild>
+              <Link href="/admin/login">Sign in</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/partners">
+                Become a partner <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <button
+            aria-label="Toggle menu"
+            onClick={() => setOpen((v) => !v)}
+            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {open && (
-        <div className="md:hidden border-t border-border bg-surface">
-          <nav className="container-page py-3 grid gap-1">
+        <div className="md:hidden mt-2 mx-4 rounded-2xl border border-border bg-surface shadow-[0_8px_30px_-12px_rgba(15,18,22,0.18)]">
+          <nav className="px-4 py-3 grid gap-1">
             {links.map((link) => (
               <Link
                 key={link.href}
@@ -106,10 +112,7 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
-            <div className="pt-2">
-              <ThemeToggle />
-            </div>
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-2">
               <Button variant="outline" asChild className="flex-1">
                 <Link href="/admin/login">Sign in</Link>
               </Button>

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { products } from "@/lib/ecosystem";
 import { partnerPaths } from "@/lib/partner-types";
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://quata.digital";
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://quatadigital.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Copy, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { PageShell } from "@/components/admin/page-shell";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { FormDialog } from "@/components/admin/form-dialog";

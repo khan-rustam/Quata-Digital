@@ -22,7 +22,7 @@ import { Section, SectionHeader } from "@/components/site/section";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { ProcessSteps } from "@/components/site/sections/process-steps";
 import { StatStrip } from "@/components/site/sections/stat-strip";
-import { FAQ } from "@/components/site/sections/faq";
+import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { FinalCTA } from "@/components/site/cta";
 import { partnerPaths } from "@/lib/partner-types";
 
@@ -43,10 +43,10 @@ export default function PartnersIndexPage() {
   return (
     <>
       {/* 1. Hero header */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden -mt-20">
         <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/40 via-surface to-surface" />
         <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-50" />
-        <div className="container-page py-14 sm:py-20 md:py-28">
+        <div className="container-page pt-34 sm:pt-40 md:pt-48 pb-14 sm:pb-20 md:pb-28">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
             <HeartHandshake className="h-3.5 w-3.5 text-primary" />
             Partner gateway
@@ -273,8 +273,15 @@ export default function PartnersIndexPage() {
           eyebrow="Common questions"
           title="What partners ask before applying."
         />
-        <div className="mt-10 max-w-3xl">
-          <FAQ
+        <div className="mt-10">
+          <FaqWithAside
+            asideTitle="Talk to partnerships"
+            asideBody="Skip the form and write directly. We respond to every partnership enquiry within 3 business days."
+            asideEmail="partnerships@quatadigital.com"
+            asideStats={[
+              { value: "3 days", label: "Avg. response" },
+              { value: "4 paths", label: "Ways to plug in" },
+            ]}
             items={[
               {
                 q: "Is there a cost to partner with QUATA?",

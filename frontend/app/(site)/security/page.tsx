@@ -12,7 +12,7 @@ import {
   Building2,
 } from "lucide-react";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
-import { FAQ } from "@/components/site/sections/faq";
+import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 
 export const metadata: Metadata = {
   title: "Security",
@@ -24,10 +24,10 @@ export default function SecurityPage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden -mt-20">
         <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/40 via-surface to-surface" />
         <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-50" />
-        <div className="container-page py-14 sm:py-20">
+        <div className="container-page pt-34 sm:pt-40 pb-14 sm:pb-20">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
             <ShieldCheck className="h-3.5 w-3.5 text-primary" />
             Security &amp; trust
@@ -169,8 +169,16 @@ export default function SecurityPage() {
       {/* FAQ */}
       <Section>
         <SectionHeader eyebrow="FAQ" title="Common security questions." />
-        <div className="mt-10 max-w-3xl">
-          <FAQ
+        <div className="mt-10">
+          <FaqWithAside
+            asideTitle="Report a vulnerability"
+            asideBody="Found something? Email us with the details. We acknowledge every report within 24 hours and credit researchers in our hall of fame."
+            asideEmail="security@quatadigital.com"
+            asideIcon="shieldAlert"
+            asideStats={[
+              { value: "24h", label: "Acknowledgement" },
+              { value: "PGP", label: "Available on request" },
+            ]}
             items={[
               {
                 q: "Do you have a bug bounty?",

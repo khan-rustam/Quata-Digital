@@ -47,6 +47,7 @@ export function PartnerDetailSlideOver({
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate editable notes from server data when loaded.
     if (data) setNotes(data.notes ?? "");
   }, [data]);
 

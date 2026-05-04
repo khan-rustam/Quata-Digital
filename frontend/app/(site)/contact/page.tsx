@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Section, SectionHeader } from "@/components/site/section";
 import { ContactForm } from "@/components/forms/contact-form";
-import { FAQ } from "@/components/site/sections/faq";
+import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -66,10 +66,10 @@ export default function ContactPage() {
   return (
     <>
       {/* 1. Hero */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden -mt-20">
         <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/40 via-surface to-surface" />
         <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-50" />
-        <div className="container-page py-14 sm:py-20 md:py-24">
+        <div className="container-page pt-34 sm:pt-40 md:pt-44 pb-14 sm:pb-20 md:pb-24">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
             <MessageCircle className="h-3.5 w-3.5 text-primary" />
             Get in touch
@@ -177,10 +177,17 @@ export default function ContactPage() {
                   info@quatadigital.com
                 </a>
               </li>
-              <li className="flex items-start gap-2 text-muted-foreground">
-                <Phone className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
-                <span>+237 — phone live at launch</span>
-              </li>
+              {process.env.NEXT_PUBLIC_CONTACT_PHONE && (
+                <li className="flex items-start gap-2 text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
+                  <a
+                    href={`tel:${process.env.NEXT_PUBLIC_CONTACT_PHONE.replace(/\s+/g, "")}`}
+                    className="hover:text-foreground"
+                  >
+                    {process.env.NEXT_PUBLIC_CONTACT_PHONE}
+                  </a>
+                </li>
+              )}
               <li className="flex items-start gap-2 text-muted-foreground">
                 <Clock className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
                 <span>Mon–Fri, 09:00–18:00 WAT</span>
@@ -234,8 +241,14 @@ export default function ContactPage() {
       {/* 6. FAQ */}
       <Section className="bg-surface-soft rounded-3xl">
         <SectionHeader eyebrow="FAQ" title="Quick answers." />
-        <div className="mt-10 max-w-3xl">
-          <FAQ
+        <div className="mt-10">
+          <FaqWithAside
+            asideTitle="Prefer a real conversation?"
+            asideBody="No bots, no auto-routers. The contact form goes to a real human at QUATA Digital who replies personally."
+            asideStats={[
+              { value: "1 day", label: "Avg. response" },
+              { value: "Bamenda", label: "Headquarters" },
+            ]}
             items={[
               {
                 q: "How fast will I hear back?",

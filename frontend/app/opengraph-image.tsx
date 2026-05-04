@@ -65,7 +65,7 @@ export default async function Image() {
             fontSize: 22,
           }}
         >
-          <div>quata.digital</div>
+          <div>quatadigital.com</div>
           <div>One ecosystem · Seven products</div>
         </div>
       </div>

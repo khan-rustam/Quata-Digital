@@ -65,7 +65,11 @@ export default function PartnersAdminPage() {
     setOpenDetail(true);
   }
 
-  React.useEffect(() => { setPage(1); setSelected([]); }, [type, statusFilter, debounced]);
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset paging + selection when filters change.
+    setPage(1);
+    setSelected([]);
+  }, [type, statusFilter, debounced]);
 
   async function setStatus(id: number, status: Partner["status"]) {
     try {

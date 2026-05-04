@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { ThemeToggle } from "@/components/site/theme-toggle";
 import { useAuth } from "@/lib/auth";
 import { NotificationsDropdown } from "./notifications-dropdown";
 
@@ -31,7 +30,6 @@ export function AdminTopbar({ title }: { title: string }) {
             </kbd>
           </button>
           <NotificationsDropdown />
-          <ThemeToggle />
           <Link
             href="/admin/settings"
             aria-label="Settings"

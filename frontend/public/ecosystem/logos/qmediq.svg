@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QMEDIQ placeholder logo">
+  <defs>
+    <linearGradient id="qm-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F766E"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="qm-shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="56" y="56" width="400" height="400" rx="96" fill="url(#qm-bg)"/>
+  <rect x="56" y="56" width="400" height="200" rx="96" fill="url(#qm-shine)"/>
+  <g transform="translate(256 252)" fill="#ffffff">
+    <!-- medical cross -->
+    <rect x="-30" y="-110" width="60" height="220" rx="14"/>
+    <rect x="-110" y="-30" width="220" height="60" rx="14"/>
+  </g>
+  <text x="256" y="436" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-weight="800" font-size="44" fill="#ffffff" letter-spacing="3">QMEDIQ</text>
+</svg>

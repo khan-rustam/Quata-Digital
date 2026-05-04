@@ -53,10 +53,10 @@ export function CommandPalette() {
   }, []);
 
   React.useEffect(() => {
-    if (open) {
-      setQuery("");
-      setHighlight(0);
-    }
+    if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset palette state every time it opens.
+    setQuery("");
+    setHighlight(0);
   }, [open]);
 
   const items: Item[] = React.useMemo(() => [
@@ -93,6 +93,7 @@ export function CommandPalette() {
   }
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset highlight when the filtered list changes.
     setHighlight(0);
   }, [query]);
 

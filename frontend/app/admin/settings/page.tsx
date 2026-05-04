@@ -244,6 +244,7 @@ function TwoFactorPanel() {
 
         {enrol && (
           <div className="mt-5 grid gap-4 sm:grid-cols-[180px_1fr]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- inline data: URL from server, not an optimisable asset. */}
             <img
               src={enrol.qr_data_url}
               alt="2FA QR code"
@@ -350,6 +351,7 @@ function NotificationsForm() {
   const [submitting, setSubmitting] = React.useState(false);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrating editable form state from fetched data once it arrives.
     if (data) setPrefs(data);
   }, [data]);
 

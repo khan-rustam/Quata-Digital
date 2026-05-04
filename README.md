@@ -271,30 +271,121 @@ alembic downgrade -1                         # rollback one step
 
 ---
 
-## Production checklist
+## Production deploy
 
-- [ ] Set a real `SECRET_KEY` (`python -c "import secrets; print(secrets.token_urlsafe(64))"`).
-- [ ] Switch `DATABASE_URL` to managed Postgres.
-- [ ] Set `SEED_ON_STARTUP=false` (after first run); use Alembic for schema changes.
-- [ ] Rotate the default super-admin password the first time you log in.
-- [ ] Lock `BACKEND_CORS_ORIGINS` to your real frontend domain(s).
-- [ ] Put the API behind TLS (Caddy/Nginx/Cloudflare).
-- [ ] Set `NEXT_PUBLIC_API_URL` to the public API origin and rebuild the frontend.
-- [ ] Configure CDN/edge caching for the marketing pages.
-- [ ] Wire S3 (or compatible) for resume uploads & message attachments.
-- [ ] Add monitoring (Sentry / OpenTelemetry).
+> Companion docs: see [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for incident
+> response and [`docs/ADMIN_USER_MANUAL.md`](docs/ADMIN_USER_MANUAL.md)
+> for non-technical admins.
+
+### Required environment variables
+
+**Backend** (`backend/.env`):
+
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Managed Postgres URL (e.g. `postgresql+psycopg://user:pw@host:5432/db`). |
+| `SECRET_KEY` | ✅ | Generate with `python -c "import secrets; print(secrets.token_urlsafe(64))"`. |
+| `AUTO_CREATE_TABLES` | ✅ | Must be `false` in prod — forces Alembic-managed migrations. |
+| `SEED_ON_STARTUP` | ✅ | `false` after first deploy. |
+| `BACKEND_CORS_ORIGINS` | ✅ | JSON array of allowed origins, e.g. `["https://quatadigital.com"]`. |
+| `EMAIL_BACKEND` | ✅ | `smtp` in prod (production guard refuses `console`). |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_USE_TLS` | ✅ if SMTP | SMTP2GO recommended. |
+| `EMAIL_FROM` / `EMAIL_NOTIFY_TO` | ✅ if SMTP | `noreply@…` / `info@…`. |
+| `HCAPTCHA_SITE_KEY` / `HCAPTCHA_SECRET_KEY` | recommended | Public form bot protection. |
+| `SENTRY_DSN` / `SENTRY_ENV` | recommended | Error visibility. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | optional | Default 7 days. |
+
+**Frontend** (`frontend/.env.production`):
+
+| Variable | Required | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | ✅ | Public origin of the backend, e.g. `https://api.quatadigital.com/api/v1`. |
+| `NEXT_PUBLIC_SITE_URL` | ✅ | Canonical site origin, e.g. `https://quatadigital.com`. |
+| `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` | recommended | Same site key as backend. |
+| `NEXT_PUBLIC_CONTACT_PHONE` | optional | Phone displayed in footer + contact page. Row hidden when unset. |
+
+### First-time deploy (any host)
+
+```bash
+# 1. Build the frontend
+cd frontend
+npm ci
+npm run lint    # must be clean
+npm run build   # produces .next/
+
+# 2. Apply backend migrations (against the production DATABASE_URL)
+cd ../backend
+pip install -r requirements.txt
+AUTO_CREATE_TABLES=false alembic upgrade head
+
+# 3. Boot the backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# 4. Boot the frontend
+cd ../frontend
+npm run start -- --port 3000
+```
+
+### Vercel (frontend) + Render/Fly/Railway (backend)
+
+1. **Backend**: deploy `backend/` (uses `Dockerfile`). Set every env var
+   above. The startup `production_safety_check()` will refuse to boot if
+   `EMAIL_BACKEND=console`, `AUTO_CREATE_TABLES=true`, or
+   `SEED_ON_STARTUP=true` are still set in production.
+2. **Frontend**: import `frontend/` to Vercel. Set the env vars above.
+   Build command `npm run build`, output `.next`. Vercel handles HSTS,
+   HTTP/3 and edge caching automatically.
+3. Sign in with the seeded super-admin, **rotate the password
+   immediately**, then create real staff under `/admin/staff`.
+
+### Single-host (Docker Compose)
+
+The root `docker-compose.yml` is a complete stack. Put it behind
+Caddy/Nginx with TLS termination — sufficient for early deployments.
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose exec backend alembic upgrade head
+```
+
+### Healthchecks
+
+- Backend: `GET /healthz` returns `{ "status": "ok" }`.
+- Frontend: `GET /` returns 200; check the `Strict-Transport-Security`
+  header is present.
+
+### Rollback
+
+```bash
+# Frontend (Vercel) — promote the previous deployment from the dashboard.
+
+# Backend
+docker compose stop backend
+docker compose run --rm backend alembic downgrade -1   # if a bad migration shipped
+docker compose up -d backend
+```
+
+If the migration is reversible, prefer `alembic downgrade -1`. If not,
+restore from the most recent backup (see `docs/RUNBOOK.md`).
 
 ---
 
-## Deploying
+## Pre-launch checklist
 
-### Vercel (frontend) + Render/Fly/Railway (backend)
-1. **Backend**: deploy `backend/` (uses `Dockerfile`). Set env vars (`DATABASE_URL`, `SECRET_KEY`, `BACKEND_CORS_ORIGINS`, etc.).
-2. **Frontend**: import `frontend/` to Vercel. Set `NEXT_PUBLIC_API_URL` to your backend's public origin.
-3. Open the deployed admin URL, sign in with the seeded super-admin, **rotate the password immediately**, then create real staff.
-
-### Single-host (Docker compose)
-The root `docker-compose.yml` is a complete stack. Behind Caddy/Nginx with TLS this is enough for early deployments.
+- [ ] Real `SECRET_KEY` set on backend.
+- [ ] `DATABASE_URL` points to managed Postgres.
+- [ ] `AUTO_CREATE_TABLES=false`, `SEED_ON_STARTUP=false`.
+- [ ] Super-admin password rotated; default deleted.
+- [ ] `BACKEND_CORS_ORIGINS` locked to real frontend domain(s).
+- [ ] API behind TLS (Caddy / Nginx / Cloudflare).
+- [ ] `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SITE_URL` set on frontend.
+- [ ] CDN / edge cache enabled for `/`, `/ecosystem`, `/blog`.
+- [ ] S3 (or compatible) wired for uploads (`services/uploads.py`).
+- [ ] Sentry DSN configured (or explicit decision logged).
+- [ ] hCaptcha keys configured.
+- [ ] SMTP2GO verified (SPF / DKIM / DMARC green).
+- [ ] First DB backup taken; restore drill rehearsed.
 
 ---
 

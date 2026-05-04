@@ -29,7 +29,10 @@ export function useWebSocket(path: string, opts: { onMessage?: (e: WsEvent) => v
   const [last, setLast] = React.useState<WsEvent | null>(null);
   const sockRef = React.useRef<WebSocket | null>(null);
   const onMessageRef = React.useRef(opts.onMessage);
-  onMessageRef.current = opts.onMessage;
+  // Keep the latest callback in a ref without re-binding the WebSocket.
+  React.useEffect(() => {
+    onMessageRef.current = opts.onMessage;
+  }, [opts.onMessage]);
 
   React.useEffect(() => {
     if (!token) return;

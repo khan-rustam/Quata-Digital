@@ -8,7 +8,7 @@ import { StatStrip } from "@/components/site/sections/stat-strip";
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative overflow-hidden -mt-20">
       <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/40 via-surface to-surface" />
       <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-60" />
       <div
@@ -26,7 +26,7 @@ export function Hero() {
         }}
       />
 
-      <div className="container-page pt-12 sm:pt-16 md:pt-24 pb-16 sm:pb-20 md:pb-28">
+      <div className="container-page pt-32 sm:pt-36 md:pt-44 pb-16 sm:pb-20 md:pb-28">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

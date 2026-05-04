@@ -19,7 +19,6 @@ import {
   Rocket,
   Lightbulb,
   Users,
-  HelpCircle,
 } from "lucide-react";
 import { Section, SectionHeader } from "@/components/site/section";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { StatStrip } from "@/components/site/sections/stat-strip";
 import { ProcessSteps } from "@/components/site/sections/process-steps";
-import { FAQ } from "@/components/site/sections/faq";
+import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { BigQuote } from "@/components/site/sections/big-quote";
 import { BrandImage } from "@/components/site/brand-image";
 import { api } from "@/lib/api";
@@ -87,10 +86,10 @@ export default async function CareersPage() {
   return (
     <>
       {/* 1. Hero — 2-col with image right */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden -mt-20">
         <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/40 via-surface to-surface" />
         <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-50" />
-        <div className="container-page py-14 sm:py-20 md:py-24">
+        <div className="container-page pt-34 sm:pt-40 md:pt-44 pb-14 sm:pb-20 md:pb-24">
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
@@ -289,7 +288,7 @@ export default async function CareersPage() {
         <SectionHeader eyebrow="Benefits" title="What we offer today." />
         <div className="mt-10">
           <FeatureGrid
-            columns={4}
+            columns={3}
             variant="bordered"
             items={[
               { icon: Wallet, title: "Competitive comp", body: "Cash competitive for level + market. Equity for key roles.", tone: "brand" },
@@ -369,8 +368,14 @@ export default async function CareersPage() {
       {/* 10. FAQ */}
       <Section className="bg-surface-soft rounded-3xl">
         <SectionHeader eyebrow="FAQ" title="Common questions about hiring." />
-        <div className="mt-10 max-w-3xl">
-          <FAQ
+        <div className="mt-10">
+          <FaqWithAside
+            asideTitle="Talk to recruiting"
+            asideBody="Have a question that isn&apos;t covered? Our recruiting lead replies personally — usually within one business day."
+            asideStats={[
+              { value: "1–3w", label: "Avg. time to hire" },
+              { value: totalRoles.toString(), label: "Open roles" },
+            ]}
             items={[
               { q: "Do you sponsor relocation?", a: "Case-by-case for senior roles into Bamenda. We'll discuss this during the recruiter call." },
               { q: "Are salary ranges public?", a: "Compensation is competitive and depends on experience, level and impact. Specific ranges are shared during the hiring process." },

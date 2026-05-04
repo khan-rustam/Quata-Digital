@@ -12,9 +12,8 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { Section, SectionHeader } from "@/components/site/section";
+import { Section } from "@/components/site/section";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 
@@ -40,6 +39,7 @@ export default function SearchPage() {
   React.useEffect(() => {
     const q = query.trim();
     if (!q) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing results when the query empties is the intended sync.
       setData(null);
       return;
     }
@@ -76,10 +76,10 @@ export default function SearchPage() {
 
   return (
     <>
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden -mt-20">
         <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/40 via-surface to-surface" />
         <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-50" />
-        <div className="container-page py-16 md:py-20">
+        <div className="container-page pt-36 md:pt-40 pb-16 md:pb-20">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
             <SearchIcon className="h-3.5 w-3.5 text-primary" />
             Search QUATA
