@@ -1,0 +1,189 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Single-theme site (light only). Dark-mode tokens were never wired up to a
+ * toggle and were causing dead CSS to ship. Keep the light tokens; if dark
+ * mode comes back, restore the dark block + a toggle component together. */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-ink: var(--ink);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+  --radius-2xl: 28px;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f1216;
+  --surface: #ffffff;
+  --surface-soft: #fafaf7;
+  --card: #ffffff;
+  --card-foreground: #0f1216;
+  --popover: #ffffff;
+  --popover-foreground: #0f1216;
+  --primary: #0e5b4a;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4ee;
+  --secondary-foreground: #0f1216;
+  --muted: #f4f5ef;
+  --muted-foreground: #5b6470;
+  --accent: #e8b14a;
+  --accent-foreground: #0f1216;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --border: #e7e7e2;
+  --input: #e7e7e2;
+  --ring: #0e5b4a;
+
+  --brand: #0e5b4a;
+  --brand-foreground: #ffffff;
+  --brand-soft: #e7f1ed;
+  --ink: #0f1216;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "ss02", "cv11";
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--brand) 25%, transparent);
+    color: var(--ink);
+  }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+    font-feature-settings: "ss01", "ss02";
+  }
+
+  /* Every interactive element gets a pointer cursor by default. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a,
+  summary,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  select {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  /* Respect users who prefer no motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .container-page {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+    max-width: 80rem;
+  }
+  @media (min-width: 768px) {
+    .container-page { padding-inline: 2rem; }
+  }
+
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(15, 18, 22, 0.04) 1px, transparent 1px);
+    background-size: 3px 3px;
+    mix-blend-mode: multiply;
+    opacity: 0.5;
+  }
+
+  .ring-soft {
+    box-shadow:
+      0 1px 0 rgba(15, 18, 22, 0.04),
+      0 1px 2px rgba(15, 18, 22, 0.04),
+      0 8px 24px -12px rgba(15, 18, 22, 0.10);
+  }
+
+  .ring-elevated {
+    box-shadow:
+      0 1px 0 rgba(15, 18, 22, 0.04),
+      0 2px 4px rgba(15, 18, 22, 0.04),
+      0 24px 48px -16px rgba(15, 18, 22, 0.16);
+  }
+
+  .gradient-brand {
+    background-image: linear-gradient(135deg, #0e5b4a 0%, #1c8a6e 50%, #34d3a7 100%);
+  }
+  .gradient-warm {
+    background-image: linear-gradient(135deg, #f5a524 0%, #e8b14a 100%);
+  }
+  .text-gradient-brand {
+    background: linear-gradient(135deg, #0e5b4a 0%, #1c8a6e 60%, #34d3a7 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(rgba(14, 91, 74, 0.10) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  }
+  .mask-fade-t {
+    mask-image: linear-gradient(to top, black 60%, transparent 100%);
+  }
+}

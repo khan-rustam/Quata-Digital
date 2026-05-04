@@ -1,0 +1,672 @@
+from datetime import date, datetime, timedelta, timezone
+from io import StringIO
+import csv
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, log_activity, require_permission
+from app.db.session import get_db
+from app.models import (
+    ActivityLog,
+    Application,
+    AttendanceLog,
+    BlogPost,
+    ContactMessage,
+    Department,
+    Device,
+    Job,
+    LeaveRequest,
+    Message,
+    MessageRecipient,
+    Page,
+    PageView,
+    PartnerRequest,
+    Product,
+    Role,
+    User,
+)
+from app.schemas.common import (
+    ActivityOut,
+    AnalyticsOut,
+    ApplicationOut,
+    AttendanceOut,
+    BlogPostOut,
+    DepartmentOut,
+    DeviceOut,
+    JobOut,
+    LeaveOut,
+    LeaveStatusIn,
+    MessageIn,
+    MessageOut,
+    OverviewOut,
+    PageOut,
+    PartnerOut,
+    PartnerStatusUpdate,
+    ProductOut,
+    RoleOut,
+    StaffOut,
+)
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/overview", response_model=OverviewOut)
+def overview(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    today = datetime.now(timezone.utc).date()
+    totals = {
+        "staff": db.query(func.count(User.id)).scalar() or 0,
+        "products": db.query(func.count(Product.id)).scalar() or 0,
+        "partner_requests": db.query(func.count(PartnerRequest.id)).scalar() or 0,
+        "job_applications": db.query(func.count(Application.id)).scalar() or 0,
+        "open_jobs": db.query(func.count(Job.id)).filter(Job.is_published == True).scalar() or 0,  # noqa: E712
+        "posts": db.query(func.count(BlogPost.id)).filter(BlogPost.is_published == True).scalar() or 0,  # noqa: E712
+        "unread_messages": db.query(func.count(MessageRecipient.id))
+        .filter(MessageRecipient.user_id == user.id, MessageRecipient.is_read == False)  # noqa: E712
+        .scalar()
+        or 0,
+        "pending_leave": db.query(func.count(LeaveRequest.id))
+        .filter(LeaveRequest.status == "pending")
+        .scalar()
+        or 0,
+    }
+    recent_partners = (
+        db.query(PartnerRequest).order_by(PartnerRequest.created_at.desc()).limit(5).all()
+    )
+    recent_apps = (
+        db.query(Application)
+        .order_by(Application.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    present = (
+        db.query(func.count(AttendanceLog.id))
+        .filter(AttendanceLog.status == "present", func.date(AttendanceLog.check_in_at) == today)
+        .scalar()
+        or 0
+    )
+    on_leave = (
+        db.query(func.count(LeaveRequest.id))
+        .filter(
+            LeaveRequest.status == "approved",
+            LeaveRequest.start_date <= today,
+            LeaveRequest.end_date >= today,
+        )
+        .scalar()
+        or 0
+    )
+    total_staff = totals["staff"] or 0
+    absent = max(total_staff - present - on_leave, 0)
+
+    return OverviewOut(
+        totals=totals,
+        recent_partners=[PartnerOut.model_validate(p) for p in recent_partners],
+        recent_applications=[
+            {
+                "id": a.id,
+                "full_name": a.full_name,
+                "job_title": a.job.title if a.job else "—",
+                "created_at": a.created_at,
+            }
+            for a in recent_apps
+        ],
+        attendance_today={"present": present, "absent": absent, "on_leave": on_leave},
+    )
+
+
+# ---------- Partners ----------
+
+@router.get("/partners", response_model=List[PartnerOut])
+def admin_list_partners(
+    db: Session = Depends(get_db),
+    partner_type: Optional[str] = None,
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    q: Optional[str] = Query(default=None, description="Search payload"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    user: User = Depends(require_permission("partners:manage")),
+):
+    qry = db.query(PartnerRequest)
+    if partner_type:
+        qry = qry.filter(PartnerRequest.partner_type == partner_type)
+    if status_filter:
+        qry = qry.filter(PartnerRequest.status == status_filter)
+    if q:
+        # SQLite-friendly LIKE on the JSON-encoded payload column
+        from sqlalchemy import cast, String as SqlString
+        qry = qry.filter(cast(PartnerRequest.payload, SqlString).ilike(f"%{q}%"))
+    return (
+        qry.order_by(PartnerRequest.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+
+@router.patch("/partners/{partner_id}", response_model=PartnerOut)
+def admin_update_partner(
+    partner_id: int,
+    payload: PartnerStatusUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("partners:manage")),
+):
+    pr = db.get(PartnerRequest, partner_id)
+    if not pr:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    pr.status = payload.status
+    log_activity(
+        db,
+        actor=user,
+        action="status_change",
+        resource_type="partner_request",
+        resource_id=partner_id,
+        request=request,
+        details={"to": payload.status},
+    )
+    db.commit()
+    db.refresh(pr)
+    try:
+        from app.services.email import notify_partner_status_changed
+        notify_partner_status_changed(
+            pr.id,
+            pr.partner_type,
+            pr.status,
+            pr.payload.get("email") if isinstance(pr.payload, dict) else None,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return pr
+
+
+@router.get("/partners/export.csv")
+def admin_export_partners(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("partners:manage")),
+):
+    rows = db.query(PartnerRequest).order_by(PartnerRequest.created_at.desc()).all()
+    buf = StringIO()
+    w = csv.writer(buf)
+    w.writerow(["id", "type", "status", "created_at", "payload"])
+    for r in rows:
+        w.writerow([r.id, r.partner_type, r.status, r.created_at.isoformat(), r.payload])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=partner-requests.csv"},
+    )
+
+
+# ---------- Products ----------
+
+@router.get("/products", response_model=List[ProductOut])
+def admin_list_products(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("content:manage")),
+):
+    return db.query(Product).order_by(Product.id).all()
+
+
+# ---------- Blog & pages ----------
+
+@router.get("/blog", response_model=List[BlogPostOut])
+def admin_list_posts(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("content:manage")),
+):
+    from app.schemas.common import serialize_blog_post
+    posts = db.query(BlogPost).order_by(BlogPost.created_at.desc()).all()
+    return [serialize_blog_post(p) for p in posts]
+
+
+@router.get("/pages", response_model=List[PageOut])
+def admin_list_pages(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("content:manage")),
+):
+    return db.query(Page).order_by(Page.title).all()
+
+
+# ---------- Jobs / Applications ----------
+
+@router.get("/jobs", response_model=List[JobOut])
+def admin_list_jobs(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    jobs = db.query(Job).order_by(Job.created_at.desc()).all()
+    counts = dict(
+        db.query(Application.job_id, func.count(Application.id))
+        .group_by(Application.job_id)
+        .all()
+    )
+    out = []
+    for j in jobs:
+        d = JobOut.model_validate(j).model_dump()
+        d["applications_count"] = counts.get(j.id, 0)
+        out.append(d)
+    return out
+
+
+@router.get("/applications", response_model=List[ApplicationOut])
+def admin_list_apps(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    rows = db.query(Application).order_by(Application.created_at.desc()).all()
+    return [
+        {
+            "id": r.id,
+            "full_name": r.full_name,
+            "email": r.email,
+            "job_title": r.job.title if r.job else "—",
+            "status": r.status,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+
+
+# ---------- Staff / Departments / Roles ----------
+
+@router.get("/staff", response_model=List[StaffOut])
+def admin_list_staff(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    rows = db.query(User).order_by(User.full_name).all()
+    return [
+        StaffOut(
+            id=u.id,
+            full_name=u.full_name,
+            email=u.email,
+            role=u.role.slug if u.role else "staff",
+            department=u.department.name if u.department else None,
+            job_title=u.job_title,
+            status=u.status,
+        )
+        for u in rows
+    ]
+
+
+@router.get("/departments", response_model=List[DepartmentOut])
+def admin_list_departments(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    deps = db.query(Department).order_by(Department.name).all()
+    counts = dict(
+        db.query(User.department_id, func.count(User.id))
+        .group_by(User.department_id)
+        .all()
+    )
+    return [
+        DepartmentOut(
+            id=d.id,
+            slug=d.slug,
+            name=d.name,
+            head_name=d.head.full_name if d.head else None,
+            staff_count=counts.get(d.id, 0),
+        )
+        for d in deps
+    ]
+
+
+@router.get("/roles", response_model=List[RoleOut])
+def admin_list_roles(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    roles = db.query(Role).order_by(Role.name).all()
+    return [
+        RoleOut(
+            id=r.id,
+            slug=r.slug,
+            name=r.name,
+            description=r.description,
+            permissions=[p.permission for p in r.permissions],
+        )
+        for r in roles
+    ]
+
+
+# ---------- Messaging ----------
+
+@router.get("/messages", response_model=List[MessageOut])
+def admin_list_messages(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    msgs = db.query(Message).order_by(Message.created_at.desc()).all()
+    out = []
+    for m in msgs:
+        total = len(m.recipients_status)
+        read = sum(1 for r in m.recipients_status if r.is_read)
+        out.append(
+            MessageOut(
+                id=m.id,
+                subject=m.subject,
+                body=m.body,
+                audience=m.audience,
+                message_type=m.message_type,
+                department=m.department_slug,
+                recipient=m.recipient.full_name if m.recipient else None,
+                read_count=read,
+                total_recipients=total,
+                created_at=m.created_at,
+                author=m.sender.full_name if m.sender else "System",
+            )
+        )
+    return out
+
+
+@router.post("/messages", response_model=MessageOut, status_code=201)
+def admin_create_message(
+    payload: MessageIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    msg = Message(
+        subject=payload.subject,
+        body=payload.body,
+        audience=payload.audience,
+        message_type=payload.message_type,
+        department_slug=payload.department_slug,
+        recipient_id=payload.recipient_id,
+        sender_id=user.id,
+    )
+    db.add(msg)
+    db.flush()
+
+    if payload.audience == "all":
+        recipients = db.query(User).filter(User.is_active == True).all()  # noqa: E712
+    elif payload.audience == "department" and payload.department_slug:
+        dept = db.query(Department).filter(Department.slug == payload.department_slug).first()
+        recipients = dept.members if dept else []
+    elif payload.audience == "individual" and payload.recipient_id:
+        target = db.get(User, payload.recipient_id)
+        recipients = [target] if target else []
+    else:
+        recipients = []
+
+    for r in recipients:
+        if r.id == user.id:
+            continue
+        db.add(MessageRecipient(message_id=msg.id, user_id=r.id, is_read=False))
+
+    recipient_ids = [r.id for r in recipients if r.id != user.id]
+
+    log_activity(
+        db,
+        actor=user,
+        action="send_message",
+        resource_type="message",
+        resource_id=msg.id,
+        request=request,
+        details={"audience": payload.audience, "type": payload.message_type, "recipients": len(recipient_ids)},
+    )
+    db.commit()
+    db.refresh(msg)
+
+    # Push to active WebSocket subscribers
+    try:
+        import asyncio
+        from app.api.routes_ws import hub
+        event = {
+            "type": "message",
+            "id": msg.id,
+            "subject": msg.subject,
+            "body": msg.body,
+            "message_type": msg.message_type,
+            "audience": msg.audience,
+            "department_slug": msg.department_slug,
+            "author": user.full_name,
+            "created_at": msg.created_at.isoformat() if msg.created_at else None,
+        }
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(hub.broadcast(set(recipient_ids), event))
+        except RuntimeError:
+            pass
+    except Exception:  # noqa: BLE001
+        pass
+
+    return MessageOut(
+        id=msg.id,
+        subject=msg.subject,
+        body=msg.body,
+        audience=msg.audience,
+        message_type=msg.message_type,
+        department=msg.department_slug,
+        recipient=msg.recipient.full_name if msg.recipient else None,
+        read_count=0,
+        total_recipients=len(msg.recipients_status),
+        created_at=msg.created_at,
+        author=user.full_name,
+    )
+
+
+# ---------- Leave ----------
+
+@router.get("/leave", response_model=List[LeaveOut])
+def admin_list_leave(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    rows = db.query(LeaveRequest).order_by(LeaveRequest.created_at.desc()).all()
+    return [
+        LeaveOut(
+            id=l.id,
+            staff_name=l.user.full_name if l.user else "—",
+            leave_type=l.leave_type,
+            start_date=l.start_date,
+            end_date=l.end_date,
+            days=l.days,
+            status=l.status,
+            reason=l.reason,
+        )
+        for l in rows
+    ]
+
+
+@router.patch("/leave/{leave_id}", response_model=LeaveOut)
+def admin_decide_leave(
+    leave_id: int,
+    payload: LeaveStatusIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    lr = db.get(LeaveRequest, leave_id)
+    if not lr:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Leave not found")
+    lr.status = payload.status
+    lr.decided_by_id = user.id
+    log_activity(
+        db,
+        actor=user,
+        action="decide_leave",
+        resource_type="leave_request",
+        resource_id=leave_id,
+        request=request,
+        details={"to": payload.status},
+    )
+    db.commit()
+    db.refresh(lr)
+    try:
+        from app.services.email import notify_leave_decided
+        if lr.user and lr.user.email:
+            notify_leave_decided(
+                lr.user.email,
+                lr.user.full_name,
+                lr.status,
+                lr.start_date.isoformat(),
+                lr.end_date.isoformat(),
+            )
+    except Exception:  # noqa: BLE001
+        pass
+    return LeaveOut(
+        id=lr.id,
+        staff_name=lr.user.full_name if lr.user else "—",
+        leave_type=lr.leave_type,
+        start_date=lr.start_date,
+        end_date=lr.end_date,
+        days=lr.days,
+        status=lr.status,
+        reason=lr.reason,
+    )
+
+
+# ---------- Attendance ----------
+
+@router.get("/attendance", response_model=List[AttendanceOut])
+def admin_list_attendance(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    on: Optional[date] = None,
+):
+    target = on or datetime.now(timezone.utc).date()
+    rows = (
+        db.query(AttendanceLog)
+        .filter(func.date(AttendanceLog.check_in_at) == target)
+        .order_by(AttendanceLog.check_in_at.desc())
+        .all()
+    )
+    return [
+        AttendanceOut(
+            id=a.id,
+            staff_name=a.user.full_name if a.user else "—",
+            check_in_at=a.check_in_at,
+            check_out_at=a.check_out_at,
+            source=a.source,
+            device_name=a.device.name if a.device else None,
+            status=a.status,
+        )
+        for a in rows
+    ]
+
+
+# ---------- Devices ----------
+
+@router.get("/devices", response_model=List[DeviceOut])
+def admin_list_devices(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("devices:manage")),
+):
+    return db.query(Device).order_by(Device.name).all()
+
+
+# ---------- Activity ----------
+
+@router.get("/activity", response_model=List[ActivityOut])
+def admin_list_activity(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("activity:view")),
+):
+    rows = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(200).all()
+    return [
+        ActivityOut(
+            id=r.id,
+            actor_name=r.actor.full_name if r.actor else "Public",
+            action=r.action,
+            resource_type=r.resource_type,
+            resource_id=r.resource_id,
+            ip_address=r.ip_address,
+            details=r.details or {},
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+# ---------- Analytics ----------
+
+@router.get("/analytics", response_model=AnalyticsOut)
+def admin_analytics(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("analytics:view")),
+):
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    visits = db.query(func.count(PageView.id)).filter(PageView.created_at >= week_ago).scalar() or 0
+    uniques = (
+        db.query(func.count(func.distinct(PageView.visitor_id)))
+        .filter(PageView.created_at >= week_ago, PageView.visitor_id.isnot(None))
+        .scalar()
+        or 0
+    )
+    partners = (
+        db.query(func.count(PartnerRequest.id))
+        .filter(PartnerRequest.created_at >= week_ago)
+        .scalar()
+        or 0
+    )
+    apps_ = (
+        db.query(func.count(Application.id))
+        .filter(Application.created_at >= week_ago)
+        .scalar()
+        or 0
+    )
+    contacts = (
+        db.query(func.count(ContactMessage.id))
+        .filter(ContactMessage.created_at >= week_ago)
+        .scalar()
+        or 0
+    )
+    forms = partners + apps_ + contacts
+
+    top_pages = (
+        db.query(PageView.path, func.count(PageView.id).label("c"))
+        .filter(PageView.created_at >= week_ago)
+        .group_by(PageView.path)
+        .order_by(func.count(PageView.id).desc())
+        .limit(8)
+        .all()
+    )
+
+    funnel = (
+        db.query(PartnerRequest.partner_type, func.count(PartnerRequest.id))
+        .group_by(PartnerRequest.partner_type)
+        .all()
+    )
+
+    return AnalyticsOut(
+        visits_7d=visits,
+        unique_visitors_7d=uniques,
+        form_submissions_7d=forms,
+        partner_requests_7d=partners,
+        job_applications_7d=apps_,
+        contact_messages_7d=contacts,
+        top_pages=[{"path": p[0], "views": p[1]} for p in top_pages],
+        partner_funnel=[{"type": f[0], "count": f[1]} for f in funnel],
+    )
+
+
+# ---------- Contact messages ----------
+
+@router.get("/contact")
+def admin_list_contact(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    rows = db.query(ContactMessage).order_by(ContactMessage.created_at.desc()).limit(200).all()
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "email": r.email,
+            "company": r.company,
+            "reason": r.reason,
+            "message": r.message,
+            "status": r.status,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]

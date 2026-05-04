@@ -1,0 +1,24 @@
+# Core (works on Python 3.11 – 3.14)
+fastapi>=0.118.0
+uvicorn[standard]>=0.34.0
+sqlalchemy>=2.0.36
+alembic>=1.14.0
+pydantic>=2.10.5
+pydantic-settings>=2.7.0
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.2.0
+python-multipart>=0.0.20
+email-validator>=2.2.0
+websockets>=14.0
+
+# Security: 2FA + rate limiting
+pyotp>=2.9.0
+qrcode>=7.4.0
+slowapi>=0.1.9
+
+# Observability (Sentry is opt-in via SENTRY_DSN env var)
+python-json-logger>=3.2.0
+sentry-sdk>=2.18.0
+
+# Postgres driver — install only if you'll actually use Postgres
+# psycopg[binary]>=3.2.3

@@ -1,0 +1,715 @@
+"""Additional admin endpoints layered on top of the v0.2 admin module:
+
+- Role CRUD with full permission management
+- Partner request notes update
+- Application filters
+- Staff detail summary (profile + leave + attendance)
+- Activity log filters (actor / action / resource / since / until)
+"""
+from datetime import date, datetime, timedelta, timezone
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel, Field
+from sqlalchemy import cast, func, String as SqlString
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, log_activity, require_permission
+from app.db.session import get_db
+from app.models import (
+    ActivityLog,
+    Application,
+    AttendanceLog,
+    LeaveRequest,
+    NewsletterSubscriber,
+    PartnerRequest,
+    Role,
+    RolePermission,
+    User,
+)
+from app.schemas.common import (
+    ActivityOut,
+    ApplicationOut,
+    LeaveOut,
+    AttendanceOut,
+    RoleOut,
+)
+
+router = APIRouter(prefix="/admin", tags=["admin-extra"])
+
+
+# Catalogue of all permissions the system understands. Used to render the
+# roles editor on the frontend and validate input.
+ALL_PERMISSIONS = [
+    {"key": "*", "label": "Wildcard (super admin)", "group": "system"},
+    {"key": "content:manage", "label": "Manage CMS content", "group": "content"},
+    {"key": "partners:manage", "label": "Manage partner requests", "group": "pipeline"},
+    {"key": "careers:manage", "label": "Manage careers & applicants", "group": "pipeline"},
+    {"key": "staff:manage", "label": "Manage staff & departments", "group": "people"},
+    {"key": "rbac:manage", "label": "Manage roles & permissions", "group": "people"},
+    {"key": "devices:manage", "label": "Manage biometric devices", "group": "infra"},
+    {"key": "activity:view", "label": "View activity logs", "group": "system"},
+    {"key": "analytics:view", "label": "View website analytics", "group": "system"},
+    {"key": "newsletter:manage", "label": "Manage newsletter subscribers", "group": "content"},
+]
+
+
+@router.get("/permissions")
+def list_permissions(
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    return ALL_PERMISSIONS
+
+
+# -------- Role CRUD --------
+
+class RoleIn(BaseModel):
+    slug: str
+    name: str
+    description: Optional[str] = None
+    permissions: List[str] = Field(default_factory=list)
+
+
+class RolePatch(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    permissions: Optional[List[str]] = None
+
+
+def _serialize_role(r: Role) -> dict:
+    return {
+        "id": r.id,
+        "slug": r.slug,
+        "name": r.name,
+        "description": r.description,
+        "permissions": [p.permission for p in r.permissions],
+    }
+
+
+@router.post("/roles", status_code=201)
+def create_role(
+    payload: RoleIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    if db.query(Role).filter(Role.slug == payload.slug).first():
+        raise HTTPException(status.HTTP_409_CONFLICT, "Role slug already exists")
+    valid = {p["key"] for p in ALL_PERMISSIONS}
+    bad = [p for p in payload.permissions if p not in valid]
+    if bad:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown permissions: {bad}")
+    role = Role(slug=payload.slug, name=payload.name, description=payload.description)
+    db.add(role)
+    db.flush()
+    for perm in payload.permissions:
+        db.add(RolePermission(role_id=role.id, permission=perm))
+    log_activity(
+        db,
+        actor=user,
+        action="create",
+        resource_type="role",
+        resource_id=role.id,
+        request=request,
+        details={"permissions": payload.permissions},
+    )
+    db.commit()
+    db.refresh(role)
+    return _serialize_role(role)
+
+
+@router.put("/roles/{role_id}")
+def update_role(
+    role_id: int,
+    payload: RolePatch,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    role = db.get(Role, role_id)
+    if not role:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Role not found")
+    if role.slug == "super_admin":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Super admin role is immutable")
+
+    if payload.name is not None:
+        role.name = payload.name
+    if payload.description is not None:
+        role.description = payload.description
+    if payload.permissions is not None:
+        valid = {p["key"] for p in ALL_PERMISSIONS}
+        bad = [p for p in payload.permissions if p not in valid]
+        if bad:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown permissions: {bad}")
+        # Replace permissions
+        for p in list(role.permissions):
+            db.delete(p)
+        db.flush()
+        for perm in payload.permissions:
+            db.add(RolePermission(role_id=role.id, permission=perm))
+
+    log_activity(
+        db,
+        actor=user,
+        action="update",
+        resource_type="role",
+        resource_id=role.id,
+        request=request,
+    )
+    db.commit()
+    db.refresh(role)
+    return _serialize_role(role)
+
+
+@router.delete("/roles/{role_id}", status_code=204)
+def delete_role(
+    role_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    role = db.get(Role, role_id)
+    if not role:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Role not found")
+    if role.slug == "super_admin":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Super admin role cannot be deleted")
+    in_use = db.query(func.count(User.id)).filter(User.role_id == role_id).scalar() or 0
+    if in_use > 0:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Role is assigned to {in_use} user(s) — reassign first")
+    db.delete(role)
+    log_activity(
+        db,
+        actor=user,
+        action="delete",
+        resource_type="role",
+        resource_id=role_id,
+        request=request,
+    )
+    db.commit()
+
+
+# -------- Partner notes --------
+
+class PartnerNotesIn(BaseModel):
+    notes: str
+
+
+@router.put("/partners/{partner_id}/notes")
+def update_partner_notes(
+    partner_id: int,
+    payload: PartnerNotesIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("partners:manage")),
+):
+    pr = db.get(PartnerRequest, partner_id)
+    if not pr:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    pr.notes = payload.notes[:1000]
+    log_activity(
+        db,
+        actor=user,
+        action="update_notes",
+        resource_type="partner_request",
+        resource_id=partner_id,
+        request=request,
+    )
+    db.commit()
+    return {"ok": True, "notes": pr.notes}
+
+
+@router.get("/partners/{partner_id}")
+def get_partner_request(
+    partner_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("partners:manage")),
+):
+    pr = db.get(PartnerRequest, partner_id)
+    if not pr:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    return {
+        "id": pr.id,
+        "partner_type": pr.partner_type,
+        "status": pr.status,
+        "payload": pr.payload,
+        "notes": pr.notes,
+        "created_at": pr.created_at,
+        "updated_at": pr.updated_at,
+    }
+
+
+# -------- Application filters & detail --------
+
+@router.get("/applications/v2")
+def list_applications_filtered(
+    db: Session = Depends(get_db),
+    status_filter: Optional[str] = Query(default=None, alias="status"),
+    job_id: Optional[int] = None,
+    q: Optional[str] = None,
+    user: User = Depends(require_permission("careers:manage")),
+):
+    qry = db.query(Application)
+    if status_filter:
+        qry = qry.filter(Application.status == status_filter)
+    if job_id:
+        qry = qry.filter(Application.job_id == job_id)
+    if q:
+        like = f"%{q.lower()}%"
+        qry = qry.filter(
+            func.lower(Application.full_name).like(like)
+            | func.lower(Application.email).like(like)
+        )
+    rows = qry.order_by(Application.created_at.desc()).limit(200).all()
+    return [
+        {
+            "id": r.id,
+            "full_name": r.full_name,
+            "email": r.email,
+            "job_title": r.job.title if r.job else "—",
+            "status": r.status,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+
+
+@router.get("/applications/{app_id}")
+def get_application(
+    app_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    return {
+        "id": a.id,
+        "full_name": a.full_name,
+        "email": a.email,
+        "phone": a.phone,
+        "resume_url": a.resume_url,
+        "cover_letter": a.cover_letter,
+        "status": a.status,
+        "job_id": a.job_id,
+        "job_title": a.job.title if a.job else None,
+        "created_at": a.created_at,
+        "updated_at": a.updated_at,
+    }
+
+
+# -------- Staff detail --------
+
+@router.get("/staff/{user_id}")
+def get_staff_detail(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    leave = (
+        db.query(LeaveRequest)
+        .filter(LeaveRequest.user_id == user_id)
+        .order_by(LeaveRequest.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    attendance = (
+        db.query(AttendanceLog)
+        .filter(AttendanceLog.user_id == user_id)
+        .order_by(AttendanceLog.check_in_at.desc().nulls_last(), AttendanceLog.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    activity = (
+        db.query(ActivityLog)
+        .filter(ActivityLog.actor_id == user_id)
+        .order_by(ActivityLog.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    return {
+        "profile": {
+            "id": u.id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "phone": u.phone,
+            "avatar_url": u.avatar_url,
+            "job_title": u.job_title,
+            "biometric_id": u.biometric_id,
+            "role": u.role.slug if u.role else None,
+            "department": u.department.name if u.department else None,
+            "status": u.status,
+            "created_at": u.created_at,
+        },
+        "leave": [
+            {
+                "id": l.id,
+                "leave_type": l.leave_type,
+                "start_date": l.start_date,
+                "end_date": l.end_date,
+                "days": l.days,
+                "status": l.status,
+            }
+            for l in leave
+        ],
+        "attendance": [
+            {
+                "id": a.id,
+                "check_in_at": a.check_in_at,
+                "check_out_at": a.check_out_at,
+                "source": a.source,
+                "status": a.status,
+            }
+            for a in attendance
+        ],
+        "activity": [
+            {
+                "id": ev.id,
+                "action": ev.action,
+                "resource_type": ev.resource_type,
+                "resource_id": ev.resource_id,
+                "created_at": ev.created_at,
+            }
+            for ev in activity
+        ],
+    }
+
+
+# -------- Activity log filters --------
+
+@router.get("/activity/v2", response_model=List[ActivityOut])
+def list_activity_filtered(
+    db: Session = Depends(get_db),
+    actor_id: Optional[int] = None,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    since: Optional[date] = None,
+    until: Optional[date] = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+    user: User = Depends(require_permission("activity:view")),
+):
+    qry = db.query(ActivityLog)
+    if actor_id:
+        qry = qry.filter(ActivityLog.actor_id == actor_id)
+    if action:
+        qry = qry.filter(ActivityLog.action == action)
+    if resource_type:
+        qry = qry.filter(ActivityLog.resource_type == resource_type)
+    if since:
+        qry = qry.filter(ActivityLog.created_at >= datetime.combine(since, datetime.min.time()))
+    if until:
+        qry = qry.filter(ActivityLog.created_at <= datetime.combine(until, datetime.max.time()))
+    rows = qry.order_by(ActivityLog.created_at.desc()).limit(limit).all()
+    return [
+        ActivityOut(
+            id=r.id,
+            actor_name=r.actor.full_name if r.actor else "Public",
+            action=r.action,
+            resource_type=r.resource_type,
+            resource_id=r.resource_id,
+            ip_address=r.ip_address,
+            details=r.details or {},
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+# -------- Leave reschedule (drag) --------
+
+class LeaveDatesIn(BaseModel):
+    start_date: date
+    end_date: date
+
+
+@router.patch("/leave/{leave_id}/dates")
+def reschedule_leave(
+    leave_id: int,
+    payload: LeaveDatesIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    lr = db.get(LeaveRequest, leave_id)
+    if not lr:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Leave not found")
+    if payload.end_date < payload.start_date:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "end_date must be on or after start_date")
+    lr.start_date = payload.start_date
+    lr.end_date = payload.end_date
+    lr.days = (payload.end_date - payload.start_date).days + 1
+    log_activity(
+        db,
+        actor=user,
+        action="reschedule_leave",
+        resource_type="leave_request",
+        resource_id=leave_id,
+        request=request,
+        details={"start": str(payload.start_date), "end": str(payload.end_date)},
+    )
+    db.commit()
+    return {"id": lr.id, "start_date": str(lr.start_date), "end_date": str(lr.end_date), "days": lr.days}
+
+
+@router.get("/activity/distinct-actions")
+def distinct_actions(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("activity:view")),
+):
+    rows = (
+        db.query(ActivityLog.action, func.count(ActivityLog.id))
+        .group_by(ActivityLog.action)
+        .order_by(func.count(ActivityLog.id).desc())
+        .all()
+    )
+    return [{"action": a, "count": c} for a, c in rows]
+
+
+@router.get("/activity/distinct-resources")
+def distinct_resources(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("activity:view")),
+):
+    rows = (
+        db.query(ActivityLog.resource_type, func.count(ActivityLog.id))
+        .group_by(ActivityLog.resource_type)
+        .order_by(func.count(ActivityLog.id).desc())
+        .all()
+    )
+    return [{"resource_type": r, "count": c} for r, c in rows]
+
+
+# -------- Analytics extra: time-series --------
+
+# -------- Newsletter --------
+
+@router.get("/newsletter")
+def list_newsletter_subscribers(
+    db: Session = Depends(get_db),
+    is_active: Optional[bool] = Query(default=None),
+    q: Optional[str] = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+    user: User = Depends(require_permission("newsletter:manage")),
+):
+    qry = db.query(NewsletterSubscriber)
+    if is_active is not None:
+        qry = qry.filter(NewsletterSubscriber.is_active == is_active)
+    if q:
+        like = f"%{q.lower()}%"
+        qry = qry.filter(func.lower(NewsletterSubscriber.email).like(like))
+    rows = qry.order_by(NewsletterSubscriber.created_at.desc()).limit(limit).all()
+    total = db.query(func.count(NewsletterSubscriber.id)).scalar() or 0
+    active = (
+        db.query(func.count(NewsletterSubscriber.id))
+        .filter(NewsletterSubscriber.is_active == True)  # noqa: E712
+        .scalar()
+        or 0
+    )
+    return {
+        "total": total,
+        "active": active,
+        "items": [
+            {
+                "id": r.id,
+                "email": r.email,
+                "source": r.source,
+                "locale": r.locale,
+                "is_active": r.is_active,
+                "confirmed_at": r.confirmed_at,
+                "unsubscribed_at": r.unsubscribed_at,
+                "created_at": r.created_at,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/newsletter/export.csv")
+def export_newsletter_csv(
+    db: Session = Depends(get_db),
+    is_active: Optional[bool] = Query(default=True),
+    user: User = Depends(require_permission("newsletter:manage")),
+):
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    qry = db.query(NewsletterSubscriber)
+    if is_active is not None:
+        qry = qry.filter(NewsletterSubscriber.is_active == is_active)
+    rows = qry.order_by(NewsletterSubscriber.created_at.asc()).all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["email", "source", "locale", "is_active", "subscribed_at", "unsubscribed_at"])
+    for r in rows:
+        writer.writerow([
+            r.email,
+            r.source or "",
+            r.locale or "",
+            "yes" if r.is_active else "no",
+            r.created_at.isoformat() if r.created_at else "",
+            r.unsubscribed_at.isoformat() if r.unsubscribed_at else "",
+        ])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="newsletter-subscribers.csv"'},
+    )
+
+
+@router.delete("/newsletter/{subscriber_id}", status_code=204)
+def delete_newsletter_subscriber(
+    subscriber_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("newsletter:manage")),
+):
+    sub = db.get(NewsletterSubscriber, subscriber_id)
+    if not sub:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Subscriber not found")
+    db.delete(sub)
+    log_activity(
+        db,
+        actor=user,
+        action="delete",
+        resource_type="newsletter",
+        resource_id=subscriber_id,
+        request=request,
+    )
+    db.commit()
+
+
+# -------- Retention prune (activity log + page views) --------
+
+@router.get("/retention/preview")
+def retention_preview(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("activity:view")),
+):
+    """How many rows would be deleted if prune ran right now."""
+    from app.core.config import settings as _settings
+    from app.models import PageView
+
+    cutoff_act = datetime.now(timezone.utc) - timedelta(
+        days=_settings.ACTIVITY_LOG_RETENTION_DAYS
+    )
+    cutoff_pv = datetime.now(timezone.utc) - timedelta(
+        days=_settings.PAGE_VIEW_RETENTION_DAYS
+    )
+    activity_count = (
+        db.query(func.count(ActivityLog.id))
+        .filter(ActivityLog.created_at < cutoff_act)
+        .scalar()
+        or 0
+    )
+    pageview_count = (
+        db.query(func.count(PageView.id))
+        .filter(PageView.created_at < cutoff_pv)
+        .scalar()
+        or 0
+    )
+    return {
+        "activity_log": {
+            "retention_days": _settings.ACTIVITY_LOG_RETENTION_DAYS,
+            "would_delete": activity_count,
+            "cutoff": cutoff_act.isoformat(),
+        },
+        "page_views": {
+            "retention_days": _settings.PAGE_VIEW_RETENTION_DAYS,
+            "would_delete": pageview_count,
+            "cutoff": cutoff_pv.isoformat(),
+        },
+    }
+
+
+@router.post("/retention/prune")
+def retention_prune(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("activity:view")),
+):
+    """Hard-delete activity-log + page-view rows older than the retention
+    windows configured in settings. Idempotent — safe to call from cron.
+    """
+    from app.core.config import settings as _settings
+    from app.models import PageView
+
+    cutoff_act = datetime.now(timezone.utc) - timedelta(
+        days=_settings.ACTIVITY_LOG_RETENTION_DAYS
+    )
+    cutoff_pv = datetime.now(timezone.utc) - timedelta(
+        days=_settings.PAGE_VIEW_RETENTION_DAYS
+    )
+    deleted_act = (
+        db.query(ActivityLog)
+        .filter(ActivityLog.created_at < cutoff_act)
+        .delete(synchronize_session=False)
+    )
+    deleted_pv = (
+        db.query(PageView)
+        .filter(PageView.created_at < cutoff_pv)
+        .delete(synchronize_session=False)
+    )
+    log_activity(
+        db,
+        actor=user,
+        action="retention_prune",
+        resource_type="system",
+        request=request,
+        details={"activity_log": deleted_act, "page_views": deleted_pv},
+    )
+    db.commit()
+    return {
+        "deleted": {
+            "activity_log": deleted_act,
+            "page_views": deleted_pv,
+        }
+    }
+
+
+@router.get("/analytics/timeseries")
+def analytics_timeseries(
+    days: int = Query(default=14, ge=1, le=90),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("analytics:view")),
+):
+    from app.models import PageView
+
+    today = datetime.now(timezone.utc).date()
+    series_visits = []
+    series_partners = []
+    series_apps = []
+    for i in range(days - 1, -1, -1):
+        d = today - timedelta(days=i)
+        start = datetime.combine(d, datetime.min.time(), tzinfo=timezone.utc)
+        end = datetime.combine(d, datetime.max.time(), tzinfo=timezone.utc)
+        v = (
+            db.query(func.count(PageView.id))
+            .filter(PageView.created_at >= start, PageView.created_at <= end)
+            .scalar()
+            or 0
+        )
+        p = (
+            db.query(func.count(PartnerRequest.id))
+            .filter(PartnerRequest.created_at >= start, PartnerRequest.created_at <= end)
+            .scalar()
+            or 0
+        )
+        a = (
+            db.query(func.count(Application.id))
+            .filter(Application.created_at >= start, Application.created_at <= end)
+            .scalar()
+            or 0
+        )
+        series_visits.append({"date": d.isoformat(), "value": v})
+        series_partners.append({"date": d.isoformat(), "value": p})
+        series_apps.append({"date": d.isoformat(), "value": a})
+    return {
+        "visits": series_visits,
+        "partner_requests": series_partners,
+        "job_applications": series_apps,
+    }

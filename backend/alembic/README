@@ -1,0 +1,10 @@
+Alembic migrations for QUATA backend.
+
+Generate a new migration:
+  alembic revision --autogenerate -m "describe change"
+
+Apply pending migrations:
+  alembic upgrade head
+
+Rollback one step:
+  alembic downgrade -1

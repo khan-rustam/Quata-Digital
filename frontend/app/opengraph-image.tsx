@@ -1,0 +1,75 @@
+import { ImageResponse } from "next/og";
+
+export const alt = "QUATA Digital — Africa's connected operating system";
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+
+export default async function Image() {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(135deg, #0E5B4A 0%, #1c8a6e 50%, #34d3a7 100%)",
+          color: "white",
+          padding: "80px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 28,
+              fontWeight: 700,
+            }}
+          >
+            Q
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: -0.5 }}>QUATA Digital</div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div
+            style={{
+              fontSize: 76,
+              fontWeight: 600,
+              letterSpacing: -2,
+              lineHeight: 1.05,
+              maxWidth: 980,
+            }}
+          >
+            The connected operating system for Africa&apos;s next decade.
+          </div>
+          <div style={{ fontSize: 28, color: "rgba(255,255,255,0.78)", maxWidth: 900 }}>
+            Payments · Business operations · Commerce — on one rail.
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            color: "rgba(255,255,255,0.7)",
+            fontSize: 22,
+          }}
+        >
+          <div>quata.digital</div>
+          <div>One ecosystem · Seven products</div>
+        </div>
+      </div>
+    ),
+    { ...size }
+  );
+}
