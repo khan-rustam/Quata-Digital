@@ -183,11 +183,11 @@ export default function StaffPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="full_name">Full name *</Label>
-            <Input id="full_name" name="full_name" required defaultValue={editing?.full_name} />
+            <Input id="full_name" name="full_name" required defaultValue={editing?.full_name} placeholder="Jane Doe" autoComplete="name" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="email">Work email *</Label>
-            <Input id="email" name="email" type="email" required defaultValue={editing?.email} disabled={!!editing} />
+            <Input id="email" name="email" type="email" required defaultValue={editing?.email} disabled={!!editing} placeholder="jane@quatadigital.com" autoComplete="email" />
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -216,11 +216,11 @@ export default function StaffPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="job_title">Job title</Label>
-            <Input id="job_title" name="job_title" defaultValue={editing?.job_title ?? ""} />
+            <Input id="job_title" name="job_title" defaultValue={editing?.job_title ?? ""} placeholder="e.g. Partnerships Lead" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" name="phone" type="tel" />
+            <Input id="phone" name="phone" type="tel" placeholder="+237 6 7000 0000" autoComplete="tel" />
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">

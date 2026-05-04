@@ -69,15 +69,15 @@ export function JobApplicationForm({ jobId }: { jobId: number }) {
     <form onSubmit={onSubmit} className="grid gap-4">
       <div className="grid gap-2">
         <Label htmlFor="full_name">Full name *</Label>
-        <Input id="full_name" name="full_name" required />
+        <Input id="full_name" name="full_name" required placeholder="Your full name" autoComplete="name" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="email">Email *</Label>
-        <Input id="email" name="email" type="email" required />
+        <Input id="email" name="email" type="email" required placeholder="you@example.com" autoComplete="email" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="phone">Phone</Label>
-        <Input id="phone" name="phone" type="tel" />
+        <Input id="phone" name="phone" type="tel" placeholder="+237 6 7000 0000 (optional)" autoComplete="tel" />
       </div>
       <div className="grid gap-2">
         <Label>Resume / CV *</Label>
@@ -91,7 +91,7 @@ export function JobApplicationForm({ jobId }: { jobId: number }) {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="cover_letter">Why this role?</Label>
-        <Textarea id="cover_letter" name="cover_letter" rows={5} />
+        <Textarea id="cover_letter" name="cover_letter" rows={5} placeholder="Optional — what excites you about this role and why you're a fit. Keep it short and specific." />
       </div>
       <HCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
       <div>

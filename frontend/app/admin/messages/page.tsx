@@ -78,7 +78,7 @@ export default function MessagesPage() {
           <div className="text-sm font-semibold">New message</div>
           <div className="grid gap-2">
             <Label htmlFor="subject">Subject</Label>
-            <Input id="subject" name="subject" required />
+            <Input id="subject" name="subject" required placeholder="Friday all-hands at 4pm" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-2">
@@ -111,7 +111,7 @@ export default function MessagesPage() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="body">Message</Label>
-            <Textarea id="body" name="body" rows={6} required />
+            <Textarea id="body" name="body" rows={6} required placeholder="Type your message here. Markdown supported." />
           </div>
           <div className="flex items-center justify-between">
             <Button variant="ghost" size="sm" type="button">

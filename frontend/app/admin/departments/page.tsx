@@ -112,16 +112,16 @@ export default function DepartmentsPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="slug">Slug *</Label>
-            <Input id="slug" name="slug" required defaultValue={editing?.slug} />
+            <Input id="slug" name="slug" required defaultValue={editing?.slug} placeholder="engineering" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="name">Name *</Label>
-            <Input id="name" name="name" required defaultValue={editing?.name} />
+            <Input id="name" name="name" required defaultValue={editing?.name} placeholder="Engineering" />
           </div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="description">Description</Label>
-          <Input id="description" name="description" />
+          <Input id="description" name="description" placeholder="What this department does (optional)" />
         </div>
       </FormDialog>
 

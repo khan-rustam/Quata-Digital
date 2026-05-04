@@ -167,7 +167,7 @@ function PostsManager() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="slug">Slug *</Label>
-            <Input id="slug" name="slug" required defaultValue={editing?.slug} />
+            <Input id="slug" name="slug" required defaultValue={editing?.slug} placeholder="why-one-rail-matters" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="category">Category</Label>
@@ -181,11 +181,11 @@ function PostsManager() {
         </div>
         <div className="grid gap-2">
           <Label htmlFor="title">Title *</Label>
-          <Input id="title" name="title" required defaultValue={editing?.title} />
+          <Input id="title" name="title" required defaultValue={editing?.title} placeholder="Why one rail matters for African businesses" />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="excerpt">Excerpt *</Label>
-          <Textarea id="excerpt" name="excerpt" rows={2} required defaultValue={editing?.excerpt} />
+          <Textarea id="excerpt" name="excerpt" rows={2} required defaultValue={editing?.excerpt} placeholder="One or two sentences shown on the blog index card." />
         </div>
         <div className="grid gap-2">
           <div className="flex items-center justify-between">
@@ -325,16 +325,16 @@ function PagesManager() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="slug">Slug *</Label>
-            <Input id="slug" name="slug" required defaultValue={editing?.slug} />
+            <Input id="slug" name="slug" required defaultValue={editing?.slug} placeholder="about" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="title">Title *</Label>
-            <Input id="title" name="title" required defaultValue={editing?.title} />
+            <Input id="title" name="title" required defaultValue={editing?.title} placeholder="About QUATA Digital" />
           </div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="content">Content *</Label>
-          <Textarea id="content" name="content" rows={12} required defaultValue={editing?.content} />
+          <Textarea id="content" name="content" rows={12} required defaultValue={editing?.content} placeholder={"# Page heading\n\nWrite content in **Markdown**…"} />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input

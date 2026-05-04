@@ -169,26 +169,26 @@ export default function DevicesPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="name">Name *</Label>
-            <Input id="name" name="name" required defaultValue={editing?.name} />
+            <Input id="name" name="name" required defaultValue={editing?.name} placeholder="HQ Reception biometric #1" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="vendor">Vendor</Label>
-            <Input id="vendor" name="vendor" defaultValue={editing?.vendor ?? "Generic"} />
+            <Input id="vendor" name="vendor" defaultValue={editing?.vendor ?? "Generic"} placeholder="ZKTeco / Suprema / Generic" />
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="ip_address">IP address</Label>
-            <Input id="ip_address" name="ip_address" defaultValue={editing?.ip_address ?? ""} />
+            <Input id="ip_address" name="ip_address" defaultValue={editing?.ip_address ?? ""} placeholder="192.168.1.50" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="api_endpoint">API endpoint</Label>
-            <Input id="api_endpoint" name="api_endpoint" defaultValue={editing?.api_endpoint ?? ""} />
+            <Input id="api_endpoint" name="api_endpoint" defaultValue={editing?.api_endpoint ?? ""} placeholder="https://device.local/api" />
           </div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="location">Location</Label>
-          <Input id="location" name="location" defaultValue={editing?.location ?? "HQ"} />
+          <Input id="location" name="location" defaultValue={editing?.location ?? "HQ"} placeholder="HQ — Reception" />
         </div>
       </FormDialog>
 

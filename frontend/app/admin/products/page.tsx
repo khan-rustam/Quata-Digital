@@ -171,21 +171,21 @@ export default function ProductsAdminPage() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="name">Name *</Label>
-            <Input id="name" name="name" required defaultValue={editing?.name} />
+            <Input id="name" name="name" required defaultValue={editing?.name} placeholder="QUATAPAY" />
           </div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="tagline">Tagline *</Label>
-          <Input id="tagline" name="tagline" required defaultValue={editing?.tagline} />
+          <Input id="tagline" name="tagline" required defaultValue={editing?.tagline} placeholder="All-in-one payments for modern African businesses." />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="description">Description</Label>
-          <Textarea id="description" name="description" rows={4} defaultValue={editing?.description} />
+          <Textarea id="description" name="description" rows={4} defaultValue={editing?.description} placeholder="Long-form description shown on the product page." />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="category">Category *</Label>
-            <Input id="category" name="category" required defaultValue={editing?.category} />
+            <Input id="category" name="category" required defaultValue={editing?.category} placeholder="Payments" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="status">Status</Label>

@@ -181,21 +181,21 @@ function JobsManager() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="slug">Slug *</Label>
-            <Input id="slug" name="slug" required defaultValue={editing?.slug} />
+            <Input id="slug" name="slug" required defaultValue={editing?.slug} placeholder="business-development-lead" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="title">Title *</Label>
-            <Input id="title" name="title" required defaultValue={editing?.title} />
+            <Input id="title" name="title" required defaultValue={editing?.title} placeholder="Business Development Lead" />
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="grid gap-2">
             <Label htmlFor="department">Department *</Label>
-            <Input id="department" name="department" required defaultValue={editing?.department} />
+            <Input id="department" name="department" required defaultValue={editing?.department} placeholder="Marketing & Growth" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="location">Location *</Label>
-            <Input id="location" name="location" required defaultValue={editing?.location} />
+            <Input id="location" name="location" required defaultValue={editing?.location} placeholder="Bamenda, Cameroon (hybrid)" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="employment_type">Type *</Label>
@@ -209,11 +209,11 @@ function JobsManager() {
         </div>
         <div className="grid gap-2">
           <Label htmlFor="summary">Summary *</Label>
-          <Textarea id="summary" name="summary" rows={2} required defaultValue={editing?.summary} />
+          <Textarea id="summary" name="summary" rows={2} required defaultValue={editing?.summary} placeholder="One or two sentences shown on the careers index card." />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="description">Description *</Label>
-          <Textarea id="description" name="description" rows={6} required defaultValue={editing?.description} />
+          <Textarea id="description" name="description" rows={6} required defaultValue={editing?.description} placeholder="Full role description shown on the public job page. Markdown supported." />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2">

@@ -45,11 +45,11 @@ export const partnerPaths: PartnerPath[] = [
     ],
     cta: "Apply as a business",
     formFields: [
-      { name: "company_name", label: "Business name", type: "text", required: true },
-      { name: "contact_name", label: "Contact name", type: "text", required: true },
-      { name: "email", label: "Email", type: "email", required: true },
-      { name: "phone", label: "Phone (WhatsApp preferred)", type: "tel" },
-      { name: "country", label: "Country / city", type: "text", required: true },
+      { name: "company_name", label: "Business name", type: "text", required: true, placeholder: "e.g. Bamenda Coffee Co." },
+      { name: "contact_name", label: "Contact name", type: "text", required: true, placeholder: "Your full name" },
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "you@business.com" },
+      { name: "phone", label: "Phone (WhatsApp preferred)", type: "tel", placeholder: "+237 6 7000 0000" },
+      { name: "country", label: "Country / city", type: "text", required: true, placeholder: "Cameroon, Bamenda" },
       {
         name: "industry",
         label: "Type of business",
@@ -101,12 +101,12 @@ export const partnerPaths: PartnerPath[] = [
     ],
     cta: "Open a strategic conversation",
     formFields: [
-      { name: "company_name", label: "Organisation name", type: "text", required: true },
-      { name: "contact_name", label: "Primary contact", type: "text", required: true },
-      { name: "role", label: "Your role", type: "text" },
-      { name: "email", label: "Work email", type: "email", required: true },
-      { name: "phone", label: "Phone", type: "tel" },
-      { name: "website", label: "Website", type: "url" },
+      { name: "company_name", label: "Organisation name", type: "text", required: true, placeholder: "e.g. MTN Cameroon" },
+      { name: "contact_name", label: "Primary contact", type: "text", required: true, placeholder: "Your full name" },
+      { name: "role", label: "Your role", type: "text", placeholder: "e.g. Head of Partnerships" },
+      { name: "email", label: "Work email", type: "email", required: true, placeholder: "you@organisation.com" },
+      { name: "phone", label: "Phone", type: "tel", placeholder: "+237 6 7000 0000" },
+      { name: "website", label: "Website", type: "url", placeholder: "https://yourcompany.com" },
       {
         name: "partner_category",
         label: "Partnership category",
@@ -151,9 +151,9 @@ export const partnerPaths: PartnerPath[] = [
     ],
     cta: "Submit investor interest",
     formFields: [
-      { name: "name", label: "Your name", type: "text", required: true },
-      { name: "email", label: "Email", type: "email", required: true },
-      { name: "fund_or_org", label: "Fund / organisation", type: "text" },
+      { name: "name", label: "Your name", type: "text", required: true, placeholder: "Your full name" },
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "you@fund.com" },
+      { name: "fund_or_org", label: "Fund / organisation", type: "text", placeholder: "e.g. Acme Ventures" },
       {
         name: "investor_type",
         label: "Investor type",
@@ -204,10 +204,10 @@ export const partnerPaths: PartnerPath[] = [
     ],
     cta: "Join the service network",
     formFields: [
-      { name: "full_name", label: "Full name / company", type: "text", required: true },
-      { name: "phone", label: "Phone (WhatsApp)", type: "tel", required: true },
-      { name: "email", label: "Email", type: "email", required: true },
-      { name: "city", label: "City / country", type: "text", required: true },
+      { name: "full_name", label: "Full name / company", type: "text", required: true, placeholder: "Your name or company" },
+      { name: "phone", label: "Phone (WhatsApp)", type: "tel", required: true, placeholder: "+237 6 7000 0000" },
+      { name: "email", label: "Email", type: "email", required: true, placeholder: "you@example.com" },
+      { name: "city", label: "City / country", type: "text", required: true, placeholder: "Bamenda, Cameroon" },
       {
         name: "expertise",
         label: "Area of expertise",

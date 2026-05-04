@@ -68,15 +68,15 @@ export function ContactForm() {
     <form onSubmit={onSubmit} className="grid gap-4">
       <div className="grid gap-2">
         <Label htmlFor="name">Name *</Label>
-        <Input id="name" name="name" required />
+        <Input id="name" name="name" required placeholder="Your full name" autoComplete="name" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="email">Email *</Label>
-        <Input id="email" name="email" type="email" required />
+        <Input id="email" name="email" type="email" required placeholder="you@company.com" autoComplete="email" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="company">Company</Label>
-        <Input id="company" name="company" />
+        <Input id="company" name="company" placeholder="Optional — your company or organisation" autoComplete="organization" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="reason">Reason *</Label>
@@ -93,7 +93,7 @@ export function ContactForm() {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="message">Message *</Label>
-        <Textarea id="message" name="message" rows={5} required />
+        <Textarea id="message" name="message" rows={5} required placeholder="What can we help you with? The more context, the faster we can route you to the right team." />
       </div>
       <HCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
       <div>

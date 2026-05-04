@@ -193,12 +193,12 @@ export default function RolesPage() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="name">Name *</Label>
-            <Input id="name" name="name" required defaultValue={editing?.name} />
+            <Input id="name" name="name" required defaultValue={editing?.name} placeholder="Manager" />
           </div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="description">Description</Label>
-          <Input id="description" name="description" defaultValue={editing?.description ?? ""} />
+          <Input id="description" name="description" defaultValue={editing?.description ?? ""} placeholder="What this role can do" />
         </div>
 
         <div>

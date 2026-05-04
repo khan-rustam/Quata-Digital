@@ -68,7 +68,7 @@ function ProfileForm({ onSaved }: { onSaved: () => void }) {
     <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-6 ring-soft grid gap-4 max-w-xl">
       <div className="grid gap-2">
         <Label htmlFor="full_name">Full name</Label>
-        <Input id="full_name" name="full_name" defaultValue={user?.full_name} required />
+        <Input id="full_name" name="full_name" defaultValue={user?.full_name} required placeholder="Jane Doe" autoComplete="name" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="email">Email</Label>
@@ -81,7 +81,7 @@ function ProfileForm({ onSaved }: { onSaved: () => void }) {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="phone">Phone</Label>
-        <Input id="phone" name="phone" type="tel" />
+        <Input id="phone" name="phone" type="tel" placeholder="+237 6 7000 0000" autoComplete="tel" />
       </div>
       <div>
         <Button type="submit" disabled={submitting}>
@@ -274,7 +274,7 @@ function TwoFactorPanel() {
               >
                 <div className="grid gap-1.5">
                   <Label htmlFor="verifyCode" className="text-xs">6-digit code</Label>
-                  <Input id="verifyCode" name="code" inputMode="numeric" autoComplete="one-time-code" required />
+                  <Input id="verifyCode" name="code" inputMode="numeric" autoComplete="one-time-code" required placeholder="123 456" />
                 </div>
                 <Button type="submit" disabled={submitting}>
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

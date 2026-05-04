@@ -126,7 +126,7 @@ export default function LeavePage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="reason">Reason</Label>
-              <Textarea id="reason" name="reason" rows={3} />
+              <Textarea id="reason" name="reason" rows={3} placeholder="Optional — short note for your manager." />
             </div>
             <div>
               <Button type="submit" disabled={submitting}>Submit request</Button>
