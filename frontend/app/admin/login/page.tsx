@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/site/logo";
 import { useAuth } from "@/lib/auth";
@@ -112,7 +113,7 @@ export default function AdminLoginPage() {
                       Forgot password?
                     </Link>
                   </div>
-                  <Input id="password" name="password" type="password" required placeholder="••••••••" />
+                  <PasswordInput id="password" name="password" required placeholder="••••••••" autoComplete="current-password" />
                 </div>
                 {error && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">

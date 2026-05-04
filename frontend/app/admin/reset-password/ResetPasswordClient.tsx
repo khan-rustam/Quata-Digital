@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle2, KeyRound, Loader2, AlertCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/site/logo";
 import { api } from "@/lib/api";
@@ -97,11 +97,11 @@ export default function ResetPasswordClient() {
             <form onSubmit={onSubmit} className="mt-8 grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="next">New password</Label>
-                <Input id="next" name="next" type="password" required minLength={10} autoFocus />
+                <PasswordInput id="next" name="next" required minLength={10} autoFocus autoComplete="new-password" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="confirm">Confirm new password</Label>
-                <Input id="confirm" name="confirm" type="password" required minLength={10} />
+                <PasswordInput id="confirm" name="confirm" required minLength={10} autoComplete="new-password" />
               </div>
               {error && (
                 <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">

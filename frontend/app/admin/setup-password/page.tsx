@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, KeyRound, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/site/logo";
 import { useApiAction } from "@/lib/use-api";
@@ -74,10 +74,9 @@ export default function SetupPasswordPage() {
         <form onSubmit={onSubmit} className="mt-8 grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="current_password">Current password</Label>
-            <Input
+            <PasswordInput
               id="current_password"
               name="current_password"
-              type="password"
               autoComplete="current-password"
               required
               autoFocus
@@ -85,10 +84,9 @@ export default function SetupPasswordPage() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="new_password">New password</Label>
-            <Input
+            <PasswordInput
               id="new_password"
               name="new_password"
-              type="password"
               autoComplete="new-password"
               minLength={10}
               required
@@ -99,10 +97,9 @@ export default function SetupPasswordPage() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="confirm_password">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="confirm_password"
               name="confirm_password"
-              type="password"
               autoComplete="new-password"
               minLength={10}
               required

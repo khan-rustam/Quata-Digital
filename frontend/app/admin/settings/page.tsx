@@ -6,6 +6,7 @@ import { PageShell } from "@/components/admin/page-shell";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { useApi, useApiAction } from "@/lib/use-api";
@@ -130,16 +131,16 @@ function PasswordForm() {
     <form onSubmit={onSubmit} className="rounded-2xl border border-border bg-card p-6 ring-soft grid gap-4 max-w-xl">
       <div className="grid gap-2">
         <Label htmlFor="current">Current password</Label>
-        <Input id="current" name="current" type="password" required />
+        <PasswordInput id="current" name="current" required autoComplete="current-password" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="next">New password</Label>
-        <Input id="next" name="next" type="password" required minLength={10} />
+        <PasswordInput id="next" name="next" required minLength={10} autoComplete="new-password" />
         <div className="text-xs text-muted-foreground">At least 10 characters. A passphrase or password manager is best.</div>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="confirm">Confirm new password</Label>
-        <Input id="confirm" name="confirm" type="password" required minLength={10} />
+        <PasswordInput id="confirm" name="confirm" required minLength={10} autoComplete="new-password" />
       </div>
       <div>
         <Button type="submit" disabled={submitting}>
@@ -233,7 +234,7 @@ function TwoFactorPanel() {
           >
             <div className="grid gap-2">
               <Label htmlFor="enrolPassword">Confirm password to begin enrolment</Label>
-              <Input id="enrolPassword" name="password" type="password" required />
+              <PasswordInput id="enrolPassword" name="password" required autoComplete="current-password" />
             </div>
             <Button type="submit" disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -332,7 +333,7 @@ function TwoFactorPanel() {
         >
           <div className="grid gap-2">
             <Label htmlFor="disablePassword">Password</Label>
-            <Input id="disablePassword" name="password" type="password" required />
+            <PasswordInput id="disablePassword" name="password" required autoComplete="current-password" />
           </div>
           <Button type="submit" variant="destructive" disabled={submitting}>
             Disable

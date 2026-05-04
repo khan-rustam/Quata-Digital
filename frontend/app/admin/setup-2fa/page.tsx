@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, LogOut, Copy, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/site/logo";
 import { useApiAction } from "@/lib/use-api";
@@ -73,6 +74,10 @@ export default function Setup2faPage() {
       );
       setRecoveryCodes(res.recovery_codes);
       setStep("done");
+      // Clear the "skip for now" flag — 2FA is now properly enrolled.
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("quata_2fa_deferred");
+      }
       toast.success("Two-factor authentication enabled");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid code. Try again.");
@@ -83,6 +88,16 @@ export default function Setup2faPage() {
 
   async function onContinue() {
     await refresh();
+    router.replace("/admin/overview");
+  }
+
+  function skip2fa() {
+    // Defer enrolment for this browser. The auth provider checks this flag
+    // before redirecting back to /admin/setup-2fa, so the user can keep
+    // working and enable 2FA later from Settings → Two-factor.
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("quata_2fa_deferred", "1");
+    }
     router.replace("/admin/overview");
   }
 
@@ -104,17 +119,17 @@ export default function Setup2faPage() {
           Enable two-factor authentication
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your role requires 2FA before you can use the admin console. This is a one-time setup.
+          Recommended for every admin. You can skip this for now and enable it
+          later from <span className="font-medium">Settings → Two-factor</span>.
         </p>
 
         {step === "password" && (
           <form onSubmit={onPassword} className="mt-8 grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="password">Confirm your password</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
                 autoFocus
@@ -129,6 +144,13 @@ export default function Setup2faPage() {
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Continue
             </Button>
+            <button
+              type="button"
+              onClick={skip2fa}
+              className="text-xs text-muted-foreground hover:text-foreground text-center"
+            >
+              Skip for now — I&apos;ll set this up later from Settings
+            </button>
           </form>
         )}
 

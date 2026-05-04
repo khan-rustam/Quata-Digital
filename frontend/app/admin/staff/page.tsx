@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/skeleton";
@@ -230,7 +231,7 @@ export default function StaffPage() {
           {!editing && (
             <div className="grid gap-2">
               <Label htmlFor="password">Password (optional)</Label>
-              <Input id="password" name="password" type="password" placeholder="Auto-generate if blank" />
+              <PasswordInput id="password" name="password" placeholder="Auto-generate if blank" autoComplete="new-password" />
             </div>
           )}
         </div>

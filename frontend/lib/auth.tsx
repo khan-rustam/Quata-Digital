@@ -126,9 +126,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.replace("/admin/setup-password");
       return;
     }
+    // If the user clicked "Skip for now" on /admin/setup-2fa we honour that
+    // flag for this browser. They can enable 2FA later from Settings.
+    const deferred =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem("quata_2fa_deferred") === "1";
     if (
       user.requires_2fa &&
       !user.has_2fa &&
+      !deferred &&
       pathname !== "/admin/setup-2fa" &&
       pathname !== "/admin/setup-password"
     ) {
