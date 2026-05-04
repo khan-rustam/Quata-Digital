@@ -74,14 +74,16 @@ export function AdminSidebar() {
   const { user, signOut, hasPermission } = useAuth();
 
   return (
-    <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-surface-soft min-h-svh sticky top-0">
-      <div className="px-5 py-5 border-b border-border">
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-surface-soft sticky top-0 h-svh">
+      {/* Fixed header */}
+      <div className="shrink-0 px-5 py-5 border-b border-border">
         <Logo />
         <div className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground">
           Admin console
         </div>
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+      {/* Scrollable nav (only this scrolls, header + footer stay put) */}
+      <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 space-y-6">
         {groups.map((g) => (
           <div key={g.title}>
             <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -113,7 +115,8 @@ export function AdminSidebar() {
           </div>
         ))}
       </nav>
-      <div className="px-3 py-3 border-t border-border">
+      {/* Fixed footer */}
+      <div className="shrink-0 px-3 py-3 border-t border-border bg-surface-soft">
         <div className="rounded-xl border border-border bg-surface p-3">
           <div className="text-sm font-medium truncate">{user?.full_name}</div>
           <div className="text-xs text-muted-foreground truncate">
