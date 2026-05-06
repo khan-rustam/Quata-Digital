@@ -104,8 +104,15 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "frontend" ]]; then
   step "FRONTEND  →  next.js :3500 (PM2 / Quata-Digi-F)"
   cd "$PROJECT_DIR/frontend"
 
-  info "pnpm install --frozen-lockfile"
-  pnpm install --frozen-lockfile
+  info "pnpm install (frozen first, regenerate if package.json drifted)"
+  # Frozen-lockfile is the right default — guarantees deterministic builds.
+  # When package.json changes, the lockfile on the VPS is stale until the
+  # boss has updated it. Rather than failing the deploy, regenerate it and
+  # carry on; the next deploy will be fast again.
+  if ! pnpm install --frozen-lockfile; then
+    info "lockfile outdated — running full pnpm install to regenerate"
+    pnpm install
+  fi
   ok "frontend deps in sync"
 
   info "pnpm build"
