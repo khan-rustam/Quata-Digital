@@ -4,10 +4,25 @@ from sqlalchemy.orm import sessionmaker, Session, with_loader_criteria
 from app.core.config import settings
 
 connect_args = {}
+engine_kwargs: dict = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
+else:
+    # Pool tuning matters for Postgres only — SQLite doesn't pool. Values
+    # come from env so the operator can scale at runtime without a code change.
+    engine_kwargs.update(
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
+        pool_pre_ping=settings.DB_POOL_PRE_PING,
+    )
 
-engine = create_engine(settings.DATABASE_URL, connect_args=connect_args, future=True)
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args=connect_args,
+    future=True,
+    **engine_kwargs,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
 

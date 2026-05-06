@@ -59,22 +59,29 @@ def client(app_instance):
         yield c
 
 
-@pytest.fixture
-def admin_token(client):
-    r = client.post(
-        "/api/v1/auth/login",
-        json={
-            "email": "admin@quatadigital.com",
-            "password": "ChangeMe!2026",
-        },
-    )
-    if r.status_code != 200:
-        # Once a 2FA test enables TOTP for the seeded admin, password-only
-        # login returns `two_factor_required`. Tests that need a clean
-        # admin token should run before any 2FA test, or use the recovery
-        # path.
-        raise AssertionError(f"login failed: {r.status_code} {r.text}")
-    return r.json()["access_token"]
+@pytest.fixture(scope="session")
+def admin_token(app_instance):
+    """One login per session — JWTs are valid for 7 days so the same token
+    works across the whole pytest run. Avoids hitting the login rate-limit
+    (10/minute per IP) in suites with many fixtures.
+
+    A 2FA-enabled admin would block password-only login here, so any test
+    that toggles 2FA must restore it before returning. The existing
+    `test_2fa_enrol_then_verify` already does this via `/me/2fa/disable`.
+    """
+    from fastapi.testclient import TestClient
+
+    with TestClient(app_instance) as c:
+        r = c.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "admin@quatadigital.com",
+                "password": "ChangeMe!2026",
+            },
+        )
+        if r.status_code != 200:
+            raise AssertionError(f"login failed: {r.status_code} {r.text}")
+        return r.json()["access_token"]
 
 
 @pytest.fixture

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { ArrowLeft, Compass, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/site/logo";
+import { NotFoundTracker } from "@/components/site/not-found-tracker";
 
 export default function NotFound() {
   return (
     <div className="min-h-svh flex flex-col bg-background">
+      <NotFoundTracker />
       <header className="container-page py-6">
         <Logo />
       </header>

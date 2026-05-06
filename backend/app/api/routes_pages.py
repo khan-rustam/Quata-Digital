@@ -123,6 +123,80 @@ def public_get_page(slug: str, db: Session = Depends(get_db)):
 # Admin
 # ---------------------------------------------------------------------------
 
+@router.get("/admin/cms/seed-diff")
+def admin_seed_diff(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("content:manage")),
+):
+    """Show drift between every page's current sections and its starter
+    payload in `page_content_seeds.DEFAULTS`. Lets the boss spot:
+      - pages they've never edited (still 100% seed copy)
+      - pages they've reordered
+      - pages they've heavily customised
+    """
+    from app.services.page_content_seeds import DEFAULTS
+    import json as _json
+
+    def _signature(sections: list) -> list[str]:
+        # Round-trip through validate_sections so seed payloads (which
+        # omit Pydantic-defaulted fields) and DB rows (which carry the
+        # full normalised shape) compare apples-to-apples. Dropping
+        # `id` + `visible` because those are server-generated /
+        # boss-toggled, not part of "is the content the seed?".
+        try:
+            normalised = validate_sections(sections or [])
+        except Exception:  # noqa: BLE001
+            return [f"INVALID:{i}" for i, _ in enumerate(sections or [])]
+        sigs = []
+        for s in normalised:
+            t = s.get("type", "")
+            copy = {k: v for k, v in s.items() if k not in {"id", "visible"}}
+            sigs.append(f"{t}:{_json.dumps(copy, sort_keys=True, default=str)}")
+        return sigs
+
+    out = []
+    for slug, seed_sections in DEFAULTS.items():
+        page = db.query(PageContent).filter(PageContent.slug == slug).first()
+        if not page:
+            out.append({
+                "slug": slug,
+                "state": "missing",
+                "section_count_current": 0,
+                "section_count_seed": len(seed_sections),
+                "is_published": False,
+            })
+            continue
+
+        current = page.sections or []
+        cur_sig = _signature(current)
+        seed_sig = _signature(seed_sections)
+        if cur_sig == seed_sig:
+            state = "pristine"
+        elif len(cur_sig) == 0:
+            state = "emptied"
+        elif set(cur_sig) == set(seed_sig):
+            state = "reordered"
+        else:
+            state = "edited"
+
+        out.append({
+            "slug": slug,
+            "state": state,
+            "section_count_current": len(current),
+            "section_count_seed": len(seed_sections),
+            "is_published": page.is_published,
+            "updated_at": page.updated_at.isoformat() if page.updated_at else None,
+        })
+
+    return {
+        "summary": {
+            state: sum(1 for r in out if r["state"] == state)
+            for state in ("pristine", "edited", "reordered", "emptied", "missing")
+        },
+        "pages": sorted(out, key=lambda r: (r["state"], r["slug"])),
+    }
+
+
 @router.get("/admin/cms/section-catalogue")
 def admin_section_catalogue(
     user: User = Depends(require_permission("content:manage")),

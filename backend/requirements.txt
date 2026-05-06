@@ -19,6 +19,16 @@ slowapi>=0.1.9
 # Image pipeline (dimensions + WebP optimisation for uploads)
 Pillow>=10.4.0
 
+# Background queue (only used when REDIS_URL is set; the queue helper falls
+# back to synchronous in-process execution otherwise)
+redis>=5.0.0
+rq>=1.16.0
+
+# Optional S3 / R2 / MinIO upload backend (only loaded when
+# UPLOAD_BACKEND=s3). Default upload backend stays local-disk; this stays
+# unused on single-VPS deployments without paying any import cost.
+boto3>=1.35.0
+
 # Observability (Sentry is opt-in via SENTRY_DSN env var)
 python-json-logger>=3.2.0
 sentry-sdk>=2.18.0

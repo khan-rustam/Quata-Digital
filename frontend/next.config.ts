@@ -27,10 +27,20 @@ const cspReportOnly = [
   "upgrade-insecure-requests",
 ].join("; ");
 
+// Env-driven toggles (string env vars on Vercel / process.env in Node).
+// `CSP_ENFORCE=true` swaps Report-Only for the real enforce header.
+// `HSTS_PRELOAD=true` adds the `preload` directive — only flip ON after
+// the apex passes https://hstspreload.org/.
+const cspEnforce = (process.env.CSP_ENFORCE ?? "").toLowerCase() === "true";
+const hstsPreload = (process.env.HSTS_PRELOAD ?? "").toLowerCase() === "true";
+
+const hstsValue = `max-age=63072000; includeSubDomains${hstsPreload ? "; preload" : ""}`;
+
 const securityHeaders = [
-  // Force HTTPS for two years and apply to subdomains. Don't add `preload`
-  // until the apex domain is verified on https://hstspreload.org/.
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  // Force HTTPS for two years and apply to subdomains. `; preload` is
+  // controlled by HSTS_PRELOAD — don't enable until the domain has been
+  // verified on https://hstspreload.org/.
+  { key: "Strict-Transport-Security", value: hstsValue },
   // Block clickjacking attempts on the admin shell.
   { key: "X-Frame-Options", value: "DENY" },
   // Prevent MIME-type sniffing attacks.
@@ -44,8 +54,12 @@ const securityHeaders = [
   },
   // Cross-origin protections.
   { key: "X-DNS-Prefetch-Control", value: "on" },
-  // CSP in Report-Only — flip the header name to enforce after a clean window.
-  { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+  // CSP — defaults to Report-Only so violations surface in devtools without
+  // breaking the page. Flip CSP_ENFORCE=true after a clean reporting window.
+  {
+    key: cspEnforce ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only",
+    value: cspReportOnly,
+  },
 ];
 
 const nextConfig: NextConfig = {

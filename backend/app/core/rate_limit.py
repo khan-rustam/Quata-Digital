@@ -19,12 +19,32 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from app.core.security import decode_token
+
+
+def _key_user_or_ip(request: Request) -> str:
+    """Auth-aware rate-limit key.
+
+    Authenticated requests bucket by user id (`u:<id>`) so a shared
+    office IP doesn't penalise individual admins. Anonymous requests
+    fall back to remote address (`ip:<addr>`).
+    """
+    auth = request.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        token = auth.split(" ", 1)[1].strip()
+        try:
+            user_id = decode_token(token)
+            if user_id:
+                return f"u:{user_id}"
+        except Exception:  # noqa: BLE001
+            pass
+    return f"ip:{get_remote_address(request)}"
 
 
 # When REDIS_URL is set, share rate-limit state across uvicorn workers and
 # replicas. Otherwise the limiter is per-process — fine for a single worker
 # on one VPS, hazardous beyond that. See docs/SCALING.md.
-_kwargs: dict = {"key_func": get_remote_address, "default_limits": []}
+_kwargs: dict = {"key_func": _key_user_or_ip, "default_limits": []}
 if settings.REDIS_URL:
     _kwargs["storage_uri"] = settings.REDIS_URL
 

@@ -297,6 +297,18 @@ def admin_test_sentry(
     }
 
 
+@router.get("/admin/site-settings/queue-status")
+def admin_queue_status(
+    user: User = Depends(require_permission("settings:manage")),
+):
+    """Lightweight snapshot of the background email queue. Lets the admin
+    confirm whether broadcasts are running synchronously or via RQ + how
+    many jobs are queued / failed."""
+    from app.services.queue import queue_status
+
+    return queue_status()
+
+
 @router.post("/admin/site-settings/test-email")
 def admin_test_email(
     payload: dict,

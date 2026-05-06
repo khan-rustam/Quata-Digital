@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import { PageShell } from "@/components/admin/page-shell";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { FormDialog } from "@/components/admin/form-dialog";
@@ -124,11 +125,16 @@ export default function ProductsAdminPage() {
     {
       key: "actions",
       header: "",
-      className: "w-32",
+      className: "w-44",
       cell: (r) => (
         <div className="flex justify-end gap-1">
-          <Button size="sm" variant="ghost" onClick={() => openEdit(r)}>
-            <Pencil className="h-3.5 w-3.5" /> Edit
+          <Button size="sm" variant="ghost" asChild title="Edit the section-based product page">
+            <Link href={`/admin/cms/pages/ecosystem%2F${r.slug}`}>
+              <Layers className="h-3.5 w-3.5" /> Page
+            </Link>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => openEdit(r)} title="Edit product card metadata">
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button size="sm" variant="ghost" className="text-rose-700" onClick={() => setDeleting(r)}>
             <Trash2 className="h-3.5 w-3.5" />

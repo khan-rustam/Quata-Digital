@@ -712,6 +712,37 @@ def retention_prune(
     }
 
 
+@router.get("/analytics/broken-paths")
+def admin_broken_paths(
+    days: int = Query(default=30, ge=1, le=180),
+    limit: int = Query(default=20, ge=1, le=200),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("analytics:view")),
+):
+    """Top inbound 404 paths over the last N days. Lets the admin spot
+    broken external links and add redirects."""
+    from app.models import PageView
+
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    rows = (
+        db.query(
+            PageView.path,
+            func.count(PageView.id).label("hits"),
+            func.count(func.distinct(PageView.referrer)).label("referrers"),
+        )
+        .filter(PageView.is_404 == True)  # noqa: E712
+        .filter(PageView.created_at >= since)
+        .group_by(PageView.path)
+        .order_by(func.count(PageView.id).desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {"path": r[0], "hits": r[1], "distinct_referrers": r[2]}
+        for r in rows
+    ]
+
+
 @router.post("/media/reconcile-used-on")
 def media_reconcile_used_on(
     request: Request,
@@ -868,49 +899,80 @@ def send_broadcast(
     db.flush()
     bc_id = bc.id
 
-    # Render the body once. The current send_email() helper takes plain text;
-    # for now we ship the markdown as-is — the markdown editor on the admin
-    # gives the boss a preview, and most modern mail clients render markdown
-    # ish (paragraphs, links). Future polish: pre-render to HTML for better
-    # formatting; the schema already accepts an `html` arg.
+    # Per-recipient send. When REDIS_URL is configured the helper enqueues
+    # one RQ job per recipient and returns immediately — the worker process
+    # increments the broadcast's counters as each email lands. When Redis is
+    # absent (current single-VPS prod), the helper falls back to running the
+    # job synchronously here, identical to the previous behaviour.
     from app.services.newsletter_tokens import unsubscribe_url_for
+    from app.services.queue import _get_queue, enqueue
+    from app.services.email_jobs import send_broadcast_email
+
+    is_async = _get_queue() is not None
 
     delivered = 0
     failed = 0
     first_err: Optional[str] = None
-    for to in recipients:
-        # Per-recipient unsubscribe footer — each subscriber's link is
-        # unique to them (HMAC-signed). One click on the URL marks them
-        # inactive in the public confirmation page.
-        footer = (
-            "\n\n—\n"
-            "You're receiving this because you subscribed to QUATA Digital "
-            "updates. To unsubscribe in one click:\n"
-            f"{unsubscribe_url_for(to)}"
-        )
-        body_with_footer = payload.body + footer
-        try:
-            ok = send_email(to=to, subject=payload.subject, body=body_with_footer)
-            if ok:
-                delivered += 1
-            else:
+
+    if is_async:
+        for to in recipients:
+            footer = (
+                "\n\n—\n"
+                "You're receiving this because you subscribed to QUATA Digital "
+                "updates. To unsubscribe in one click:\n"
+                f"{unsubscribe_url_for(to)}"
+            )
+            try:
+                enqueue(
+                    send_broadcast_email,
+                    to=to,
+                    subject=payload.subject,
+                    body=payload.body + footer,
+                    broadcast_id=bc_id,
+                    description=f"newsletter:{bc_id}:{to}",
+                )
+            except Exception as exc:  # noqa: BLE001
                 failed += 1
                 if first_err is None:
-                    first_err = "send_email returned False (check EMAIL_BACKEND / SMTP creds)"
-        except Exception as exc:  # noqa: BLE001
-            failed += 1
-            if first_err is None:
-                first_err = f"{type(exc).__name__}: {str(exc)[:200]}"
+                    first_err = f"enqueue failed: {type(exc).__name__}: {str(exc)[:200]}"
+    else:
+        for to in recipients:
+            footer = (
+                "\n\n—\n"
+                "You're receiving this because you subscribed to QUATA Digital "
+                "updates. To unsubscribe in one click:\n"
+                f"{unsubscribe_url_for(to)}"
+            )
+            body_with_footer = payload.body + footer
+            try:
+                ok = send_email(to=to, subject=payload.subject, body=body_with_footer)
+                if ok:
+                    delivered += 1
+                else:
+                    failed += 1
+                    if first_err is None:
+                        first_err = "send_email returned False (check EMAIL_BACKEND / SMTP creds)"
+            except Exception as exc:  # noqa: BLE001
+                failed += 1
+                if first_err is None:
+                    first_err = f"{type(exc).__name__}: {str(exc)[:200]}"
 
     bc = db.get(NewsletterBroadcast, bc_id)
     if bc is None:
         # Defensive — should never happen, but don't crash the response.
         return {"id": bc_id, "delivered": delivered, "failed": failed}
-    bc.delivered_count = delivered
-    bc.failed_count = failed
-    bc.sent_at = datetime.now(timezone.utc)
-    bc.status = "sent" if failed == 0 else ("failed" if delivered == 0 else "sent")
-    bc.error_summary = first_err
+    if is_async:
+        # Counts are incremented by the worker as jobs complete. Mark the
+        # broadcast as queued; it'll flip to sent/failed organically.
+        bc.status = "queued"
+        bc.error_summary = first_err
+        bc.sent_at = datetime.now(timezone.utc)
+    else:
+        bc.delivered_count = delivered
+        bc.failed_count = failed
+        bc.sent_at = datetime.now(timezone.utc)
+        bc.status = "sent" if failed == 0 else ("failed" if delivered == 0 else "sent")
+        bc.error_summary = first_err
 
     log_activity(
         db,
@@ -924,6 +986,7 @@ def send_broadcast(
             "delivered": delivered,
             "failed": failed,
             "test": test_only,
+            "mode": "queued" if is_async else "synchronous",
         },
     )
     db.commit()
@@ -931,6 +994,7 @@ def send_broadcast(
     return {
         "id": bc.id,
         "subject": bc.subject,
+        "mode": "queued" if is_async else "synchronous",
         "recipients_count": bc.recipients_count,
         "delivered": bc.delivered_count,
         "failed": bc.failed_count,

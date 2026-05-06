@@ -215,47 +215,129 @@ def submit_contact(payload: ContactIn, request: Request, db: Session = Depends(g
 
 @router.get("/search")
 def public_search(q: str = Query(default="", min_length=1, max_length=120), db: Session = Depends(get_db)):
-    """Search across published products, blog posts and jobs."""
-    from sqlalchemy import or_, func
-    needle = f"%{q.lower()}%"
-    products = (
-        db.query(Product)
-        .filter(Product.is_published == True)  # noqa: E712
-        .filter(or_(
-            func.lower(Product.name).like(needle),
-            func.lower(Product.tagline).like(needle),
-            func.lower(Product.description).like(needle),
-            func.lower(Product.category).like(needle),
-        ))
-        .limit(8)
-        .all()
-    )
-    posts = (
-        db.query(BlogPost)
-        .filter(BlogPost.is_published == True)  # noqa: E712
-        .filter(or_(
-            func.lower(BlogPost.title).like(needle),
-            func.lower(BlogPost.excerpt).like(needle),
-            func.lower(BlogPost.body).like(needle),
-        ))
-        .limit(8)
-        .all()
-    )
-    jobs = (
-        db.query(Job)
-        .filter(Job.is_published == True)  # noqa: E712
-        .filter(or_(
-            func.lower(Job.title).like(needle),
-            func.lower(Job.summary).like(needle),
-            func.lower(Job.description).like(needle),
-            func.lower(Job.department).like(needle),
-            func.lower(Job.location).like(needle),
-        ))
-        .limit(8)
-        .all()
-    )
+    """Search across published products, blog posts and jobs.
+
+    Uses Postgres `to_tsvector @@ plainto_tsquery` for proper relevance
+    ranking when the live DB is Postgres. Falls back to lowercase LIKE on
+    SQLite (dev / portable mode) so the dev experience matches.
+    """
+    from sqlalchemy import or_, func, text
+
+    is_postgres = db.bind is not None and db.bind.dialect.name == "postgresql"
+
+    if is_postgres:
+        # Per-table relevance with ts_rank. We hard-cap the input via Pydantic
+        # bounds (max 120 chars) so building the query string is safe.
+        # `plainto_tsquery` parses the user input into a query tsv, treating
+        # spaces as AND. `english` is the chosen dictionary; will tighten
+        # to a per-locale dictionary if/when we add proper i18n.
+        prod_rank = func.ts_rank(
+            func.to_tsvector(
+                "english",
+                func.coalesce(Product.name, "")
+                + " "
+                + func.coalesce(Product.tagline, "")
+                + " "
+                + func.coalesce(Product.description, "")
+                + " "
+                + func.coalesce(Product.category, ""),
+            ),
+            func.plainto_tsquery("english", q),
+        )
+        products = (
+            db.query(Product)
+            .filter(Product.is_published == True)  # noqa: E712
+            .filter(prod_rank > 0)
+            .order_by(prod_rank.desc())
+            .limit(8)
+            .all()
+        )
+
+        post_rank = func.ts_rank(
+            func.to_tsvector(
+                "english",
+                func.coalesce(BlogPost.title, "")
+                + " "
+                + func.coalesce(BlogPost.excerpt, "")
+                + " "
+                + func.coalesce(BlogPost.body, ""),
+            ),
+            func.plainto_tsquery("english", q),
+        )
+        posts = (
+            db.query(BlogPost)
+            .filter(BlogPost.is_published == True)  # noqa: E712
+            .filter(post_rank > 0)
+            .order_by(post_rank.desc())
+            .limit(8)
+            .all()
+        )
+
+        job_rank = func.ts_rank(
+            func.to_tsvector(
+                "english",
+                func.coalesce(Job.title, "")
+                + " "
+                + func.coalesce(Job.summary, "")
+                + " "
+                + func.coalesce(Job.description, "")
+                + " "
+                + func.coalesce(Job.department, "")
+                + " "
+                + func.coalesce(Job.location, ""),
+            ),
+            func.plainto_tsquery("english", q),
+        )
+        jobs = (
+            db.query(Job)
+            .filter(Job.is_published == True)  # noqa: E712
+            .filter(job_rank > 0)
+            .order_by(job_rank.desc())
+            .limit(8)
+            .all()
+        )
+    else:
+        # SQLite (and any other non-Postgres) — case-insensitive LIKE.
+        needle = f"%{q.lower()}%"
+        products = (
+            db.query(Product)
+            .filter(Product.is_published == True)  # noqa: E712
+            .filter(or_(
+                func.lower(Product.name).like(needle),
+                func.lower(Product.tagline).like(needle),
+                func.lower(Product.description).like(needle),
+                func.lower(Product.category).like(needle),
+            ))
+            .limit(8)
+            .all()
+        )
+        posts = (
+            db.query(BlogPost)
+            .filter(BlogPost.is_published == True)  # noqa: E712
+            .filter(or_(
+                func.lower(BlogPost.title).like(needle),
+                func.lower(BlogPost.excerpt).like(needle),
+                func.lower(BlogPost.body).like(needle),
+            ))
+            .limit(8)
+            .all()
+        )
+        jobs = (
+            db.query(Job)
+            .filter(Job.is_published == True)  # noqa: E712
+            .filter(or_(
+                func.lower(Job.title).like(needle),
+                func.lower(Job.summary).like(needle),
+                func.lower(Job.description).like(needle),
+                func.lower(Job.department).like(needle),
+                func.lower(Job.location).like(needle),
+            ))
+            .limit(8)
+            .all()
+        )
     return {
         "query": q,
+        "engine": "postgres-fts" if is_postgres else "sqlite-like",
         "results": {
             "products": [
                 {"slug": p.slug, "name": p.name, "tagline": p.tagline, "category": p.category}
@@ -412,6 +494,7 @@ def track_pageview(
         user_agent=request.headers.get("user-agent"),
         visitor_id=str(payload.get("visitor_id", ""))[:80] or None,
         ip_address=get_client_ip(request),
+        is_404=bool(payload.get("is_404", False)),
     )
     db.add(pv)
     db.commit()

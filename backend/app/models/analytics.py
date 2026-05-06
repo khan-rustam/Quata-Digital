@@ -1,6 +1,6 @@
 from typing import Optional
 
-from sqlalchemy import String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -15,3 +15,6 @@ class PageView(Base, TimestampMixin):
     user_agent: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     visitor_id: Mapped[Optional[str]] = mapped_column(String(80), index=True, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    # Marker set by the public 404 page when reached. Lets the analytics
+    # admin surface "top broken paths" to fix bad inbound links.
+    is_404: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)

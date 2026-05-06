@@ -123,6 +123,26 @@ class Settings(BaseSettings):
     ACTIVITY_LOG_RETENTION_DAYS: int = 90
     PAGE_VIEW_RETENTION_DAYS: int = 180
 
+    # ---------- DB connection pool (Postgres only — SQLite ignores) ----------
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_RECYCLE_SECONDS: int = 1800
+    DB_POOL_PRE_PING: bool = True
+
+    # ---------- Security headers (env toggles) ----------
+    CSP_ENFORCE: bool = False  # False = Report-Only; True = enforce
+    HSTS_PRELOAD: bool = False  # add `; preload` only after passing hstspreload.org
+
+    # ---------- Upload backend (local disk vs S3) ----------
+    # `local` (default) writes to UPLOAD_DIR. `s3` requires S3_BUCKET +
+    # AWS creds in the env. Switching backends does not migrate existing
+    # files — that's a one-shot manual sync.
+    UPLOAD_BACKEND: str = "local"  # local | s3
+    S3_BUCKET: Optional[str] = None
+    S3_REGION: Optional[str] = None
+    S3_ENDPOINT_URL: Optional[str] = None  # for R2 / MinIO compatibility
+    S3_PUBLIC_URL_BASE: Optional[str] = None  # CDN domain in front of the bucket
+
     # ---------- Derived helpers ----------
 
     @property
