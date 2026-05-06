@@ -18,6 +18,7 @@ export default function SettingsPage() {
     <PageShell
       title="Settings"
       description="Update your profile, change your password, manage 2FA and notification preferences."
+      narrow
     >
       <Tabs defaultValue="profile">
         <TabsList>

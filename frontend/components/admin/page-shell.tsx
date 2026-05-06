@@ -10,12 +10,20 @@ export function PageShell({
   actions,
   children,
   requirePermission,
+  narrow,
 }: {
   title: string;
   description?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
   requirePermission?: string;
+  /**
+   * Set to true on pages whose body is a narrow form (settings, profile,
+   * single-column composers). Wraps the header + content in a centered
+   * `max-w-3xl mx-auto` container so the form sits in the middle of the
+   * available width on wide screens instead of hugging the sidebar.
+   */
+  narrow?: boolean;
 }) {
   const { user, loading, hasPermission } = useAuth();
 
@@ -37,22 +45,26 @@ export function PageShell({
     );
   }
 
+  const inner = narrow ? "max-w-3xl mx-auto w-full" : undefined;
+
   return (
     <div className="flex-1 min-w-0">
       <AdminTopbar title={title} />
       <div className="px-5 lg:px-8 py-6 lg:py-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-            {description && (
-              <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-                {description}
-              </p>
-            )}
+        <div className={inner}>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+              {description && (
+                <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+                  {description}
+                </p>
+              )}
+            </div>
+            {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
           </div>
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          <div className="mt-6">{children}</div>
         </div>
-        <div className="mt-6">{children}</div>
       </div>
     </div>
   );

@@ -79,6 +79,7 @@ export default function SiteSettingsPage() {
       title="Site settings"
       description="Runtime configuration for the public site and integrations. Changes apply within ~10 seconds; Sentry DSN changes need a backend restart to take effect."
       requirePermission="settings:manage"
+      narrow
     >
       <SiteSettingsTabs />
     </PageShell>
