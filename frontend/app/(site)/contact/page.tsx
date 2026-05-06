@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 import {
   Mail,
   MapPin,
@@ -62,7 +64,11 @@ const channels = [
   },
 ];
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const cms = await getPageContent("contact");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       {/* 1. Hero */}

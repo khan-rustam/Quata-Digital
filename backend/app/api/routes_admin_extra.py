@@ -21,6 +21,7 @@ from app.models import (
     Application,
     AttendanceLog,
     LeaveRequest,
+    NewsletterBroadcast,
     NewsletterSubscriber,
     PartnerRequest,
     Role,
@@ -51,6 +52,7 @@ ALL_PERMISSIONS = [
     {"key": "activity:view", "label": "View activity logs", "group": "system"},
     {"key": "analytics:view", "label": "View website analytics", "group": "system"},
     {"key": "newsletter:manage", "label": "Manage newsletter subscribers", "group": "content"},
+    {"key": "settings:manage", "label": "Manage site settings (integrations, contact info, social)", "group": "system"},
 ]
 
 
@@ -712,4 +714,171 @@ def analytics_timeseries(
         "visits": series_visits,
         "partner_requests": series_partners,
         "job_applications": series_apps,
+    }
+
+
+# -------- Newsletter broadcast: compose & send to all active subscribers --------
+
+
+class BroadcastIn(BaseModel):
+    subject: str = Field(..., min_length=1, max_length=255)
+    body: str = Field(..., min_length=1)
+    test_email: Optional[str] = None  # if set, send only to this address (preview)
+
+
+@router.post("/newsletter/broadcast", status_code=201)
+def send_broadcast(
+    payload: BroadcastIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("newsletter:manage")),
+):
+    """Send a newsletter to all active subscribers (or to `test_email` only,
+    when set, for previews). Records a NewsletterBroadcast row regardless of
+    outcome so the team has a full audit trail."""
+    from app.services.email import send_email
+    from app.core.config import settings as _settings
+
+    test_only = bool(payload.test_email and payload.test_email.strip())
+
+    if test_only:
+        recipients = [payload.test_email.strip().lower()]
+    else:
+        rows = (
+            db.query(NewsletterSubscriber)
+            .filter(NewsletterSubscriber.is_active == True)  # noqa: E712
+            .order_by(NewsletterSubscriber.email)
+            .all()
+        )
+        recipients = [r.email for r in rows]
+
+    if not recipients:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "No active subscribers — nothing to send.",
+        )
+
+    # Insert the audit row up-front so a mid-send crash still leaves a trace.
+    bc = NewsletterBroadcast(
+        subject=payload.subject,
+        body=payload.body,
+        sender_id=user.id,
+        recipients_count=len(recipients),
+        status="pending",
+    )
+    db.add(bc)
+    db.flush()
+    bc_id = bc.id
+
+    # Render the body once. The current send_email() helper takes plain text;
+    # for now we ship the markdown as-is — the markdown editor on the admin
+    # gives the boss a preview, and most modern mail clients render markdown
+    # ish (paragraphs, links). Future polish: pre-render to HTML for better
+    # formatting; the schema already accepts an `html` arg.
+    delivered = 0
+    failed = 0
+    first_err: Optional[str] = None
+    for to in recipients:
+        try:
+            ok = send_email(to=to, subject=payload.subject, body=payload.body)
+            if ok:
+                delivered += 1
+            else:
+                failed += 1
+                if first_err is None:
+                    first_err = "send_email returned False (check EMAIL_BACKEND / SMTP creds)"
+        except Exception as exc:  # noqa: BLE001
+            failed += 1
+            if first_err is None:
+                first_err = f"{type(exc).__name__}: {str(exc)[:200]}"
+
+    bc = db.get(NewsletterBroadcast, bc_id)
+    if bc is None:
+        # Defensive — should never happen, but don't crash the response.
+        return {"id": bc_id, "delivered": delivered, "failed": failed}
+    bc.delivered_count = delivered
+    bc.failed_count = failed
+    bc.sent_at = datetime.now(timezone.utc)
+    bc.status = "sent" if failed == 0 else ("failed" if delivered == 0 else "sent")
+    bc.error_summary = first_err
+
+    log_activity(
+        db,
+        actor=user,
+        action="newsletter_broadcast" if not test_only else "newsletter_broadcast_test",
+        resource_type="newsletter_broadcast",
+        resource_id=bc.id,
+        request=request,
+        details={
+            "recipients": len(recipients),
+            "delivered": delivered,
+            "failed": failed,
+            "test": test_only,
+        },
+    )
+    db.commit()
+    db.refresh(bc)
+    return {
+        "id": bc.id,
+        "subject": bc.subject,
+        "recipients_count": bc.recipients_count,
+        "delivered": bc.delivered_count,
+        "failed": bc.failed_count,
+        "status": bc.status,
+        "sent_at": bc.sent_at,
+        "error_summary": bc.error_summary,
+        "test_only": test_only,
+    }
+
+
+@router.get("/newsletter/broadcasts")
+def list_broadcasts(
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=500),
+    user: User = Depends(require_permission("newsletter:manage")),
+):
+    rows = (
+        db.query(NewsletterBroadcast)
+        .order_by(NewsletterBroadcast.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "subject": r.subject,
+            "recipients_count": r.recipients_count,
+            "delivered_count": r.delivered_count,
+            "failed_count": r.failed_count,
+            "status": r.status,
+            "sent_at": r.sent_at,
+            "created_at": r.created_at,
+            "sender": r.sender.full_name if r.sender else "—",
+            "error_summary": r.error_summary,
+        }
+        for r in rows
+    ]
+
+
+@router.get("/newsletter/broadcasts/{broadcast_id}")
+def get_broadcast(
+    broadcast_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("newsletter:manage")),
+):
+    bc = db.get(NewsletterBroadcast, broadcast_id)
+    if not bc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Broadcast not found")
+    return {
+        "id": bc.id,
+        "subject": bc.subject,
+        "body": bc.body,
+        "recipients_count": bc.recipients_count,
+        "delivered_count": bc.delivered_count,
+        "failed_count": bc.failed_count,
+        "status": bc.status,
+        "sent_at": bc.sent_at,
+        "created_at": bc.created_at,
+        "sender": bc.sender.full_name if bc.sender else "—",
+        "error_summary": bc.error_summary,
     }

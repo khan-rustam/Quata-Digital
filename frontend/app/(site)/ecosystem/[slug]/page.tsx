@@ -22,6 +22,8 @@ import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { ProcessSteps } from "@/components/site/sections/process-steps";
 import { FinalCTA } from "@/components/site/cta";
 import { JsonLd, productJsonLd, breadcrumbJsonLd } from "@/components/site/jsonld";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 import { cn } from "@/lib/utils";
 
 const statusVariant = {
@@ -62,6 +64,11 @@ export default async function ProductPage({
   const { slug } = await params;
   const product = getProduct(slug);
   if (!product) return notFound();
+
+  const cms = await getPageContent(`ecosystem/${slug}`);
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
 
   const others = products.filter((p) => p.slug !== slug).slice(0, 3);
 

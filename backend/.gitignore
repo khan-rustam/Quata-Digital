@@ -6,3 +6,8 @@ __pycache__/
 .env.local
 .idea/
 .vscode/
+
+# User-uploaded content. Keep the directory itself (`.gitkeep`) so the
+# upload service finds it on first boot, but never commit user files.
+uploads/*
+!uploads/.gitkeep

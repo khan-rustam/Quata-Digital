@@ -13,6 +13,8 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { Section, SectionHeader } from "@/components/site/section";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 import { partnerPaths, getPartnerPath } from "@/lib/partner-types";
 import { PartnerForm } from "@/components/forms/partner-form";
 import { ProcessSteps } from "@/components/site/sections/process-steps";
@@ -182,6 +184,12 @@ export default async function PartnerTypePage({
   const { type } = await params;
   const path = getPartnerPath(type);
   if (!path) return notFound();
+
+  const cms = await getPageContent(`partners/${type}`);
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
+
   const Icon = path.icon;
   const eligibility = eligibilityByType[path.slug] ?? [];
   const faqs = faqByType[path.slug] ?? [];

@@ -15,8 +15,11 @@ from app.api.routes_admin_extra import router as admin_extra_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_devices import router as devices_router
 from app.api.routes_public import router as public_router
+from app.api.routes_media import router as media_router
+from app.api.routes_pages import router as pages_router
 from app.api.routes_security import router as security_router
 from app.api.routes_self import router as self_router
+from app.api.routes_site_settings import router as site_settings_router
 from app.api.routes_uploads import router as uploads_router
 from app.api.routes_ws import router as ws_router
 from app.core.config import settings
@@ -75,6 +78,20 @@ async def lifespan(app: FastAPI):
     if settings.SEED_ON_STARTUP:
         with SessionLocal() as db:
             run_seed(db)
+    # Always upsert the site-settings + marketing-pages catalogues so a
+    # freshly migrated prod DB has them rendered for the admin even with
+    # SEED_ON_STARTUP=false. Existing values + section content are preserved.
+    try:
+        from app.services.site_settings import seed_default_settings
+        from app.services.page_content import seed_default_pages
+        from app.services.page_content_seeds import seed_default_section_content
+        with SessionLocal() as db:
+            seed_default_settings(db)
+            seed_default_pages(db)
+            seed_default_section_content(db)
+    except Exception:  # noqa: BLE001
+        # Don't crash boot if the tables aren't ready yet — Alembic will catch up.
+        pass
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
     _startup_time = time.monotonic()
     yield
@@ -155,6 +172,9 @@ app.include_router(self_router, prefix=settings.API_PREFIX)
 app.include_router(security_router, prefix=settings.API_PREFIX)
 app.include_router(uploads_router, prefix=settings.API_PREFIX)
 app.include_router(devices_router, prefix=settings.API_PREFIX)
+app.include_router(site_settings_router, prefix=settings.API_PREFIX)
+app.include_router(media_router, prefix=settings.API_PREFIX)
+app.include_router(pages_router, prefix=settings.API_PREFIX)
 app.include_router(admin_crud_router, prefix=settings.API_PREFIX)
 app.include_router(admin_extra_router, prefix=settings.API_PREFIX)
 app.include_router(admin_router, prefix=settings.API_PREFIX)

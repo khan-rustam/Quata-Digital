@@ -21,6 +21,11 @@ const escapeHtml = (s: string) =>
 
 function inline(s: string): string {
   let out = escapeHtml(s);
+  // images ![alt](url) — must run before links since they share []() syntax.
+  out = out.replace(
+    /!\[([^\]]*)\]\(([^)\s]+)\)/g,
+    '<img src="$2" alt="$1" class="my-3 rounded-xl border border-border max-w-full h-auto" loading="lazy" />'
+  );
   // links [text](url)
   out = out.replace(
     /\[([^\]]+)\]\(([^)\s]+)\)/g,

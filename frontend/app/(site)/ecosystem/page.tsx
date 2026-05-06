@@ -12,6 +12,8 @@ import {
   Network,
 } from "lucide-react";
 import { Section, SectionHeader } from "@/components/site/section";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 import { EcosystemGrid } from "@/components/site/ecosystem-grid";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { StatStrip } from "@/components/site/sections/stat-strip";
@@ -35,7 +37,11 @@ const categories = [
   { name: "Health", icon: Heart, slugs: ["qmediq"] },
 ];
 
-export default function EcosystemIndexPage() {
+export default async function EcosystemIndexPage() {
+  const cms = await getPageContent("ecosystem");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       {/* 1. Hero header */}

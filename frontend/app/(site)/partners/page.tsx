@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 import {
   ArrowRight,
   Sparkles,
@@ -39,7 +41,11 @@ const pathIcons = {
   service: Users,
 } as const;
 
-export default function PartnersIndexPage() {
+export default async function PartnersIndexPage() {
+  const cms = await getPageContent("partners");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       {/* 1. Hero header */}

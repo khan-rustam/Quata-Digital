@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 import {
   ArrowRight,
   Briefcase,
@@ -72,6 +74,10 @@ const fallbackJobs: Job[] = [
 ];
 
 export default async function CareersPage() {
+  const cms = await getPageContent("careers");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   const fetched = await getJobs();
   const jobs = fetched.length > 0 ? fetched : fallbackJobs;
 

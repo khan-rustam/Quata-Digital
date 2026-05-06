@@ -39,8 +39,24 @@ def configure_logging() -> None:
 
 
 def configure_sentry() -> None:
-    if not settings.SENTRY_DSN:
+    """Initialise Sentry SDK once at process boot.
+
+    Reads the DSN from the site_settings table first (admin-editable),
+    falling back to the SENTRY_DSN env var. A DSN change in admin requires a
+    backend restart to take effect — the admin form notes this.
+    """
+    # Local import — settings table query must not run before SQLAlchemy is
+    # configured. `configure_sentry()` is called from main.py at import time
+    # which is fine because the engine is created in db.session at that point.
+    from app.services.site_settings import get_setting
+
+    dsn = get_setting("integrations.sentry_dsn", env_fallback=settings.SENTRY_DSN)
+    if not dsn:
         return
+    env = get_setting(
+        "integrations.sentry_env",
+        env_fallback=settings.SENTRY_ENV or settings.ENVIRONMENT,
+    )
     try:
         import sentry_sdk  # type: ignore
         from sentry_sdk.integrations.fastapi import FastApiIntegration  # type: ignore
@@ -50,8 +66,8 @@ def configure_sentry() -> None:
         return
 
     sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
-        environment=settings.SENTRY_ENV or settings.ENVIRONMENT,
+        dsn=dsn,
+        environment=env,
         traces_sample_rate=0.1,
         send_default_pii=False,
         integrations=[

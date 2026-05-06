@@ -10,7 +10,12 @@ from .attendance import AttendanceLog, Device
 from .activity import ActivityLog
 from .contact import ContactMessage
 from .analytics import PageView
+from .media_asset import MediaAsset
 from .newsletter import NewsletterSubscriber
+from .newsletter_broadcast import NewsletterBroadcast
+from .page_content import PageContent
+from .page_content_version import PageContentVersion
+from .site_setting import SiteSetting
 
 __all__ = [
     "Base",
@@ -33,5 +38,10 @@ __all__ = [
     "ActivityLog",
     "ContactMessage",
     "PageView",
+    "MediaAsset",
     "NewsletterSubscriber",
+    "NewsletterBroadcast",
+    "PageContent",
+    "PageContentVersion",
+    "SiteSetting",
 ]

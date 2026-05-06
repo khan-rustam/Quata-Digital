@@ -38,8 +38,9 @@ export default function NotFound() {
             </Button>
           </div>
 
-          <div className="mt-12 grid sm:grid-cols-3 gap-3 text-left">
+          <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-left">
             {[
+              { href: "/search", label: "Search the site" },
               { href: "/partners", label: "Partner gateway" },
               { href: "/careers", label: "Open roles" },
               { href: "/blog", label: "News & insights" },

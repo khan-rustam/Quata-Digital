@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 import {
   Compass,
   Globe2,
@@ -31,7 +33,11 @@ export const metadata: Metadata = {
     "QUATA Digital is building Africa's connected digital ecosystem — payments, business operations and commerce on one rail. Founded May 2025 in Bamenda, Cameroon.",
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const cms = await getPageContent("about");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       {/* 1. Hero — 2-col with image right */}

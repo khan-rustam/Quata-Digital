@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Section } from "@/components/site/section";
 import { ShieldCheck } from "lucide-react";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 
 export const metadata: Metadata = {
   title: "Privacy",
@@ -53,7 +55,13 @@ const sections = [
   },
 ];
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  // CMS-first: once the lawyer-reviewed copy is published in admin, render
+  // it. Fall back to this static stub until then.
+  const cms = await getPageContent("privacy");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       <section className="relative overflow-hidden -mt-20">

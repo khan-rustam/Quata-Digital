@@ -52,6 +52,7 @@ ROLES = [
             "activity:view",
             "analytics:view",
             "newsletter:manage",
+            "settings:manage",
         ],
     },
     {

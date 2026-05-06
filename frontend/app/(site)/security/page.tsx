@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 
 export const metadata: Metadata = {
   title: "Security",
@@ -20,7 +22,11 @@ export const metadata: Metadata = {
     "Security posture, compliance and responsible disclosure at QUATA Digital.",
 };
 
-export default function SecurityPage() {
+export default async function SecurityPage() {
+  const cms = await getPageContent("security");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       {/* Hero */}

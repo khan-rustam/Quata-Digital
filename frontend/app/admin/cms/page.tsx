@@ -15,8 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/forms/file-upload";
-import { MarkdownPreview } from "@/components/admin/markdown";
-import { Eye, Pencil as PencilIcon } from "lucide-react";
+import { MarkdownEditor } from "@/components/admin/markdown-editor";
 import { useApi, useApiAction } from "@/lib/use-api";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
@@ -334,7 +333,7 @@ function PagesManager() {
         </div>
         <div className="grid gap-2">
           <Label htmlFor="content">Content *</Label>
-          <Textarea id="content" name="content" rows={12} required defaultValue={editing?.content} placeholder={"# Page heading\n\nWrite content in **Markdown**…"} />
+          <PageContentEditor defaultValue={editing?.content ?? ""} />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -361,49 +360,36 @@ function PagesManager() {
 
 function BlogBodyEditor({ defaultValue }: { defaultValue: string }) {
   const [value, setValue] = React.useState(defaultValue);
-  const [tab, setTab] = React.useState<"write" | "preview">("write");
-
   return (
-    <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border bg-surface-soft px-3 py-1.5">
-        <div className="inline-flex items-center gap-1 rounded-full border border-border bg-surface p-0.5 text-xs">
-          <button
-            type="button"
-            onClick={() => setTab("write")}
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 transition ${
-              tab === "write" ? "bg-secondary text-foreground" : "text-muted-foreground"
-            }`}
-          >
-            <PencilIcon className="h-3 w-3" /> Write
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("preview")}
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 transition ${
-              tab === "preview" ? "bg-secondary text-foreground" : "text-muted-foreground"
-            }`}
-          >
-            <Eye className="h-3 w-3" /> Preview
-          </button>
-        </div>
-        <div className="text-[11px] text-muted-foreground">{value.length} chars</div>
-      </div>
-      {/* Always-rendered hidden textarea so the FormDialog still gets the value via FormData */}
-      <textarea
-        name="body"
+    <div className="grid gap-1.5">
+      <MarkdownEditor
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        required
-        className={`block w-full bg-transparent p-4 text-sm font-mono outline-none min-h-[260px] resize-y ${
-          tab === "write" ? "" : "hidden"
-        }`}
+        onChange={setValue}
+        name="body"
+        rows={14}
+        imageFolder="blog"
+        defaultMode="split"
         placeholder={"# Heading\n\nWrite your post in **Markdown**.\n\n- Lists\n- [Links](https://quatadigital.com)\n- `code`"}
       />
-      {tab === "preview" && (
-        <div className="max-h-[420px] overflow-y-auto bg-card p-5">
-          <MarkdownPreview source={value} />
-        </div>
-      )}
+      <div className="text-[11px] text-muted-foreground text-right">{value.length} chars</div>
+    </div>
+  );
+}
+
+function PageContentEditor({ defaultValue }: { defaultValue: string }) {
+  const [value, setValue] = React.useState(defaultValue);
+  return (
+    <div className="grid gap-1.5">
+      <MarkdownEditor
+        value={value}
+        onChange={setValue}
+        name="content"
+        rows={12}
+        imageFolder="cms-pages"
+        defaultMode="split"
+        placeholder={"# Page heading\n\nWrite content in **Markdown**…"}
+      />
+      <div className="text-[11px] text-muted-foreground text-right">{value.length} chars</div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "./logo";
 import { Mail, MapPin, Phone, ArrowUpRight } from "lucide-react";
 import { products } from "@/lib/ecosystem";
+import { getSiteSettings } from "@/lib/site-settings";
 
 function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -15,6 +16,30 @@ function InstagramIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
       <path d="M12 2.16c3.2 0 3.58 0 4.85.07 1.17.05 1.81.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s0 3.58-.07 4.85c-.05 1.17-.25 1.81-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58 0-4.85-.07c-1.17-.05-1.81-.25-2.23-.41a3.73 3.73 0 0 1-1.38-.9 3.73 3.73 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s0-3.58.07-4.85c.05-1.17.25-1.81.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16ZM12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63a5.9 5.9 0 0 0-2.13 1.38A5.9 5.9 0 0 0 .63 4.14C.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.73 1.46 1.38 2.13a5.9 5.9 0 0 0 2.13 1.38c.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56a5.9 5.9 0 0 0 2.13-1.38 5.9 5.9 0 0 0 1.38-2.13c.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63C19.1.33 18.22.13 16.95.07 15.67.01 15.26 0 12 0Zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84Zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4Zm6.4-11.85a1.44 1.44 0 1 0 1.44 1.44 1.44 1.44 0 0 0-1.44-1.44Z" />
+    </svg>
+  );
+}
+
+function LinkedinIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45ZM22.23 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.28V1.72C24 .77 23.2 0 22.23 0Z" />
+    </svg>
+  );
+}
+
+function TwitterIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117l11.966 15.644Z" />
+    </svg>
+  );
+}
+
+function YoutubeIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M23.5 6.2a3.02 3.02 0 0 0-2.13-2.14C19.46 3.55 12 3.55 12 3.55s-7.46 0-9.37.51A3.02 3.02 0 0 0 .5 6.2C0 8.13 0 12 0 12s0 3.87.5 5.8a3.02 3.02 0 0 0 2.13 2.14c1.91.51 9.37.51 9.37.51s7.46 0 9.37-.51a3.02 3.02 0 0 0 2.13-2.14C24 15.87 24 12 24 12s0-3.87-.5-5.8ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" />
     </svg>
   );
 }
@@ -52,7 +77,40 @@ const groups = [
   },
 ];
 
-export function Footer() {
+const DEFAULT_ADDRESS_LINES = [
+  "QUATA Building, P.C Ntamulung Street",
+  "Bamenda — Northwest Region, Cameroon",
+];
+const DEFAULT_PUBLIC_EMAIL = "info@quatadigital.com";
+const DEFAULT_SUPPORT_EMAIL = "support@quatadigital.com";
+
+export async function Footer() {
+  const settings = await getSiteSettings();
+  const phone = settings.contact.phone ?? process.env.NEXT_PUBLIC_CONTACT_PHONE ?? null;
+  const publicEmail = settings.contact.email ?? DEFAULT_PUBLIC_EMAIL;
+  const addressLines = settings.contact.address
+    ? settings.contact.address.split("\n").map((l) => l.trim()).filter(Boolean)
+    : DEFAULT_ADDRESS_LINES;
+
+  // Order matches the rendered icon row below; entry is dropped when null.
+  const socialLinks: { href: string; label: string; icon: React.ComponentType<React.SVGProps<SVGSVGElement>> }[] = [
+    settings.social.facebook_url
+      ? { href: settings.social.facebook_url, label: "Facebook", icon: FacebookIcon }
+      : { href: "https://www.facebook.com/share/1HFDnBuFWz/", label: "Facebook", icon: FacebookIcon },
+    settings.social.instagram_url
+      ? { href: settings.social.instagram_url, label: "Instagram", icon: InstagramIcon }
+      : { href: "https://www.instagram.com/quatadigital", label: "Instagram", icon: InstagramIcon },
+  ];
+  if (settings.social.linkedin_url) {
+    socialLinks.push({ href: settings.social.linkedin_url, label: "LinkedIn", icon: LinkedinIcon });
+  }
+  if (settings.social.twitter_url) {
+    socialLinks.push({ href: settings.social.twitter_url, label: "Twitter / X", icon: TwitterIcon });
+  }
+  if (settings.social.youtube_url) {
+    socialLinks.push({ href: settings.social.youtube_url, label: "YouTube", icon: YoutubeIcon });
+  }
+
   return (
     <footer className="mt-24 relative overflow-hidden border-t border-border bg-ink text-white">
       {/* Centered single-line text watermark — fluid font size keeps the
@@ -144,61 +202,63 @@ export function Footer() {
               <li className="flex items-start gap-2.5">
                 <MapPin className="h-3.5 w-3.5 text-accent mt-0.5 shrink-0" />
                 <span className="text-white/75">
-                  QUATA Building, P.C Ntamulung Street
-                  <br />
-                  Bamenda — Northwest Region, Cameroon
+                  {addressLines.map((line, i) => (
+                    <span key={i}>
+                      {line}
+                      {i < addressLines.length - 1 && <br />}
+                    </span>
+                  ))}
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="h-3.5 w-3.5 text-accent" />
                 <a
-                  href="mailto:info@quatadigital.com"
+                  href={`mailto:${publicEmail}`}
                   className="text-white/75 hover:text-white transition"
                 >
-                  info@quatadigital.com
+                  {publicEmail}
                 </a>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="h-3.5 w-3.5 text-accent" />
                 <a
-                  href="mailto:support@quatadigital.com"
+                  href={`mailto:${DEFAULT_SUPPORT_EMAIL}`}
                   className="text-white/75 hover:text-white transition"
                 >
-                  support@quatadigital.com
+                  {DEFAULT_SUPPORT_EMAIL}
                 </a>
               </li>
-              {process.env.NEXT_PUBLIC_CONTACT_PHONE && (
+              {phone && (
                 <li className="flex items-center gap-2.5">
                   <Phone className="h-3.5 w-3.5 text-accent" />
                   <a
-                    href={`tel:${process.env.NEXT_PUBLIC_CONTACT_PHONE.replace(/\s+/g, "")}`}
+                    href={`tel:${phone.replace(/\s+/g, "")}`}
                     className="text-white/75 hover:text-white transition"
                   >
-                    {process.env.NEXT_PUBLIC_CONTACT_PHONE}
+                    {phone}
                   </a>
+                </li>
+              )}
+              {settings.contact.support_hours && (
+                <li className="flex items-center gap-2.5 text-white/55">
+                  <span className="ml-5.5">{settings.contact.support_hours}</span>
                 </li>
               )}
             </ul>
 
             <div className="mt-7 flex items-center gap-2.5">
-              <a
-                href="https://www.facebook.com/share/1HFDnBuFWz/"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Follow QUATA Digital on Facebook"
-                className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition"
-              >
-                <FacebookIcon className="h-3.5 w-3.5" />
-              </a>
-              <a
-                href="https://www.instagram.com/quatadigital"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Follow QUATA Digital on Instagram"
-                className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition"
-              >
-                <InstagramIcon className="h-3.5 w-3.5" />
-              </a>
+              {socialLinks.map((s) => (
+                <a
+                  key={s.href + s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Follow QUATA Digital on ${s.label}`}
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition"
+                >
+                  <s.icon className="h-3.5 w-3.5" />
+                </a>
+              ))}
             </div>
           </div>
 

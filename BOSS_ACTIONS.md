@@ -1,180 +1,94 @@
 # Boss-only actions before public launch
 
-Engineering closed every dev-doable item across the audit. This document lists
-the remaining items that **only the boss can complete**, the exact handoff each
-one needs, and where in the codebase the integration is already wired up
-waiting for the value.
+Engineering has closed every dev-doable item. The list below is what only
+the boss can complete — credentials, legal sign-off, brand assets, photos, or
+a content decision.
 
-The order roughly matches launch sequencing — top items unblock the most
-downstream work.
+For depth + audit IDs (`C##`/`H##`/`M##`), see [docs/PRODUCTION_AUDIT.md](docs/PRODUCTION_AUDIT.md).
 
----
-
-## 1. Pick the production database (audit C12)
-
-**What I need from you:** A managed Postgres URL (Neon, Supabase, Railway,
-DigitalOcean, RDS — any of them).
-
-**Where it goes:** `DATABASE_URL` in the production `.env` of the backend
-container. Everything else is wired:
-- The Alembic baseline migration
-  ([backend/alembic/versions/df03f53e48ce_initial_baseline.py](backend/alembic/versions/df03f53e48ce_initial_baseline.py))
-  builds all 21 tables on a fresh DB.
-- The production-config guard refuses boot until you set `AUTO_CREATE_TABLES=false`,
-  which forces the deploy script to run `alembic upgrade head` instead.
+Last reviewed: **2026-05-06**.
 
 ---
 
-## 2. Confirm the production domain (audit H7, indirectly)
+## Already resolved (no longer blocking)
 
-**What I need from you:** Decide whether `quatadigital.com` (apex) or
-`www.quatadigital.com` is canonical, and which one redirects to the other.
-
-**Where it goes:** DNS (apex A/AAAA + `www` CNAME) and the Cloudflare
-page rule that does the redirect.
-
----
-
-## 3. SMTP2GO credentials (audit H1)
-
-**What I need from you:** The SMTP2GO username, password, and confirmed
-sender domain (with SPF, DKIM, DMARC verified inside SMTP2GO).
-
-**Where it goes:**
-
-```
-EMAIL_BACKEND=smtp
-SMTP_HOST=mail.smtp2go.com
-SMTP_PORT=587
-SMTP_USE_TLS=true
-SMTP_USER=<from SMTP2GO>
-SMTP_PASSWORD=<from SMTP2GO>
-EMAIL_FROM=QUATA Digital <noreply@quatadigital.com>
-EMAIL_NOTIFY_TO=info@quatadigital.com
-```
-
-The production-config guard will refuse to boot until `EMAIL_BACKEND` is
-no longer `console`.
-
-Already wired:
-- Partner submissions, contact form, job applications, password resets,
-  staff invites all go through `app/services/email.py` already.
+- **Production Postgres URL** — already provisioned on the VPS. ✓
+- **SMTP credentials** — already wired through the admin. ✓
+- **Cloudflare** — descoped from launch blockers; revisit post-launch when traffic justifies edge caching.
+- **Backup plan** — descoped; first backup work begins 3–4 weeks after launch once real usage is in the DB.
 
 ---
 
-## 4. Sentry DSN (audit H13)
+## 1. Domain canonicalisation ([C-02](docs/PRODUCTION_AUDIT.md#c-02))
 
-**What I need from you:** A Sentry account + DSN, or a definitive
-"we're skipping Sentry — use BugSnag/Rollbar instead."
+Pick which host is the public URL: `quatadigital.com` (apex) or `www.quatadigital.com`. The other one will 301-redirect to it.
 
-**Where it goes:**
-
-```
-SENTRY_DSN=<from sentry.io>
-SENTRY_ENV=production
-```
-
-Already wired in `app/core/logging_config.configure_sentry()`. Without a
-DSN it's a no-op.
+The DNS lives on Hostinger. Step-by-step walkthrough is in [docs/HOSTINGER_DOMAIN_CHECKLIST.md](docs/HOSTINGER_DOMAIN_CHECKLIST.md) — open that, walk through it, and send back what you see. Engineering then wires the redirect at the reverse proxy.
 
 ---
 
-## 5. hCaptcha keys (audit H5)
+## 2. hCaptcha keys ([H-02](docs/PRODUCTION_AUDIT.md#h-02))
 
-**What I need from you:** A site key + secret from hcaptcha.com (free
-tier is fine for launch volume).
+Create an account at https://hcaptcha.com (free), generate a site key + secret key, then paste both into:
 
-**Where it goes:**
+**Admin → Settings → Integrations → hCaptcha**
 
-Backend `.env`:
-```
-HCAPTCHA_SITE_KEY=<public site key>
-HCAPTCHA_SECRET_KEY=<server secret>
-```
+(Engineering will ship the screen this sprint as part of the [F-01 settings store](docs/PRODUCTION_AUDIT.md#f-01).)
 
-Frontend `.env`:
-```
-NEXT_PUBLIC_HCAPTCHA_SITE_KEY=<same public site key>
-```
-
-Already wired:
-- Public partner submit, contact form, job application, newsletter
-  signup all read the token from the form and ship it to the server.
-- `app/services/captcha.py` validates the token against hCaptcha when
-  the keys are present, no-ops when they aren't.
+Currently the codebase reads keys from env vars and is a no-op when blank — so the keys can land any time without breaking anything else.
 
 ---
 
-## 6. Cloudflare account (audit H7)
+## 3. Sentry DSN ([H-03](docs/PRODUCTION_AUDIT.md#h-03))
 
-**What I need from you:** Cloudflare account with the apex domain proxied
-through it. Once it's there I'll add the cache rules + page rules.
+Create a Sentry project at https://sentry.io (free for 5k errors/month), copy the DSN, paste into:
 
----
+**Admin → Settings → Integrations → Sentry**
 
-## 7. Backup plan + retention policy (audit H8)
-
-**What I need from you:** Three answers — frequency (daily? hourly?),
-retention (7 / 30 / 90 days?), and where backups live (managed Postgres
-provider's default, or off to a separate bucket).
-
-I'll then write the script + document the documented restore drill.
+Same shape as #2. After saving, the backend needs a restart for the SDK to actually initialise — the admin form will say so.
 
 ---
 
-## 8. Legal review of `/privacy` and `/terms` (audit M11, M12)
+## 4. Privacy & terms — verify with lawyer ([M-01](docs/PRODUCTION_AUDIT.md#m-01))
 
-**What I need from you:**
-- Sign-off (or red-line edits) from a Cameroonian lawyer on the current
-  `/privacy` and `/terms` text against Loi n° 2010/012.
-- Confirmation that `privacy@quatadigital.com` exists and is monitored.
+Engineering will write the long-form draft for `/privacy` and `/terms` and publish them as CMS-managed pages. Once the draft is in admin, send the URLs to a Cameroonian lawyer for a Loi n° 2010/012 review and edit inline through the admin panel based on what they say.
 
----
-
-## 9. Newsletter ESP decision (audit C2)
-
-**What I need from you:** Either:
-- "Keep the in-DB list" — already shipped, admin can export CSV from
-  `/admin/newsletter` and send broadcasts manually; or
-- "Sync to Mailchimp / ConvertKit / Buttondown" — give me the API key
-  and I'll wire the sync.
+Also confirm `privacy@quatadigital.com` is monitored (or pick a different mailbox).
 
 ---
 
-## 10. Founder photo + product screenshots (audit M1, M2)
+## 5. Content & images — uploaded from admin
 
-**What I need from you:**
-- A high-res headshot of Neba Clovis Ngwa to replace the placeholder on
-  `/about`.
-- Screenshots of QUATAPAY and ABAQWA dashboards to replace the gradients
-  on `/ecosystem/quatapay` and `/ecosystem/abaqwa`.
+Once the new CMS lands ([F-02](docs/PRODUCTION_AUDIT.md#f-02)), all content + image updates flow through the admin panel:
 
-Drop them in `frontend/public/` and tell me what to call them — I'll
-swap the `<Image>` tags.
-
----
-
-## 11. Press / partner logos (audit M7)
-
-**What I need from you:** Permission to display any partner or press
-logos. Until then, the site has no logo wall — which is correct because
-fake logos are worse than no logos.
+| What | Where | Notes |
+|---|---|---|
+| Founder photo | Admin → Pages → About → Hero section | High-res JPG, ≥ 800×1000. |
+| QUATAPAY dashboard screenshot | Admin → Products → quatapay → Hero | Real dashboard, not gradient. |
+| ABAQWA dashboard screenshot | Admin → Products → abaqwa → Hero | Same. |
+| Real 88BASKET logo | Admin → Products → 88basket → Logo | Replaces placeholder SVG. |
+| Real QMEDIQ logo | Admin → Products → qmediq → Logo | Same. |
+| Partner / press logos | Admin → Pages → Home → Press strip | Only logos with explicit permission. |
+| Per-product launch dates / website URL | Admin → Products → {slug} | "TBA" today for 88BASKET, O3MALL, QMEDIQ. |
+| Public phone | Admin → Settings → Contact info | Hidden in footer until set. |
+| Lock the launch date copy | Admin → Pages (Home, About, Ecosystem, …) | Search-and-replace "May 2026" once locked. |
+| Privacy / Terms text | Admin → Pages → Privacy / Terms | Lawyer-edited. |
 
 ---
 
-## 12. Launch date (audit boss-only #10)
+## 6. Newsletter
 
-**What I need from you:** Lock the launch date. The site copy currently
-says May 2026 in several places (founder bio, blog posts, ecosystem
-page). When the date firms up, search-and-replace.
+Engineering will ship an admin compose-and-send screen ([M-02](docs/PRODUCTION_AUDIT.md#m-02)) — broadcast directly from the admin to every active subscriber. **No third-party ESP sync** unless you change your mind later.
+
+Subscribers list, CSV export, and unsubscribe are already live at `/admin/newsletter`.
 
 ---
 
 ## How to use this doc
 
-When you can answer one of the items above, paste the value into the
-relevant `.env` (or send me the asset). Each item is independent — you
-don't need them in this order. Items 1, 3, and 5 are the highest-impact
-because they unblock the production-safety guards.
+When you can answer one of the items above, paste the value into the relevant
+admin screen (or the relevant `.env` for items still env-driven). Items are
+independent.
 
-Audit cross-references are to the original [PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md).
+Top priority for unblocking launch is **#1 (domain)** — it's what stops the
+apex/www inconsistency that will cost SEO and break sign-ins from the wrong host.

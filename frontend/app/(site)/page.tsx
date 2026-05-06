@@ -22,8 +22,17 @@ import { StatStrip } from "@/components/site/sections/stat-strip";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { BigQuote } from "@/components/site/sections/big-quote";
 import { CoverageMap } from "@/components/site/sections/coverage-map";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 
-export default function HomePage() {
+export default async function HomePage() {
+  // CMS-first: if the boss has published sections for the home page, render
+  // those. Otherwise fall back to the curated static layout below — the live
+  // site keeps working exactly as it does today until they publish in admin.
+  const cms = await getPageContent("home");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       {/* 1. Hero */}

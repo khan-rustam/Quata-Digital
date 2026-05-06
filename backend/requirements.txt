@@ -16,6 +16,9 @@ pyotp>=2.9.0
 qrcode>=7.4.0
 slowapi>=0.1.9
 
+# Image pipeline (dimensions + WebP optimisation for uploads)
+Pillow>=10.4.0
+
 # Observability (Sentry is opt-in via SENTRY_DSN env var)
 python-json-logger>=3.2.0
 sentry-sdk>=2.18.0

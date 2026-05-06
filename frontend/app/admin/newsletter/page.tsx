@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Download, Trash2, Mail, MailX } from "lucide-react";
+import Link from "next/link";
+import { Download, Trash2, Mail, MailX, Send } from "lucide-react";
 import { PageShell } from "@/components/admin/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,9 +83,16 @@ export default function NewsletterPage() {
       description="Subscribers captured from the marketing site footer and product pages."
       requirePermission="newsletter:manage"
       actions={
-        <Button onClick={onExport} variant="outline" size="sm">
-          <Download className="h-4 w-4" /> Export active CSV
-        </Button>
+        <>
+          <Button onClick={onExport} variant="outline" size="sm">
+            <Download className="h-4 w-4" /> Export active CSV
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/admin/newsletter/broadcast">
+              <Send className="h-4 w-4" /> Send a newsletter
+            </Link>
+          </Button>
+        </>
       }
     >
       <div className="grid gap-6">

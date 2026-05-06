@@ -17,7 +17,10 @@ import {
   Cpu,
   Building,
   Shield,
+  Layers,
+  Image as ImageIcon,
   Settings,
+  SlidersHorizontal,
   Mail,
   LogOut,
 } from "lucide-react";
@@ -36,8 +39,10 @@ const groups = [
   {
     title: "Content",
     items: [
-      { href: "/admin/cms", label: "CMS pages", icon: FileText, perm: "content:manage" },
+      { href: "/admin/cms/pages", label: "Marketing pages", icon: Layers, perm: "content:manage" },
+      { href: "/admin/cms", label: "Blog & posts", icon: FileText, perm: "content:manage" },
       { href: "/admin/products", label: "Products", icon: Package, perm: "content:manage" },
+      { href: "/admin/media", label: "Media library", icon: ImageIcon, perm: "content:manage" },
       { href: "/admin/newsletter", label: "Newsletter", icon: Mail, perm: "newsletter:manage" },
     ],
   },
@@ -64,6 +69,7 @@ const groups = [
     title: "System",
     items: [
       { href: "/admin/activity", label: "Activity logs", icon: Activity, perm: "activity:view" },
+      { href: "/admin/site-settings", label: "Site settings", icon: SlidersHorizontal, perm: "settings:manage" },
       { href: "/admin/settings", label: "My settings", icon: Settings, perm: null },
     ],
   },

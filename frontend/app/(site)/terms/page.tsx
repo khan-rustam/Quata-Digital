@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Section } from "@/components/site/section";
 import { FileText } from "lucide-react";
+import { SectionRenderer } from "@/components/site/sections/section-renderer";
+import { getPageContent } from "@/lib/page-content";
 
 export const metadata: Metadata = {
   title: "Terms",
@@ -60,7 +62,11 @@ const sections = [
   },
 ];
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const cms = await getPageContent("terms");
+  if (cms) {
+    return <SectionRenderer sections={cms.sections} />;
+  }
   return (
     <>
       <section className="relative overflow-hidden -mt-20">
