@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import type { Section } from "@/lib/page-content";
+import { renderMarkdownToHtml } from "@/lib/markdown";
 import { Button } from "@/components/ui/button";
 import { NewsletterSignup } from "@/components/site/sections/newsletter";
 
@@ -548,24 +549,16 @@ function NewsletterCtaSection({ s }: { s: Extract<Section, { type: "newsletter_c
 function RichTextSection({ s }: { s: Extract<Section, { type: "rich_text" }> }) {
   const widthClass =
     s.width === "narrow" ? "max-w-2xl" : s.width === "wide" ? "max-w-5xl" : "max-w-3xl";
-  // Minimal markdown rendering — paragraph splits + line breaks. The heavy
-  // lift can be added later with a markdown component if needed; keeping the
-  // dependency surface small for now.
-  const paragraphs = s.body.split(/\n{2,}/g);
+  // Server-rendered markdown via the shared `lib/markdown.ts` helper. Same
+  // formatter the admin preview uses, so what the boss sees in the editor
+  // matches the published page.
+  const html = renderMarkdownToHtml(s.body);
   return (
     <SectionWrap>
-      <article className={`prose prose-sm md:prose-base ${widthClass} text-foreground`}>
-        {paragraphs.map((p, i) => (
-          <p key={i} className="mt-4 first:mt-0 leading-relaxed text-[15px] md:text-base">
-            {p.split("\n").map((line, j, arr) => (
-              <span key={j}>
-                {line}
-                {j < arr.length - 1 && <br />}
-              </span>
-            ))}
-          </p>
-        ))}
-      </article>
+      <article
+        className={`${widthClass} text-foreground/90 text-[15px] md:text-base`}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     </SectionWrap>
   );
 }
@@ -586,9 +579,10 @@ function ImageTextSection({ s }: { s: Extract<Section, { type: "image_text" }> }
               {s.title}
             </h2>
           )}
-          <div className="mt-4 text-muted-foreground leading-relaxed whitespace-pre-line">
-            {s.body}
-          </div>
+          <div
+            className="mt-4 text-muted-foreground leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(s.body) }}
+          />
         </div>
         {s.image_url && (
           <div className={`relative aspect-[4/3] rounded-2xl overflow-hidden ring-elevated bg-secondary ${right ? "lg:order-2" : "lg:order-1"}`}>

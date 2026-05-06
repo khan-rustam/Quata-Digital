@@ -646,6 +646,10 @@ def retention_prune(
     cutoff_pv = datetime.now(timezone.utc) - timedelta(
         days=_settings.PAGE_VIEW_RETENTION_DAYS
     )
+    from app.models import MediaAsset, PageContentVersion
+
+    cutoff_media = datetime.now(timezone.utc) - timedelta(days=30)
+
     deleted_act = (
         db.query(ActivityLog)
         .filter(ActivityLog.created_at < cutoff_act)
@@ -656,20 +660,114 @@ def retention_prune(
         .filter(PageView.created_at < cutoff_pv)
         .delete(synchronize_session=False)
     )
+    # Hard-delete media that's been soft-deleted for 30+ days. Soft-deleted
+    # rows are kept around long enough for the boss to spot a mistake; after
+    # that we reclaim DB rows. Files on disk are NOT touched here — that's
+    # a separate operation since other pages may still link to a leaked URL.
+    deleted_media = (
+        db.query(MediaAsset)
+        .execution_options(include_deleted=True)
+        .filter(
+            MediaAsset.is_deleted == True,  # noqa: E712
+            MediaAsset.deleted_at < cutoff_media,
+        )
+        .delete(synchronize_session=False)
+    )
+    # Page-content versions are already capped at 10 per page on every save,
+    # but if a page is itself deleted the versions stay forever — sweep
+    # orphans here.
+    from app.models import PageContent
+
+    live_slugs = {r[0] for r in db.query(PageContent.slug).all()}
+    if live_slugs:
+        deleted_versions = (
+            db.query(PageContentVersion)
+            .filter(PageContentVersion.page_slug.notin_(live_slugs))
+            .delete(synchronize_session=False)
+        )
+    else:
+        deleted_versions = 0
+
     log_activity(
         db,
         actor=user,
         action="retention_prune",
         resource_type="system",
         request=request,
-        details={"activity_log": deleted_act, "page_views": deleted_pv},
+        details={
+            "activity_log": deleted_act,
+            "page_views": deleted_pv,
+            "media_assets_purged": deleted_media,
+            "orphan_page_versions": deleted_versions,
+        },
     )
     db.commit()
     return {
         "deleted": {
             "activity_log": deleted_act,
             "page_views": deleted_pv,
+            "media_assets_purged": deleted_media,
+            "orphan_page_versions": deleted_versions,
         }
+    }
+
+
+@router.post("/media/reconcile-used-on")
+def media_reconcile_used_on(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("content:manage")),
+):
+    """Rebuild every `MediaAsset.used_on` from scratch by walking all
+    `PageContent.sections` payloads.
+
+    Why this exists: the live tracking is updated incrementally on every
+    page save, but if the boss hand-types a URL into a section, or a row
+    drifts due to a partial save, the indexes can fall out of sync.
+    Running this is idempotent and safe; recommended as a weekly cron.
+    """
+    from app.models import MediaAsset, PageContent
+    from app.services.media_usage import extract_media_urls_from_sections
+
+    # 1) Build the canonical url -> {slug, slug, ...} map from all pages.
+    canonical: dict[str, set[str]] = {}
+    pages = db.query(PageContent).all()
+    for p in pages:
+        urls = extract_media_urls_from_sections(p.sections or [])
+        for url in urls:
+            canonical.setdefault(url, set()).add(p.slug)
+
+    # 2) Walk every live MediaAsset; replace `used_on` with the canonical
+    # set for that URL (empty list when the asset isn't referenced anywhere).
+    rows = (
+        db.query(MediaAsset)
+        .filter(MediaAsset.is_deleted == False)  # noqa: E712
+        .all()
+    )
+    updated = 0
+    for r in rows:
+        new_set = sorted(canonical.get(r.url, set()))
+        if list(r.used_on or []) != new_set:
+            r.used_on = new_set
+            updated += 1
+
+    log_activity(
+        db,
+        actor=user,
+        action="reconcile_media_used_on",
+        resource_type="media_asset",
+        request=request,
+        details={
+            "rows_total": len(rows),
+            "rows_updated": updated,
+            "urls_referenced": len(canonical),
+        },
+    )
+    db.commit()
+    return {
+        "rows_total": len(rows),
+        "rows_updated": updated,
+        "urls_referenced_from_pages": len(canonical),
     }
 
 
@@ -775,12 +873,24 @@ def send_broadcast(
     # gives the boss a preview, and most modern mail clients render markdown
     # ish (paragraphs, links). Future polish: pre-render to HTML for better
     # formatting; the schema already accepts an `html` arg.
+    from app.services.newsletter_tokens import unsubscribe_url_for
+
     delivered = 0
     failed = 0
     first_err: Optional[str] = None
     for to in recipients:
+        # Per-recipient unsubscribe footer — each subscriber's link is
+        # unique to them (HMAC-signed). One click on the URL marks them
+        # inactive in the public confirmation page.
+        footer = (
+            "\n\n—\n"
+            "You're receiving this because you subscribed to QUATA Digital "
+            "updates. To unsubscribe in one click:\n"
+            f"{unsubscribe_url_for(to)}"
+        )
+        body_with_footer = payload.body + footer
         try:
-            ok = send_email(to=to, subject=payload.subject, body=payload.body)
+            ok = send_email(to=to, subject=payload.subject, body=body_with_footer)
             if ok:
                 delivered += 1
             else:

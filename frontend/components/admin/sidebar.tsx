@@ -19,6 +19,7 @@ import {
   Shield,
   Layers,
   Image as ImageIcon,
+  Trash2,
   Settings,
   SlidersHorizontal,
   Mail,
@@ -69,6 +70,7 @@ const groups = [
     title: "System",
     items: [
       { href: "/admin/activity", label: "Activity logs", icon: Activity, perm: "activity:view" },
+      { href: "/admin/trash", label: "Trash", icon: Trash2, perm: null },
       { href: "/admin/site-settings", label: "Site settings", icon: SlidersHorizontal, perm: "settings:manage" },
       { href: "/admin/settings", label: "My settings", icon: Settings, perm: null },
     ],

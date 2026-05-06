@@ -361,6 +361,45 @@ def newsletter_unsubscribe(
     return {"ok": True}
 
 
+@router.get("/newsletter/unsubscribe", status_code=200)
+def newsletter_unsubscribe_oneclick(
+    email: str,
+    token: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """One-click unsubscribe from a broadcast email.
+
+    The token is `HMAC-SHA256(SECRET_KEY, "unsubscribe:" + email).hex()[:24]`.
+    Validates the token, marks the subscriber inactive (idempotent), then
+    returns a JSON confirmation that the frontend confirmation page reads.
+    Always returns ok=true regardless of whether the email was on the list,
+    so the URL never leaks list membership.
+    """
+    from app.services.newsletter_tokens import verify_unsubscribe_token
+
+    email = email.lower().strip()
+    if not verify_unsubscribe_token(email, token):
+        # Don't 4xx — that would let a scanner enumerate valid emails. Return
+        # a generic ok so the public link looks the same to attackers.
+        return {"ok": True}
+
+    sub = db.query(NewsletterSubscriber).filter(NewsletterSubscriber.email == email).first()
+    if sub and sub.is_active:
+        sub.is_active = False
+        sub.unsubscribed_at = datetime.now(timezone.utc)
+        log_activity(
+            db,
+            actor=None,
+            action="unsubscribe_oneclick",
+            resource_type="newsletter",
+            resource_id=sub.id,
+            request=request,
+        )
+        db.commit()
+    return {"ok": True, "email": email}
+
+
 @router.post("/track", status_code=204)
 def track_pageview(
     payload: dict,

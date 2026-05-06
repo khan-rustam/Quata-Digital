@@ -32,6 +32,7 @@ export type SocialSettings = {
 
 export type ToggleSettings = {
   maintenance_mode: boolean;
+  maintenance_message: string | null;
 };
 
 export type SiteSettings = {
@@ -49,7 +50,7 @@ const EMPTY: SiteSettings = {
     youtube_url: null,
     facebook_url: null,
   },
-  toggles: { maintenance_mode: false },
+  toggles: { maintenance_mode: false, maintenance_message: null },
 };
 
 function pick(map: Record<string, string | null>, key: string): string | null {
@@ -88,6 +89,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
         maintenance_mode:
           (pick(map, "toggles.maintenance_mode") ?? "").toLowerCase() === "true" ||
           pick(map, "toggles.maintenance_mode") === "1",
+        maintenance_message: pick(map, "toggles.maintenance_message"),
       },
     };
   } catch {

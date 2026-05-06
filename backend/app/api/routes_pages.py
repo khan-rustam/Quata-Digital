@@ -82,6 +82,25 @@ class PagePut(BaseModel):
 # Public read
 # ---------------------------------------------------------------------------
 
+@router.get("/cms/pages-index")
+def public_pages_index(db: Session = Depends(get_db)):
+    """Lightweight list of every published page's slug + updated_at.
+    Consumed by the public sitemap for accurate lastModified timestamps."""
+    rows = (
+        db.query(PageContent)
+        .filter(PageContent.is_published == True)  # noqa: E712
+        .order_by(PageContent.slug)
+        .all()
+    )
+    return [
+        {
+            "slug": r.slug,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+        }
+        for r in rows
+    ]
+
+
 @router.get("/cms/pages/{slug:path}")
 def public_get_page(slug: str, db: Session = Depends(get_db)):
     """Return a published page's sections, or 404. Used by the marketing

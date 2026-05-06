@@ -95,8 +95,9 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint
+        # Treat lint as a hard gate — the codebase ships clean today and
+        # any new warning should be surfaced in the PR rather than slipping in.
         run: npm run lint
-        continue-on-error: true
 
       - name: Build
         run: npx next build

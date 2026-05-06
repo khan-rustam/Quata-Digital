@@ -168,6 +168,15 @@ DEFAULT_SETTINGS: list[dict] = [
         "sort_order": 10,
     },
     {
+        "key": "toggles.maintenance_message",
+        "group": "toggles",
+        "label": "Maintenance banner copy",
+        "description": "Optional message shown in the maintenance banner when the toggle is ON. Leave blank for the default.",
+        "field_type": "textarea",
+        "is_secret": False,
+        "sort_order": 11,
+    },
+    {
         "key": "toggles.cookie_banner_text",
         "group": "toggles",
         "label": "Cookie banner copy override",
@@ -182,7 +191,7 @@ DEFAULT_SETTINGS: list[dict] = [
 # Groups whose values are safe to expose publicly. Anything else (integrations,
 # toggles where toggle key starts with `internal.`) requires admin auth to read.
 PUBLIC_GROUPS = {"contact", "social"}
-PUBLIC_KEYS = {"toggles.maintenance_mode"}
+PUBLIC_KEYS = {"toggles.maintenance_mode", "toggles.maintenance_message"}
 
 
 def seed_default_settings(db: Session) -> int:
