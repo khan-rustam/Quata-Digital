@@ -22,17 +22,32 @@ type Product = {
   slug: string;
   name: string;
   category: string;
-  status: "live" | "beta" | "coming_soon";
+  status: string; // live | beta | coming_soon | planned | (free-form server-side)
   tagline: string;
   description: string;
   is_published: boolean;
 };
 
-const statusMap = {
-  live: { label: "Live", variant: "live" as const },
-  beta: { label: "Beta", variant: "beta" as const },
-  coming_soon: { label: "Coming soon", variant: "soon" as const },
+type StatusEntry = { label: string; variant: "live" | "beta" | "soon" | "outline" };
+
+const statusMap: Record<string, StatusEntry> = {
+  live: { label: "Live", variant: "live" },
+  beta: { label: "Beta", variant: "beta" },
+  coming_soon: { label: "Coming soon", variant: "soon" },
+  planned: { label: "Planned", variant: "outline" },
 };
+
+function prettify(s: string): string {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function statusEntry(s: string | null | undefined): StatusEntry {
+  // Defensive — never crash the table on an unknown status. The product
+  // model accepts free-form strings server-side, so any unmapped value
+  // becomes a generic outline pill instead of throwing.
+  if (s && statusMap[s]) return statusMap[s];
+  return { label: s ? prettify(s) : "—", variant: "outline" };
+}
 
 export default function ProductsAdminPage() {
   const { data, loading, refresh } = useApi<Product[]>("/admin/products");
@@ -111,7 +126,10 @@ export default function ProductsAdminPage() {
     {
       key: "status",
       header: "Status",
-      cell: (r) => <Badge variant={statusMap[r.status].variant}>{statusMap[r.status].label}</Badge>,
+      cell: (r) => {
+        const s = statusEntry(r.status);
+        return <Badge variant={s.variant}>{s.label}</Badge>;
+      },
     },
     {
       key: "published",
@@ -199,6 +217,7 @@ export default function ProductsAdminPage() {
               <option value="live">Live</option>
               <option value="beta">Beta</option>
               <option value="coming_soon">Coming soon</option>
+              <option value="planned">Planned</option>
             </Select>
           </div>
         </div>
