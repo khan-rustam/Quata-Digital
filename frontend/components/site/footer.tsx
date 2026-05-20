@@ -78,7 +78,7 @@ const groups = [
 ];
 
 const DEFAULT_ADDRESS_LINES = [
-  "QUATA Building, P.C Ntamulung Street",
+  "Veterinary Junction P.C Ntamulung Entrance",
   "Bamenda — Northwest Region, Cameroon",
 ];
 const DEFAULT_PUBLIC_EMAIL = "info@quatadigital.com";

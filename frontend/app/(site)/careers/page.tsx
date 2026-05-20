@@ -327,7 +327,7 @@ export default async function CareersPage() {
               </div>
             </div>
             <div className="mt-4 text-sm text-foreground/80">
-              QUATA Building, P.C Ntamulung Street, Northwest Region.
+              Veterinary Junction P.C Ntamulung Entrance, Northwest Region.
             </div>
             <div className="mt-2 text-xs text-muted-foreground">Founding HQ</div>
           </div>

@@ -173,8 +173,8 @@ export default async function ContactPage() {
               <li className="flex items-start gap-2 text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
                 <span>
-                  QUATA Building, P.C Ntamulung Street, Bamenda — Northwest
-                  Region, Cameroon
+                  Veterinary Junction P.C Ntamulung Entrance, Bamenda —
+                  Northwest Region, Cameroon
                 </span>
               </li>
               <li className="flex items-start gap-2 text-muted-foreground">

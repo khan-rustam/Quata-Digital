@@ -29,7 +29,7 @@ export const orgJsonLd = {
   founder: { "@type": "Person", name: "Neba Clovis Ngwa", jobTitle: "Founder & CEO" },
   address: {
     "@type": "PostalAddress",
-    streetAddress: "QUATA Building, P.C Ntamulung Street",
+    streetAddress: "Veterinary Junction P.C Ntamulung Entrance",
     addressLocality: "Bamenda",
     addressRegion: "Northwest Region",
     addressCountry: "CM",

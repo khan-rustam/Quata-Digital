@@ -154,8 +154,8 @@ export default async function AboutPage() {
               <li className="flex items-start gap-3">
                 <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <span>
-                  HQ: QUATA Building, P.C Ntamulung Street, Bamenda — Northwest
-                  Region
+                  HQ: Veterinary Junction P.C Ntamulung Entrance, Bamenda —
+                  Northwest Region
                 </span>
               </li>
               <li className="flex items-start gap-3">
@@ -314,7 +314,7 @@ export default async function AboutPage() {
               <span className="text-muted-foreground font-normal">, Cameroon</span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              QUATA Building, P.C Ntamulung Street, Northwest Region.
+              Veterinary Junction P.C Ntamulung Entrance, Northwest Region.
             </p>
             <div className="mt-4 text-xs text-muted-foreground">
               Founding team — small and focused.
