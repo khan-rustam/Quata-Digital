@@ -7,7 +7,9 @@ export const metadata: Metadata = {
   description: "Search across QUATA's products, news and open roles.",
 };
 
-export const dynamic = "force-dynamic";
+// The page shell is static — the SearchClient does the actual query
+// reading from `useSearchParams()` inside the Suspense boundary, so we
+// don't need `force-dynamic` and the empty shell can be edge-cached.
 
 export default function SearchPage() {
   return (

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, log_activity
+from app.api.deps import get_current_user, get_current_user_lenient, log_activity
 from app.core.security import hash_password, verify_password
 from app.db.session import get_db
 from app.models import AttendanceLog, LeaveRequest, User
@@ -68,7 +68,8 @@ def change_password(
     payload: PasswordChange,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # Lenient: must remain reachable while ``must_reset_password`` is true.
+    user: User = Depends(get_current_user_lenient),
 ):
     if not verify_password(payload.current_password, user.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is incorrect")
@@ -76,6 +77,7 @@ def change_password(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must be at least 10 characters")
     user.password_hash = hash_password(payload.new_password)
     user.must_reset_password = False
+    user.password_changed_at = datetime.now(timezone.utc)
     log_activity(
         db,
         actor=user,

@@ -33,46 +33,18 @@ type Post = {
   published_at: string;
 };
 
-async function getPosts(): Promise<Post[]> {
+async function getPosts(): Promise<{ posts: Post[]; failed: boolean }> {
   try {
-    return await api<Post[]>("/blog?published=true");
+    const posts = await api<Post[]>("/blog?published=true");
+    return { posts, failed: false };
   } catch {
-    return [];
+    // Surface the failure to the page so we can render an explicit empty
+    // state instead of silently showing placeholder rows. Hydration also
+    // stays clean — earlier code generated different `new Date()` values
+    // server-side vs client-side.
+    return { posts: [], failed: true };
   }
 }
-
-const fallback: Post[] = [
-  {
-    id: 1,
-    slug: "introducing-quatapay-2",
-    title: "Introducing QUATAPAY 2.0",
-    excerpt:
-      "A faster ledger, cheaper cross-border settlement, and a new acceptance API for merchants.",
-    category: "Product",
-    cover_image_url: null,
-    published_at: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    slug: "abaqwa-east-africa-launch",
-    title: "ABAQWA expands to East Africa",
-    excerpt:
-      "Riders, drivers and customers across Kenya, Uganda and Tanzania can now move on the QUATA wallet.",
-    category: "Company",
-    cover_image_url: null,
-    published_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: 3,
-    slug: "the-case-for-one-rail",
-    title: "The case for one rail",
-    excerpt:
-      "Why Africa benefits more from connected platforms than from another standalone app.",
-    category: "Insight",
-    cover_image_url: null,
-    published_at: new Date(Date.now() - 86400000 * 14).toISOString(),
-  },
-];
 
 const categoryIcons: Record<string, typeof BookOpen> = {
   Product: Layers,
@@ -82,8 +54,7 @@ const categoryIcons: Record<string, typeof BookOpen> = {
 };
 
 export default async function BlogPage() {
-  const fetched = await getPosts();
-  const posts = fetched.length > 0 ? fetched : fallback;
+  const { posts, failed } = await getPosts();
 
   const featured = posts[0];
   const rest = posts.slice(1);
@@ -117,10 +88,25 @@ export default async function BlogPage() {
         </div>
       </section>
 
-      {/* 2. Featured post */}
-      {featured && (
+      {/* 2. Featured post — or an honest empty state */}
+      {featured ? (
         <Section className="pt-0">
           <FeaturedPost post={featured} />
+        </Section>
+      ) : (
+        <Section className="pt-0">
+          <div className="rounded-2xl border border-dashed border-border bg-surface-soft p-8 text-center">
+            <p className="text-base font-medium">
+              {failed
+                ? "We couldn't load the latest stories right now."
+                : "No published articles yet — check back soon."}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {failed
+                ? "The newsroom is offline for a moment. Please refresh in a few minutes."
+                : "The QUATA team is putting the first stories together."}
+            </p>
+          </div>
         </Section>
       )}
 

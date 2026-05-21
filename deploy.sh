@@ -59,6 +59,48 @@ echo
 
 cd "$PROJECT_DIR"
 
+# ---------- Pre-deploy snapshot (rollback safety) ----------
+PREV_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+BACKUP_DIR="$PROJECT_DIR/.deploy-backups"
+BACKUP_TS="$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$BACKUP_DIR"
+DB_SNAPSHOT=""
+
+step "pre-deploy snapshot"
+info "previous SHA: ${PREV_SHA:0:12}"
+
+# Try a Postgres dump when DATABASE_URL points at one. Best-effort; if
+# the URL isn't set or pg_dump isn't on PATH we record the gap and
+# continue (the operator still has the SHA to roll back to).
+if [[ -n "${DATABASE_URL:-}" ]] && command -v pg_dump >/dev/null 2>&1; then
+  DB_SNAPSHOT="$BACKUP_DIR/db-${BACKUP_TS}.sql.gz"
+  if pg_dump "${DATABASE_URL}" 2>/dev/null | gzip > "$DB_SNAPSHOT"; then
+    ok "DB snapshot → ${DB_SNAPSHOT}"
+  else
+    rm -f "$DB_SNAPSHOT"
+    DB_SNAPSHOT=""
+    info "DB snapshot skipped (pg_dump failed — non-fatal)"
+  fi
+else
+  info "DB snapshot skipped (DATABASE_URL or pg_dump unavailable)"
+fi
+
+# Trap any failure from this point on, surface the rollback recipe so
+# the operator can reverse the deploy without grepping through logs.
+rollback_hint() {
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then
+    echo
+    fail "deploy aborted (exit $rc) — rollback recipe:"
+    echo -e "  ${C_BOLD}cd $PROJECT_DIR && git reset --hard ${PREV_SHA}${C_RESET}"
+    if [[ -n "$DB_SNAPSHOT" ]]; then
+      echo -e "  ${C_BOLD}gunzip -c $DB_SNAPSHOT | psql \"\$DATABASE_URL\"${C_RESET}"
+    fi
+    echo -e "  ${C_BOLD}systemctl restart quata-digital-backend && pm2 restart Quata-Digi-F${C_RESET}"
+  fi
+}
+trap rollback_hint EXIT
+
 # ---------- Git pull ----------
 step "git pull (fast-forward only)"
 if git pull --ff-only origin main; then
@@ -77,8 +119,8 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "backend" ]]; then
   # shellcheck disable=SC1091
   source .venv/bin/activate
   pip install --upgrade pip --quiet
+  # psycopg[binary] is now in requirements.txt itself — no extra install.
   pip install -r requirements.txt --quiet
-  pip install "psycopg[binary]>=3.2.3" --quiet
   ok "backend deps in sync"
 
   info "alembic upgrade head"
@@ -104,19 +146,20 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "frontend" ]]; then
   step "FRONTEND  →  next.js :3500 (PM2 / Quata-Digi-F)"
   cd "$PROJECT_DIR/frontend"
 
-  info "pnpm install (frozen first, regenerate if package.json drifted)"
-  # Frozen-lockfile is the right default — guarantees deterministic builds.
-  # When package.json changes, the lockfile on the VPS is stale until the
-  # boss has updated it. Rather than failing the deploy, regenerate it and
-  # carry on; the next deploy will be fast again.
-  if ! pnpm install --frozen-lockfile; then
-    info "lockfile outdated — running full pnpm install to regenerate"
-    pnpm install
+  info "npm ci (matches CI tooling; package-lock.json is the source of truth)"
+  # CI runs `npm ci` against package-lock.json, so deploy must too;
+  # otherwise a green CI run can still fail in prod because of lockfile
+  # drift between npm and pnpm. If lockfile is stale, fall back to a
+  # full `npm install` so the deploy still completes — the next push
+  # should refresh the lockfile properly.
+  if ! npm ci; then
+    info "lockfile outdated — running full npm install to regenerate"
+    npm install
   fi
   ok "frontend deps in sync"
 
-  info "pnpm build"
-  pnpm build
+  info "npm run build"
+  npm run build
   ok "next build complete"
 
   info "pm2 restart Quata-Digi-F"
@@ -166,4 +209,9 @@ fi
 echo -e "${C_GOLD}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 echo
 
+# Clear the rollback trap on a clean exit so we don't print the recipe
+# after a green deploy.
+if [[ $all_ok -eq 1 ]]; then
+  trap - EXIT
+fi
 exit $((1 - all_ok))

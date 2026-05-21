@@ -12,6 +12,7 @@ import { useApi, useApiAction } from "@/lib/use-api";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth";
 import { apiUrl } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Subscriber = {
   id: number;
@@ -44,15 +45,21 @@ export default function NewsletterPage() {
   const action = useApiAction();
   const toast = useToast();
   const { token } = useAuth();
+  // Holds the subscriber the operator chose to delete; switching to the
+  // shared ConfirmDialog keeps deletion gestures consistent with the
+  // rest of admin (mobile-friendly, themed, escapable).
+  const [deleting, setDeleting] = React.useState<Subscriber | null>(null);
 
-  async function onDelete(id: number) {
-    if (!confirm("Permanently delete this subscriber?")) return;
+  async function performDelete() {
+    if (!deleting) return;
     try {
-      await action(`/admin/newsletter/${id}`, { method: "DELETE" });
+      await action(`/admin/newsletter/${deleting.id}`, { method: "DELETE" });
       toast.success("Subscriber deleted");
       refresh();
     } catch (err) {
       toast.error("Couldn't delete", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -175,7 +182,7 @@ export default function NewsletterPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
-                        onClick={() => onDelete(s.id)}
+                        onClick={() => setDeleting(s)}
                         className="text-muted-foreground hover:text-rose-600 transition"
                         aria-label="Delete subscriber"
                       >
@@ -189,6 +196,16 @@ export default function NewsletterPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(v) => !v && setDeleting(null)}
+        title={`Delete ${deleting?.email ?? "subscriber"}?`}
+        description="This permanently removes the subscriber. They can re-subscribe via the public form later if they wish."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={performDelete}
+      />
     </PageShell>
   );
 }

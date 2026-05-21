@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, setUnauthorizedHandler } from "@/lib/api";
 
 const TOKEN_KEY = "quata_token";
 
@@ -76,6 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       >("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password, ...opts }),
+        // The login form is the *source* of credentials; a 401 here
+        // means "wrong password" — don't trigger the global redirect.
+        skipAuthRedirect: true,
       });
 
       if ("two_factor_required" in res && res.two_factor_required) {
@@ -98,6 +101,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     router.push("/admin/login");
   }, [router]);
+
+  // Register a global 401 handler so any API call from any admin page
+  // can clear state + redirect to /admin/login without each caller
+  // having to remember. The login form passes `skipAuthRedirect: true`
+  // when wrong-credentials should NOT trigger this.
+  React.useEffect(() => {
+    setUnauthorizedHandler(() => signOut());
+    return () => setUnauthorizedHandler(null);
+  }, [signOut]);
 
   const refresh = React.useCallback(async () => {
     if (!token) return;

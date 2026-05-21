@@ -34,6 +34,11 @@ os.environ.setdefault("ENVIRONMENT", "development")
 # Strong test-only secret so production guards don't fire when tests
 # touch them.
 os.environ.setdefault("SECRET_KEY", "test-secret-" + "x" * 56)
+# Disable the "super_admin must have TOTP enrolled" gate for tests so
+# the session-scoped admin token can reach admin endpoints. The 2FA
+# enrol/verify flow is still covered explicitly by
+# ``test_2fa_enrol_then_verify``.
+os.environ.setdefault("REQUIRE_2FA_FOR_ROLES", "[]")
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -65,11 +70,33 @@ def admin_token(app_instance):
     works across the whole pytest run. Avoids hitting the login rate-limit
     (10/minute per IP) in suites with many fixtures.
 
-    A 2FA-enabled admin would block password-only login here, so any test
-    that toggles 2FA must restore it before returning. The existing
-    `test_2fa_enrol_then_verify` already does this via `/me/2fa/disable`.
+    Production seeds the super-admin with ``must_reset_password=True`` so
+    the boss is forced through the reset flow on first login. That same
+    flag now triggers a 403 from every non-lenient admin endpoint (see
+    ``get_current_user`` in ``app/api/deps.py``). For tests we clear it
+    before issuing the token so the rest of the suite can hit admin
+    routes normally. The reset flow itself is covered by
+    ``test_auth_and_2fa``.
     """
     from fastapi.testclient import TestClient
+    from datetime import datetime, timezone
+    from app.db.session import SessionLocal
+    from app.models import User
+
+    # Disable the "must reset password" gate on the seeded admin so
+    # session-scoped admin requests aren't blocked. Stamp
+    # password_changed_at so the resulting JWT's `pwc` claim matches
+    # what the auth layer expects to see on subsequent requests.
+    with SessionLocal() as db:
+        admin = (
+            db.query(User)
+            .filter(User.email == "admin@quatadigital.com")
+            .first()
+        )
+        if admin is not None:
+            admin.must_reset_password = False
+            admin.password_changed_at = datetime.now(timezone.utc)
+            db.commit()
 
     with TestClient(app_instance) as c:
         r = c.post(

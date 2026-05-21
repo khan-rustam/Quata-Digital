@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from sqlalchemy.orm import Session
+from starlette.responses import Response
 
 from app.api.deps import get_current_user, log_activity
-from app.models import MediaAsset, User
-from app.services.uploads import save_upload
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.db.session import get_db
-from sqlalchemy.orm import Session
+from app.models import MediaAsset, User
+from app.services.captcha import verify_captcha_or_raise
+from app.services.uploads import save_upload
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
@@ -61,17 +65,29 @@ def upload_file(
 
 
 @router.post("/public", include_in_schema=False)
+@limiter.limit(settings.RATE_LIMIT_PUBLIC_FORM)
 def public_upload(
     request: Request,
     file: UploadFile = File(...),
     folder: str = Form("public"),
+    captcha_token: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    """Public upload — used by the careers form for resumes. No auth required, but
-    rate-limited at the proxy in production. Folder is forced to a public-safe namespace."""
+    """Anonymous upload used by the careers form for resumes.
+
+    Hardening over the previous shape:
+    * slowapi rate-limit per-IP (matches the rest of the public surface);
+    * hCaptcha token required when site keys are configured;
+    * forces ``public=True`` so the upload service refuses SVG and
+      anything outside the public-safe allow-list;
+    * sets ``X-Content-Type-Options: nosniff`` and a ``Content-Disposition:
+      attachment`` hint so direct hits to ``/uploads/...`` cannot execute
+      smuggled HTML even if a future mis-config slips a bad type through.
+    """
+    verify_captcha_or_raise(captcha_token, request)
     if folder not in {"resumes", "public"}:
         folder = "public"
-    info = save_upload(file, folder=folder)
+    info = save_upload(file, folder=folder, public=True)
     log_activity(
         db,
         actor=None,

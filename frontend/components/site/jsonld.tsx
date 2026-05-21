@@ -84,13 +84,19 @@ export function jobJsonLd(job: {
   employment_type: string;
   summary: string;
   description?: string;
+  created_at?: string;
+  published_at?: string;
 }) {
+  // `datePosted` must be stable across renders or Google flags the
+  // posting as constantly re-published. Use the real timestamp from the
+  // API; only fall back to "today" if neither field is present.
+  const posted = job.published_at || job.created_at || new Date().toISOString();
   return {
     "@context": "https://schema.org",
     "@type": "JobPosting",
     title: job.title,
     description: job.description || job.summary,
-    datePosted: new Date().toISOString(),
+    datePosted: posted,
     employmentType: job.employment_type.toUpperCase().replace("-", "_"),
     hiringOrganization: {
       "@type": "Organization",

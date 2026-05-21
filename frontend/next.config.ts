@@ -66,6 +66,25 @@ const nextConfig: NextConfig = {
   // Don't advertise the framework.
   poweredByHeader: false,
 
+  // `standalone` build emits .next/standalone/ — a minimal Node bundle
+  // that the runtime image copies without dragging in full
+  // `node_modules`. Cuts the production image from ~1 GB to ~250 MB.
+  output: "standalone",
+
+  // Whitelist of hosts allowed to be loaded through next/image. CMS
+  // authors can paste these into Hero / image_text sections; anything
+  // else fails at build/runtime instead of silently bypassing the
+  // image optimiser.
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "quatadigital.com" },
+      { protocol: "https", hostname: "*.quatadigital.com" },
+      { protocol: "https", hostname: "*.s3.amazonaws.com" },
+      { protocol: "https", hostname: "*.r2.cloudflarestorage.com" },
+      { protocol: "https", hostname: "*.backblazeb2.com" },
+    ],
+  },
+
   async headers() {
     return [
       {

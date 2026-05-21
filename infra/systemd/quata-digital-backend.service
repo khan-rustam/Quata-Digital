@@ -1,0 +1,55 @@
+# QUATA Digital — backend uvicorn service unit.
+#
+# Install:
+#   sudo cp infra/systemd/quata-digital-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now quata-digital-backend
+#
+# Logs:
+#   journalctl -u quata-digital-backend -f
+#
+# The environment is read from /etc/quata-digital.env (not committed —
+# contains SECRET_KEY, DATABASE_URL, SMTP creds, etc).
+[Unit]
+Description=QUATA Digital backend (FastAPI / uvicorn)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quata
+Group=quata
+WorkingDirectory=/home/Quata-Digital/backend
+EnvironmentFile=/etc/quata-digital.env
+
+# --proxy-headers honours X-Forwarded-* from Caddy so request.client.host
+# is the real visitor IP — audit log + slowapi depend on it.
+# --workers 2 is a starting point for the single-VPS deploy; raise once
+# the WebSocket hub moves to Redis pub/sub (see docs/SCALING.md).
+ExecStart=/home/Quata-Digital/backend/.venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 \
+    --port 8500 \
+    --workers 2 \
+    --proxy-headers \
+    --forwarded-allow-ips=127.0.0.1 \
+    --timeout-graceful-shutdown 20
+
+Restart=on-failure
+RestartSec=5
+
+# Resource ceilings — stop a runaway worker from OOMing the whole VPS.
+MemoryMax=1G
+TasksMax=200
+
+# Hardening — disallow privilege escalation, restrict the filesystem.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/Quata-Digital/backend/uploads
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+
+[Install]
+WantedBy=multi-user.target

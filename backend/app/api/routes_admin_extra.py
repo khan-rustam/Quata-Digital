@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import cast, func, String as SqlString
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, log_activity, require_permission
+from app.api.deps import log_activity, require_permission
 from app.db.session import get_db
 from app.models import (
     ActivityLog,
@@ -432,7 +432,7 @@ def reschedule_leave(
     payload: LeaveDatesIn,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("staff:manage")),
 ):
     lr = db.get(LeaveRequest, leave_id)
     if not lr:
@@ -541,23 +541,36 @@ def export_newsletter_csv(
     qry = db.query(NewsletterSubscriber)
     if is_active is not None:
         qry = qry.filter(NewsletterSubscriber.is_active == is_active)
-    rows = qry.order_by(NewsletterSubscriber.created_at.asc()).all()
+    # Stream rows; previous implementation buffered the whole result set
+    # in memory and stalled for tens of thousands of subscribers.
+    qry = (
+        qry.order_by(NewsletterSubscriber.created_at.asc())
+        .execution_options(stream_results=True)
+        .yield_per(500)
+    )
 
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["email", "source", "locale", "is_active", "subscribed_at", "unsubscribed_at"])
-    for r in rows:
-        writer.writerow([
-            r.email,
-            r.source or "",
-            r.locale or "",
-            "yes" if r.is_active else "no",
-            r.created_at.isoformat() if r.created_at else "",
-            r.unsubscribed_at.isoformat() if r.unsubscribed_at else "",
-        ])
-    buf.seek(0)
+    def iter_rows():
+        header = io.StringIO()
+        csv.writer(header).writerow(
+            ["email", "source", "locale", "is_active", "subscribed_at", "unsubscribed_at"]
+        )
+        yield header.getvalue()
+        for r in qry:
+            line = io.StringIO()
+            csv.writer(line).writerow(
+                [
+                    r.email,
+                    r.source or "",
+                    r.locale or "",
+                    "yes" if r.is_active else "no",
+                    r.created_at.isoformat() if r.created_at else "",
+                    r.unsubscribed_at.isoformat() if r.unsubscribed_at else "",
+                ]
+            )
+            yield line.getvalue()
+
     return StreamingResponse(
-        iter([buf.getvalue()]),
+        iter_rows(),
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="newsletter-subscribers.csv"'},
     )
@@ -628,11 +641,17 @@ def retention_preview(
     }
 
 
+# NOTE: retention_prune is destructive (hard-deletes activity logs, page
+# views, media assets and version history). It must require a manage-tier
+# permission, not the read-only `activity:view`.
 @router.post("/retention/prune")
 def retention_prune(
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(require_permission("activity:view")),
+    # `rbac:manage` is the strongest non-wildcard permission and is held
+    # only by super_admin + admin in the seeded role set, which is the
+    # right blast radius for an irreversible purge.
+    user: User = Depends(require_permission("rbac:manage")),
 ):
     """Hard-delete activity-log + page-view rows older than the retention
     windows configured in settings. Idempotent — safe to call from cron.
@@ -808,37 +827,47 @@ def analytics_timeseries(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("analytics:view")),
 ):
+    """Daily counts of pageviews / partner submissions / applications.
+
+    Previously this issued ``3 × days`` count queries inside a Python
+    loop (up to 270 round-trips for a 90-day chart). We now issue **one
+    grouped query per series**, bucketing by the date portion of
+    ``created_at`` and zero-filling missing days in Python.
+    """
     from app.models import PageView
 
     today = datetime.now(timezone.utc).date()
+    window_start = datetime.combine(
+        today - timedelta(days=days - 1), datetime.min.time(), tzinfo=timezone.utc
+    )
+
+    def _bucket(model) -> dict[str, int]:
+        # ``func.date(col)`` is portable between SQLite + Postgres; both
+        # render dates as ``YYYY-MM-DD`` strings here.
+        rows = (
+            db.query(
+                func.date(model.created_at).label("d"),
+                func.count(model.id).label("c"),
+            )
+            .filter(model.created_at >= window_start)
+            .group_by("d")
+            .all()
+        )
+        return {str(r.d): int(r.c) for r in rows}
+
+    visit_counts = _bucket(PageView)
+    partner_counts = _bucket(PartnerRequest)
+    app_counts = _bucket(Application)
+
     series_visits = []
     series_partners = []
     series_apps = []
     for i in range(days - 1, -1, -1):
         d = today - timedelta(days=i)
-        start = datetime.combine(d, datetime.min.time(), tzinfo=timezone.utc)
-        end = datetime.combine(d, datetime.max.time(), tzinfo=timezone.utc)
-        v = (
-            db.query(func.count(PageView.id))
-            .filter(PageView.created_at >= start, PageView.created_at <= end)
-            .scalar()
-            or 0
-        )
-        p = (
-            db.query(func.count(PartnerRequest.id))
-            .filter(PartnerRequest.created_at >= start, PartnerRequest.created_at <= end)
-            .scalar()
-            or 0
-        )
-        a = (
-            db.query(func.count(Application.id))
-            .filter(Application.created_at >= start, Application.created_at <= end)
-            .scalar()
-            or 0
-        )
-        series_visits.append({"date": d.isoformat(), "value": v})
-        series_partners.append({"date": d.isoformat(), "value": p})
-        series_apps.append({"date": d.isoformat(), "value": a})
+        key = d.isoformat()
+        series_visits.append({"date": key, "value": visit_counts.get(key, 0)})
+        series_partners.append({"date": key, "value": partner_counts.get(key, 0)})
+        series_apps.append({"date": key, "value": app_counts.get(key, 0)})
     return {
         "visits": series_visits,
         "partner_requests": series_partners,
@@ -850,9 +879,32 @@ def analytics_timeseries(
 
 
 class BroadcastIn(BaseModel):
+    # Caps are conservative — a 100 KB body is well above any real newsletter
+    # we'd send, but small enough that a compromised editor can't spool
+    # multi-MB phishing payloads through `noreply@quatadigital.com`.
     subject: str = Field(..., min_length=1, max_length=255)
-    body: str = Field(..., min_length=1)
+    body: str = Field(..., min_length=1, max_length=100_000)
     test_email: Optional[str] = None  # if set, send only to this address (preview)
+
+
+def _sanitize_broadcast_body(raw: str) -> str:
+    """Strip ASCII control characters except newline + tab.
+
+    Email clients render carriage-return + form-feed inconsistently, and
+    NULL/escape characters in a subject/body line are a classic header-
+    injection vector. We keep only printable + whitespace and clamp to
+    the schema's already-enforced length cap as defence in depth.
+    """
+    keep = []
+    for ch in raw:
+        code = ord(ch)
+        if code in (0x09, 0x0A):  # tab, newline
+            keep.append(ch)
+        elif code < 0x20 or code == 0x7F:
+            continue
+        else:
+            keep.append(ch)
+    return "".join(keep)[:100_000]
 
 
 @router.post("/newsletter/broadcast", status_code=201)
@@ -867,6 +919,10 @@ def send_broadcast(
     outcome so the team has a full audit trail."""
     from app.services.email import send_email
     from app.core.config import settings as _settings
+
+    # Defence in depth: strip control chars from the editor input before
+    # touching the audit row or the SMTP body.
+    payload = payload.model_copy(update={"body": _sanitize_broadcast_body(payload.body)})
 
     test_only = bool(payload.test_email and payload.test_email.strip())
 

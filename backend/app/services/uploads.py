@@ -4,7 +4,7 @@ import logging
 import os
 import re
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -21,6 +21,14 @@ ALLOWED_EXTS = {
 }
 ALLOWED_MIME_PREFIXES = ("image/", "application/", "text/")
 
+# Stricter allow-list for anonymous public uploads (resume drop, partner
+# attachments). Excludes SVG/HTML/JS-style files that would execute when
+# served same-origin as ``/uploads/...``.
+PUBLIC_ALLOWED_EXTS = {
+    ".pdf", ".doc", ".docx", ".rtf", ".txt",
+    ".png", ".jpg", ".jpeg", ".webp",
+}
+
 # JPG / PNG get a WebP shadow saved alongside; SVG/GIF/WebP skip optimisation
 # (already optimised, animation-sensitive, or vector).
 WEBP_SOURCE_EXTS = {".png", ".jpg", ".jpeg"}
@@ -32,7 +40,7 @@ def _safe_name(name: str) -> str:
     return base[:120]
 
 
-def save_upload(file: UploadFile, folder: str = "general") -> dict:
+def save_upload(file: UploadFile, folder: str = "general", *, public: bool = False) -> dict:
     """Save an UploadFile under <yyyy>/<mm>/<folder>/<token>-<name>.
 
     Backend dispatch:
@@ -46,12 +54,17 @@ def save_upload(file: UploadFile, folder: str = "general") -> dict:
     Returns: { url, filename, size, content_type, path, width, height,
               optimized_url, optimized_size }."""
     ext = Path(file.filename or "").suffix.lower()
-    if ext and ext not in ALLOWED_EXTS:
+    allowed = PUBLIC_ALLOWED_EXTS if public else ALLOWED_EXTS
+    if ext and ext not in allowed:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"File type not allowed: {ext}")
     if file.content_type and not any(file.content_type.startswith(p) for p in ALLOWED_MIME_PREFIXES):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mime type not allowed")
+    # Explicit double-check on anonymous SVG uploads: SVG can execute JS
+    # when opened directly in a browser tab. Public callers cannot upload it.
+    if public and (ext == ".svg" or (file.content_type or "").lower() == "image/svg+xml"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "SVG uploads not allowed")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     rel_dir = Path(now.strftime("%Y")) / now.strftime("%m") / folder
     token = secrets.token_urlsafe(8)
     safe = _safe_name(file.filename or "upload")
@@ -244,8 +257,19 @@ def _post_process_image(
         log.warning("Pillow not installed; skipping image post-processing.")
         return out
 
+    # Decompression-bomb guard. Pillow's default 89 478 485 px ceiling
+    # (~270 MB raw) is still way too high for a public web app. Cap at
+    # 50 megapixels — covers 8000×6000 phone shots with margin and stops
+    # a 1 KB PNG from expanding to gigabytes of RGBA at decode time.
+    Image.MAX_IMAGE_PIXELS = 50_000_000
+    _MAX_DIM = 12_000  # px on either axis
+
     try:
         with Image.open(abs_path) as img:
+            if img.width > _MAX_DIM or img.height > _MAX_DIM:
+                raise ValueError(
+                    f"image dimensions {img.width}x{img.height} exceed {_MAX_DIM}px cap"
+                )
             out["width"] = int(img.width)
             out["height"] = int(img.height)
 

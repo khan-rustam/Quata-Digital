@@ -34,6 +34,23 @@ export function Navbar() {
     setOpen(false);
   }, [pathname]);
 
+  // Escape closes the mobile menu — keyboard users couldn't dismiss it
+  // otherwise. Lock body scroll while it's open so the underlying page
+  // doesn't shift beneath the overlay.
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
+
   return (
     <header
       className={cn(
@@ -60,6 +77,7 @@ export function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
                       "rounded-full px-3 py-1.5 text-sm transition-colors",
                       active
@@ -91,7 +109,9 @@ export function Navbar() {
             </Button>
           </div>
           <button
-            aria-label="Toggle menu"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="mobile-nav"
             onClick={() => setOpen((v) => !v)}
             className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface"
           >
@@ -101,17 +121,28 @@ export function Navbar() {
       </div>
 
       {open && (
-        <div className="md:hidden mt-2 mx-4 rounded-2xl border border-border bg-surface shadow-[0_8px_30px_-12px_rgba(15,18,22,0.18)]">
+        <div
+          id="mobile-nav"
+          className="md:hidden mt-2 mx-4 rounded-2xl border border-border bg-surface shadow-[0_8px_30px_-12px_rgba(15,18,22,0.18)]"
+        >
           <nav className="px-4 py-3 grid gap-1">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-lg px-3 py-2.5 text-sm hover:bg-secondary"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {links.map((link) => {
+              const active =
+                pathname === link.href || pathname.startsWith(link.href + "/");
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "rounded-lg px-3 py-2.5 text-sm hover:bg-secondary",
+                    active && "bg-secondary font-medium"
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
             <div className="flex items-center gap-2 pt-2">
               <Button variant="outline" asChild className="flex-1">
                 <Link href="/admin/login">Sign in</Link>

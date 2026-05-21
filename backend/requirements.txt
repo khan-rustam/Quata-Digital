@@ -5,9 +5,13 @@ sqlalchemy>=2.0.36
 alembic>=1.14.0
 pydantic>=2.10.5
 pydantic-settings>=2.7.0
-python-jose[cryptography]>=3.3.0
+# Maintained JWT library. python-jose has been unmaintained since 2024
+# (CVE-2024-33663, CVE-2024-33664 — JWT-bomb / algorithm-confusion).
+PyJWT>=2.9.0
 bcrypt>=4.2.0
-python-multipart>=0.0.20
+# Upper bound keeps us inside the patched 0.0.20 series until we
+# explicitly review the next minor for breaking changes.
+python-multipart>=0.0.20,<0.1
 email-validator>=2.2.0
 websockets>=14.0
 
@@ -27,11 +31,13 @@ rq>=1.16.0
 # Optional S3 / R2 / MinIO upload backend (only loaded when
 # UPLOAD_BACKEND=s3). Default upload backend stays local-disk; this stays
 # unused on single-VPS deployments without paying any import cost.
-boto3>=1.35.0
+boto3>=1.35.0,<2
 
 # Observability (Sentry is opt-in via SENTRY_DSN env var)
 python-json-logger>=3.2.0
 sentry-sdk>=2.18.0
 
-# Postgres driver — install only if you'll actually use Postgres
-# psycopg[binary]>=3.2.3
+# Postgres driver — bundled by default so the production image can talk
+# to a managed Postgres without an extra `pip install` step at deploy
+# time. SQLite path still works for local dev when DATABASE_URL is unset.
+psycopg[binary]>=3.2.3

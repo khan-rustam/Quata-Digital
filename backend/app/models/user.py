@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import ForeignKey, String, Boolean, JSON, Integer, DateTime
@@ -86,6 +86,14 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
         Boolean, default=False, nullable=False
     )
 
+    # Wall-clock timestamp of the last password change. Folded into the
+    # JWT as ``pwc``; tokens issued before this point are rejected, so
+    # changing a password (or admin-resetting one) revokes every active
+    # session without needing a server-side session table.
+    password_changed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # --- Notification prefs (JSON for flexibility) ---
     notification_prefs: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
@@ -106,4 +114,4 @@ class PasswordResetToken(Base):
     token_hash: Mapped[str] = mapped_column(String(128), index=True, unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.utcnow())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

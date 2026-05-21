@@ -1,0 +1,60 @@
+# Secrets & local config
+.env
+.env.*
+!.env.example
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+
+# Python build/cache
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Uploads — managed at runtime by a mounted volume or S3
+uploads/
+!uploads/.gitkeep
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+
+# Docs / VCS
+.git/
+.gitignore
+.github/
+README*.md
+*.md
+!alembic/README.md
+
+# Test artefacts
+tests/
+test-results/
+
+# Build outputs
+dist/
+build/
+*.egg
+
+# Logs
+*.log
+
+# Lockfile leftovers
+pip-wheel-metadata/

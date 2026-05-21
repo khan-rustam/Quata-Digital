@@ -1,0 +1,85 @@
+# QUATA Digital — Caddy reverse proxy config
+#
+# Caddy terminates TLS for the apex + API subdomain, applies a global
+# www→apex redirect, and forwards to:
+#   • next-server on 127.0.0.1:3500   (PM2 — "Quata-Digi-F")
+#   • uvicorn on 127.0.0.1:8500       (systemd — "quata-digital-backend")
+#
+# Copy to /etc/caddy/Caddyfile (or include it from a master Caddyfile)
+# and `systemctl reload caddy`. Auto-cert renewal is handled by Caddy.
+#
+# A separate hstspreload.org submission is required before flipping
+# the `preload` flag — coordinate with HSTS_PRELOAD=true on the apps.
+
+# ---- www → apex canonical redirect ----------------------------------------
+www.quatadigital.com {
+	redir https://quatadigital.com{uri} 308
+}
+
+# ---- Public marketing + admin shell (Next.js) -----------------------------
+quatadigital.com {
+	encode zstd gzip
+
+	# Security headers belong on both Caddy and the Next.js layer — Caddy
+	# wins for proxy-time concerns (HSTS), Next.js for app-driven CSP.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# WebSocket upgrade is handled transparently by reverse_proxy.
+	reverse_proxy 127.0.0.1:3500 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto https
+		transport http {
+			read_timeout 60s
+			write_timeout 60s
+			dial_timeout 5s
+		}
+	}
+
+	# Healthcheck shortcut so external monitors don't go through next.
+	handle_path /__caddy/health {
+		respond 200
+	}
+}
+
+# ---- API subdomain (FastAPI / uvicorn) ------------------------------------
+api.quatadigital.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# /ws/* needs the WebSocket upgrade — Caddy handles this automatically
+	# but the matcher lets us add stricter timeouts for long-lived sockets.
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @websockets 127.0.0.1:8500 {
+		transport http {
+			read_timeout 24h
+			write_timeout 24h
+		}
+	}
+
+	reverse_proxy 127.0.0.1:8500 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto https
+		transport http {
+			read_timeout 60s
+			write_timeout 60s
+		}
+	}
+}

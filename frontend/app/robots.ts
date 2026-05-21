@@ -8,6 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "*", allow: "/", disallow: ["/admin/", "/api/"] },
     ],
     sitemap: `${SITE}/sitemap.xml`,
-    host: SITE,
+    // `host:` is a non-standard directive (Yandex-only) and was being
+    // ignored by Google + Bing. Dropped to keep the file lean.
   };
 }

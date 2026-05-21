@@ -1,0 +1,15 @@
+# QUATA Digital — retention prune cron template.
+#
+# The backend exposes POST /api/v1/admin/retention/prune. Calling it
+# nightly bounds the activity_logs + page_views tables to the retention
+# windows configured in settings (90 days + 180 days by default).
+#
+# Install:
+#   sudo crontab -e
+#   # then paste the line below, replacing $ADMIN_TOKEN with a long-lived
+#   # service token issued from /admin/staff for a dedicated cron user
+#   # that has `rbac:manage` (the prune endpoint is gated on it).
+#
+# 30 3 * * *  curl -fsS -X POST https://api.quatadigital.com/api/v1/admin/retention/prune \
+#                  -H "Authorization: Bearer $ADMIN_TOKEN" \
+#                  >> /var/log/quata-retention.log 2>&1

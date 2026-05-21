@@ -370,7 +370,7 @@ def public_search(q: str = Query(default="", min_length=1, max_length=120), db: 
 # Newsletter
 # ----------------------------------------------------------------------------
 
-from pydantic import BaseModel, EmailStr  # noqa: E402  (kept local — only used here)
+from pydantic import BaseModel, EmailStr, Field  # noqa: E402  (kept local — only used here)
 
 
 class NewsletterIn(BaseModel):
@@ -482,19 +482,34 @@ def newsletter_unsubscribe_oneclick(
     return {"ok": True, "email": email}
 
 
+class TrackPageviewIn(BaseModel):
+    """Payload schema for the anonymous pageview beacon.
+
+    Length caps + typed fields prevent a script from stuffing megabytes of
+    junk into the analytics table or smuggling injection payloads through
+    a free-form ``dict``.
+    """
+
+    path: str = Field(..., max_length=512)
+    referrer: Optional[str] = Field(default=None, max_length=512)
+    visitor_id: Optional[str] = Field(default=None, max_length=80)
+    is_404: bool = False
+
+
 @router.post("/track", status_code=204)
+@limiter.limit("60/minute")
 def track_pageview(
-    payload: dict,
+    payload: TrackPageviewIn,
     request: Request,
     db: Session = Depends(get_db),
 ):
     pv = PageView(
-        path=str(payload.get("path", ""))[:255],
-        referrer=str(payload.get("referrer", ""))[:500] or None,
-        user_agent=request.headers.get("user-agent"),
-        visitor_id=str(payload.get("visitor_id", ""))[:80] or None,
+        path=payload.path[:255],
+        referrer=(payload.referrer or "")[:500] or None,
+        user_agent=(request.headers.get("user-agent") or "")[:500] or None,
+        visitor_id=(payload.visitor_id or "")[:80] or None,
         ip_address=get_client_ip(request),
-        is_404=bool(payload.get("is_404", False)),
+        is_404=payload.is_404,
     )
     db.add(pv)
     db.commit()

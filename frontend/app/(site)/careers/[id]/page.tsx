@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { renderMarkdownToHtml } from "@/lib/markdown";
 import {
   ArrowRight,
   MapPin,
@@ -42,6 +44,8 @@ type Job = {
   description: string;
   responsibilities: string[];
   requirements: string[];
+  created_at?: string;
+  published_at?: string;
 };
 
 async function getJob(id: string): Promise<Job | null> {
@@ -59,6 +63,29 @@ async function getRelatedJobs(department: string, excludeId: number): Promise<Jo
   } catch {
     return [];
   }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const job = await getJob(id);
+  if (!job) return { title: "Role not found" };
+  const description = (job.summary || job.description || "").slice(0, 200);
+  return {
+    title: `${job.title} · ${job.department}`,
+    description,
+    alternates: { canonical: `/careers/${job.id}` },
+    openGraph: {
+      title: `${job.title} — ${job.department}`,
+      description,
+      type: "website",
+      url: `/careers/${job.id}`,
+    },
+    twitter: { card: "summary_large_image", title: job.title, description },
+  };
 }
 
 export default async function JobPage({
@@ -160,9 +187,15 @@ export default async function JobPage({
           <div className="lg:col-span-2 space-y-10">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">About the role</h2>
-              <div className="mt-4 prose prose-sm max-w-none text-foreground/85 whitespace-pre-line">
-                {job.description}
-              </div>
+              {/* Render the editor's markdown — earlier this was wrapped in
+                  `whitespace-pre-line` so headings, lists, and bold text
+                  rendered as literal asterisks/hashes. */}
+              <div
+                className="mt-4 prose prose-sm max-w-none text-foreground/85"
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdownToHtml(job.description || ""),
+                }}
+              />
             </div>
 
             {job.responsibilities?.length > 0 && (

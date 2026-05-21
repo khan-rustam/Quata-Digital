@@ -23,7 +23,20 @@ export default function SiteLayout({
       <MaintenanceBanner />
       <Navbar />
       <main className="flex-1">{children}</main>
-      <Footer />
+      {/* Footer is `async` (it pulls public site settings). Wrap in Suspense
+          with a minimum-height skeleton so a slow / failing settings API
+          never blocks the visitor's first paint. */}
+      <Suspense
+        fallback={
+          <footer className="mt-12 border-t border-border bg-surface-soft">
+            <div className="container-page py-10 text-xs text-muted-foreground">
+              QUATA Digital
+            </div>
+          </footer>
+        }
+      >
+        <Footer />
+      </Suspense>
       <CookieBanner />
       <ChatBubble />
     </ToastProvider>

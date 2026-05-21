@@ -31,6 +31,12 @@ _CACHE: dict[str, tuple[float, Optional[str]]] = {}
 _CACHE_TTL_SECONDS = 15.0
 _LOCK = threading.Lock()
 
+# Per-process cache for the *full* public settings payload. The footer +
+# nav read this on every public render, so without caching every visitor
+# triggered a `SELECT *` against site_settings. Same TTL as the per-key
+# cache; ``invalidate_cache`` clears both.
+_PUBLIC_CACHE: dict[str, tuple[float, dict]] = {}
+
 
 # ---------------------------------------------------------------------------
 # Default catalogue. `seed_default_settings()` upserts these on boot so the
@@ -246,6 +252,9 @@ def invalidate_cache(key: str | None = None) -> None:
             _CACHE.clear()
         else:
             _CACHE.pop(key, None)
+        # The public payload aggregates many keys, so any single-key
+        # update can affect it — clear it regardless.
+        _PUBLIC_CACHE.clear()
 
 
 def get_setting(key: str, default: Optional[str] = None, *, env_fallback: Optional[str] = None) -> Optional[str]:
@@ -294,8 +303,19 @@ def list_settings(db: Session, *, group: Optional[str] = None) -> list[SiteSetti
 
 
 def public_settings_payload(db: Session) -> dict:
-    """Return a flat dict of public-safe key→value pairs. Skips secrets and
-    non-public groups. Used by the marketing frontend."""
+    """Return a flat dict of public-safe key→value pairs.
+
+    Hot path: every footer + navbar render hits this. We memoise the
+    result for ``_CACHE_TTL_SECONDS`` so high-traffic pages don't fan
+    out an extra `SELECT *` to the DB per request. ``invalidate_cache``
+    clears the entry on admin updates.
+    """
+    with _LOCK:
+        entry = _PUBLIC_CACHE.get("payload")
+        now = time.monotonic()
+        if entry and now - entry[0] < _CACHE_TTL_SECONDS:
+            return dict(entry[1])
+
     rows = (
         db.query(SiteSetting)
         .filter(SiteSetting.is_secret == False)  # noqa: E712
@@ -305,6 +325,9 @@ def public_settings_payload(db: Session) -> dict:
     for r in rows:
         if r.group in PUBLIC_GROUPS or r.key in PUBLIC_KEYS:
             out[r.key] = r.value
+
+    with _LOCK:
+        _PUBLIC_CACHE["payload"] = (time.monotonic(), dict(out))
     return out
 
 

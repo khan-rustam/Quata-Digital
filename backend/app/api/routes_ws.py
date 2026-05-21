@@ -13,9 +13,15 @@ from typing import Dict, Set
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import SessionLocal
 from app.models import User
+
+# Cap inbound WebSocket frames to a sensible ceiling so a misbehaving client
+# can't pin a worker on a multi-megabyte text frame. We only accept ping
+# heartbeats from the browser side; everything else is server-pushed.
+_MAX_WS_MESSAGE_BYTES = 4 * 1024
 
 router = APIRouter(tags=["ws"])
 log = logging.getLogger("quata.ws")
@@ -72,8 +78,25 @@ def _user_from_token(token: str | None) -> User | None:
         db.close()
 
 
+def _origin_allowed(origin: str | None) -> bool:
+    """Cross-origin WebSocket guard.
+
+    Browsers do not enforce the same-origin policy on the WS handshake,
+    so we must do it ourselves — otherwise a malicious page could spawn
+    authenticated sockets in a victim's browser if the token leaks via
+    URL referer/log/etc. ``None`` is allowed for native clients (mobile,
+    curl) that don't send Origin; auth is still enforced by the token.
+    """
+    if not origin:
+        return True
+    return origin in set(settings.cors_origins)
+
+
 @router.websocket("/ws/messages")
 async def messages_ws(websocket: WebSocket, token: str = Query(default="")):
+    if not _origin_allowed(websocket.headers.get("origin")):
+        await websocket.close(code=4403)
+        return
     user = _user_from_token(token)
     if not user or not user.is_active:
         await websocket.close(code=4401)
@@ -92,8 +115,13 @@ async def messages_ws(websocket: WebSocket, token: str = Query(default="")):
 
     try:
         while True:
-            # We mostly push to the client. Allow the client to send ping/typing.
+            # Server is the primary writer here; the client only sends
+            # ping/typing heartbeats. Cap inbound frames so a runaway
+            # client can't OOM a worker on a single multi-MB text frame.
             data = await websocket.receive_text()
+            if len(data) > _MAX_WS_MESSAGE_BYTES:
+                await websocket.close(code=1009)  # message too big
+                return
             try:
                 payload = json.loads(data)
             except json.JSONDecodeError:

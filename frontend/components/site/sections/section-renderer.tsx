@@ -116,7 +116,13 @@ function HeroSection({ s }: { s: Extract<Section, { type: "hero" }> }) {
             <HeroCtas s={s} />
           </div>
           <div className="relative aspect-[4/3] rounded-2xl overflow-hidden ring-elevated bg-secondary">
-            <Image src={s.image_url} alt={s.title} fill className="object-cover" />
+            <Image
+              src={s.image_url}
+              alt={s.title}
+              fill
+              className="object-cover"
+              sizes="(min-width: 1024px) 50vw, 100vw"
+            />
           </div>
         </div>
       </SectionWrap>
@@ -143,7 +149,13 @@ function HeroSection({ s }: { s: Extract<Section, { type: "hero" }> }) {
       </div>
       {s.image_url && !split && (
         <div className="mt-10 relative aspect-[16/9] rounded-2xl overflow-hidden ring-elevated bg-secondary max-w-5xl mx-auto">
-          <Image src={s.image_url} alt={s.title} fill className="object-cover" />
+          <Image
+            src={s.image_url}
+            alt={s.title}
+            fill
+            className="object-cover"
+            sizes="(min-width: 1280px) 1024px, 100vw"
+          />
         </div>
       )}
     </SectionWrap>
@@ -586,7 +598,13 @@ function ImageTextSection({ s }: { s: Extract<Section, { type: "image_text" }> }
         </div>
         {s.image_url && (
           <div className={`relative aspect-[4/3] rounded-2xl overflow-hidden ring-elevated bg-secondary ${right ? "lg:order-2" : "lg:order-1"}`}>
-            <Image src={s.image_url} alt={s.title ?? ""} fill className="object-cover" />
+            <Image
+              src={s.image_url}
+              alt={s.title ?? ""}
+              fill
+              className="object-cover"
+              sizes="(min-width: 1024px) 50vw, 100vw"
+            />
           </div>
         )}
       </div>

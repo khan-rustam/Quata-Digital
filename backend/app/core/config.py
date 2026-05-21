@@ -133,6 +133,21 @@ class Settings(BaseSettings):
     CSP_ENFORCE: bool = False  # False = Report-Only; True = enforce
     HSTS_PRELOAD: bool = False  # add `; preload` only after passing hstspreload.org
 
+    # ---------- Trusted reverse-proxy CIDRs ----------
+    # Comma-separated list of networks whose ``X-Forwarded-For`` header we
+    # honour. Defaults cover localhost + the RFC1918 ranges so a typical
+    # docker / single-VPS setup just works. When the immediate client is
+    # *not* in this list the header is ignored and the raw socket peer is
+    # used — stopping spoofed audit IPs + rate-limit bypass.
+    TRUSTED_PROXIES: List[str] = [
+        "127.0.0.0/8",
+        "::1/128",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "fc00::/7",
+    ]
+
     # ---------- Upload backend (local disk vs S3) ----------
     # `local` (default) writes to UPLOAD_DIR. `s3` requires S3_BUCKET +
     # AWS creds in the env. Switching backends does not migrate existing

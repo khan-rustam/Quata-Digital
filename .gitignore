@@ -1,0 +1,62 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.env
+
+# Local databases / dumps
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.orig
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+build/
+
+# Logs
+*.log
+quata-redeploy.log
+
+# Coverage / test artefacts
+/coverage/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Build / deploy temp
+*.tar.gz
+*.zip
+
+# Uploads (live content)
+uploads/
+!uploads/.gitkeep

@@ -47,8 +47,10 @@ def send_email(*, to: str | Iterable[str], subject: str, body: str, html: str | 
             + body
             + "\n" + "=" * 72 + "\n"
         )
+        # `log.info(rendered)` already lands in stdout for the console
+        # backend; the extra `print` duplicated reset-tokens into a less
+        # structured stream.
         log.info(rendered)
-        print(rendered, flush=True)
         return True
 
     if backend == "smtp":

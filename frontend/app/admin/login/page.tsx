@@ -126,7 +126,12 @@ export default function AdminLoginPage() {
                 </Button>
               </form>
 
-              {process.env.NODE_ENV === "development" && (
+              {/* Gated on an explicit env var, not just NODE_ENV.
+                  A misbuilt production image with `NODE_ENV=development`
+                  would otherwise broadcast the seed password on the
+                  public sign-in page. Production must leave
+                  NEXT_PUBLIC_SHOW_DEV_SEED unset. */}
+              {process.env.NEXT_PUBLIC_SHOW_DEV_SEED === "1" && (
                 <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
                   <div className="font-semibold">Dev seed credentials</div>
                   <div className="mt-1">

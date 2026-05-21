@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Section } from "@/components/site/section";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
+import { renderMarkdownToHtml } from "@/lib/markdown";
 import { JsonLd, articleJsonLd, breadcrumbJsonLd } from "@/components/site/jsonld";
 
 type Post = {
@@ -23,6 +25,31 @@ async function getPost(slug: string): Promise<Post | null> {
   } catch {
     return null;
   }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPost(slug);
+  if (!post) return { title: "Article not found" };
+  const description = (post.excerpt || post.body || "").slice(0, 200);
+  return {
+    title: post.title,
+    description,
+    alternates: { canonical: `/blog/${post.slug}` },
+    openGraph: {
+      title: post.title,
+      description,
+      type: "article",
+      url: `/blog/${post.slug}`,
+      publishedTime: post.published_at,
+      authors: post.author ? [post.author] : undefined,
+    },
+    twitter: { card: "summary_large_image", title: post.title, description },
+  };
 }
 
 export default async function BlogPostPage({
@@ -58,9 +85,14 @@ export default async function BlogPostPage({
       <div className="mt-3 text-sm text-muted-foreground">
         {post.author} · {formatDate(post.published_at)}
       </div>
-      <div className="prose prose-lg mt-8 max-w-none text-foreground/85 whitespace-pre-line">
-        {post.body}
-      </div>
+      {/* CMS body is markdown — render through the shared sanitiser so
+          headings, lists, and inline formatting actually render instead
+          of leaking literal asterisks/hashes to the visitor. URLs are
+          protocol-allowlisted to keep `javascript:` out. */}
+      <div
+        className="prose prose-lg mt-8 max-w-none text-foreground/85"
+        dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(post.body || "") }}
+      />
     </Section>
   );
 }

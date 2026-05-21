@@ -25,6 +25,7 @@ from app.api.routes_ws import router as ws_router
 from app.core.config import settings
 from app.core.logging_config import configure_logging, configure_sentry
 from app.core.rate_limit import limiter, rate_limit_handler
+from app.core.security_headers import SecurityHeadersMiddleware
 from app.db.session import SessionLocal, engine
 from app.models import Base
 from app.seeds.seed import run_seed
@@ -55,6 +56,9 @@ def _ensure_dev_schema_drift(engine_) -> None:
 
     expected_user_columns = {
         "must_reset_password": "BOOLEAN NOT NULL DEFAULT 0",
+        # Nullable so existing rows stay valid; older tokens (without `pwc`)
+        # also remain accepted until the user next changes their password.
+        "password_changed_at": "DATETIME",
     }
 
     with engine_.begin() as conn:
@@ -97,12 +101,16 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Disable the interactive API explorers in production — they enumerate
+# every admin endpoint (retention prune, role CRUD, broadcast, etc.) and
+# leak the full schema even before auth.
+_docs_enabled = not settings.is_production
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="0.3.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url=f"{settings.API_PREFIX}/openapi.json",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url=f"{settings.API_PREFIX}/openapi.json" if _docs_enabled else None,
     lifespan=lifespan,
 )
 
@@ -110,12 +118,29 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
+# Defence-in-depth response headers (CSP/HSTS/X-Frame-Options/etc).
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    csp_enforce=settings.CSP_ENFORCE,
+    hsts_preload=settings.HSTS_PRELOAD,
+    is_production=settings.is_production,
+)
+
+# CORS — explicit method + header lists. `allow_credentials=True` with
+# wildcard methods/headers is ignored by browsers anyway, so listing them
+# both makes the behaviour deterministic and stops silent failures.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Requested-With",
+        "X-Device-Signature",
+        "X-Device-Timestamp",
+    ],
     expose_headers=["Content-Disposition"],
 )
 
@@ -126,43 +151,65 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 
 @app.get("/")
 def root():
-    return {
+    body: dict[str, object] = {
         "name": settings.PROJECT_NAME,
         "version": "0.3.0",
         "environment": settings.ENVIRONMENT,
-        "docs": "/docs",
         "api": settings.API_PREFIX,
+    }
+    if _docs_enabled:
+        body["docs"] = "/docs"
+    return body
+
+
+import logging as _logging
+
+_health_log = _logging.getLogger("quata.health")
+
+
+@app.get("/health/live")
+def health_live():
+    """Liveness probe — does the process answer at all.
+
+    Deliberately does **not** touch the database. A DB blip should not
+    cause an orchestrator (systemd, k8s) to restart the container — only
+    a true hung process should.
+    """
+    return {
+        "status": "ok",
+        "version": "0.3.0",
+        "environment": settings.ENVIRONMENT,
+        "uptime_seconds": round(time.monotonic() - _startup_time, 2),
     }
 
 
-@app.get("/health")
-def health():
-    """Liveness + readiness probe.
+@app.get("/health/ready")
+def health_ready():
+    """Readiness probe — should traffic be routed to this instance.
 
-    Returns 200 only when the database accepts a `SELECT 1`. External
-    monitors should treat anything other than 200 as down.
+    Returns 503 when the database is unavailable. The error detail goes
+    to the server log; the response body says only ``degraded`` so we
+    don't leak the database host/user/DSN text to an external monitor.
     """
     db_ok = False
-    db_error: str | None = None
     try:
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
         db_ok = True
     except Exception as exc:  # noqa: BLE001
-        db_error = str(exc)[:200]
+        _health_log.warning("readiness check failed: %s", exc)
 
     body = {
         "status": "ok" if db_ok else "degraded",
-        "version": "0.3.0",
-        "environment": settings.ENVIRONMENT,
-        "uptime_seconds": round(time.monotonic() - _startup_time, 2),
-        "checks": {
-            "database": "ok" if db_ok else "fail",
-        },
+        "checks": {"database": "ok" if db_ok else "fail"},
     }
-    if db_error:
-        body["checks"]["database_error"] = db_error
     return JSONResponse(body, status_code=200 if db_ok else 503)
+
+
+@app.get("/health")
+def health():
+    """Back-compat alias — delegates to the readiness probe."""
+    return health_ready()
 
 
 # Order matters: more-specific routes before the generic admin list router.

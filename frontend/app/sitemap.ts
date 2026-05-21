@@ -5,6 +5,10 @@ import { apiUrl } from "@/lib/api";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://quatadigital.com";
 
+// Crawlers re-pull the sitemap regularly; revalidating once an hour
+// keeps it fresh without recomputing on every hit.
+export const revalidate = 3600;
+
 type PublishedPage = {
   slug: string;
   updated_at: string;

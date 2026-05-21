@@ -1,0 +1,50 @@
+# Secrets & local env
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+.pnpm-store/
+
+# Build outputs (Dockerfile will rebuild)
+.next/
+out/
+dist/
+build/
+
+# Tests / Playwright
+e2e/test-results/
+playwright-report/
+playwright/.cache/
+coverage/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+
+# Docs / VCS
+.git/
+.gitignore
+.github/
+README*.md
+*.md
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# TypeScript build artefacts
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel / Turbo cache
+.vercel
+.turbo

@@ -4,10 +4,11 @@ import csv
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_current_user, log_activity, require_permission
+from app.api.deps import log_activity, require_permission
 from app.db.session import get_db
 from app.models import (
     ActivityLog,
@@ -56,7 +57,16 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/overview", response_model=OverviewOut)
 def overview(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # Any admin permission grants overview access. Staff with no perms
+    # would otherwise see every partner email + applicant PII.
+    user: User = Depends(
+        require_permission(
+            "partners:manage",
+            "careers:manage",
+            "staff:manage",
+            "analytics:view",
+        )
+    ),
 ):
     today = datetime.now(timezone.utc).date()
     totals = {
@@ -80,6 +90,7 @@ def overview(
     )
     recent_apps = (
         db.query(Application)
+        .options(selectinload(Application.job))
         .order_by(Application.created_at.desc())
         .limit(5)
         .all()
@@ -190,14 +201,35 @@ def admin_export_partners(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("partners:manage")),
 ):
-    rows = db.query(PartnerRequest).order_by(PartnerRequest.created_at.desc()).all()
-    buf = StringIO()
-    w = csv.writer(buf)
-    w.writerow(["id", "type", "status", "created_at", "payload"])
-    for r in rows:
-        w.writerow([r.id, r.partner_type, r.status, r.created_at.isoformat(), r.payload])
-    return Response(
-        content=buf.getvalue(),
+    """Stream the partner-requests CSV row-by-row.
+
+    Earlier implementation buffered every row into memory before
+    returning — past ~50k rows that's a real OOM/stall vector. We now
+    use a server-side cursor (``yield_per``) and a per-row generator so
+    memory stays bounded regardless of table size.
+    """
+
+    def iter_rows():
+        header = StringIO()
+        w = csv.writer(header)
+        w.writerow(["id", "type", "status", "created_at", "payload"])
+        yield header.getvalue()
+
+        query = (
+            db.query(PartnerRequest)
+            .order_by(PartnerRequest.created_at.desc())
+            .execution_options(stream_results=True)
+            .yield_per(500)
+        )
+        for r in query:
+            buf = StringIO()
+            csv.writer(buf).writerow(
+                [r.id, r.partner_type, r.status, r.created_at.isoformat(), r.payload]
+            )
+            yield buf.getvalue()
+
+    return StreamingResponse(
+        iter_rows(),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=partner-requests.csv"},
     )
@@ -298,7 +330,7 @@ def admin_list_staff(
 @router.get("/departments", response_model=List[DepartmentOut])
 def admin_list_departments(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("staff:manage")),
 ):
     deps = db.query(Department).order_by(Department.name).all()
     counts = dict(
@@ -341,9 +373,20 @@ def admin_list_roles(
 @router.get("/messages", response_model=List[MessageOut])
 def admin_list_messages(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("staff:manage")),
 ):
-    msgs = db.query(Message).order_by(Message.created_at.desc()).all()
+    # Eager-load sender + recipients_status; otherwise each row in the
+    # response triggers two extra queries to render the author + counters.
+    msgs = (
+        db.query(Message)
+        .options(
+            selectinload(Message.sender),
+            selectinload(Message.recipients_status),
+            selectinload(Message.recipient),
+        )
+        .order_by(Message.created_at.desc())
+        .all()
+    )
     out = []
     for m in msgs:
         total = len(m.recipients_status)
@@ -371,7 +414,9 @@ def admin_create_message(
     payload: MessageIn,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # Restricting broadcast to staff:manage stops a phished editor from
+    # impersonating leadership across the org.
+    user: User = Depends(require_permission("staff:manage")),
 ):
     msg = Message(
         subject=payload.subject,
@@ -459,9 +504,14 @@ def admin_create_message(
 @router.get("/leave", response_model=List[LeaveOut])
 def admin_list_leave(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("staff:manage")),
 ):
-    rows = db.query(LeaveRequest).order_by(LeaveRequest.created_at.desc()).all()
+    rows = (
+        db.query(LeaveRequest)
+        .options(selectinload(LeaveRequest.user))
+        .order_by(LeaveRequest.created_at.desc())
+        .all()
+    )
     return [
         LeaveOut(
             id=l.id,
@@ -483,7 +533,8 @@ def admin_decide_leave(
     payload: LeaveStatusIn,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # Without this, any logged-in staff member could approve their own leave.
+    user: User = Depends(require_permission("staff:manage")),
 ):
     lr = db.get(LeaveRequest, leave_id)
     if not lr:
@@ -530,12 +581,16 @@ def admin_decide_leave(
 @router.get("/attendance", response_model=List[AttendanceOut])
 def admin_list_attendance(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("staff:manage")),
     on: Optional[date] = None,
 ):
     target = on or datetime.now(timezone.utc).date()
     rows = (
         db.query(AttendanceLog)
+        .options(
+            selectinload(AttendanceLog.user),
+            selectinload(AttendanceLog.device),
+        )
         .filter(func.date(AttendanceLog.check_in_at) == target)
         .order_by(AttendanceLog.check_in_at.desc())
         .all()
@@ -571,7 +626,13 @@ def admin_list_activity(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("activity:view")),
 ):
-    rows = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(200).all()
+    rows = (
+        db.query(ActivityLog)
+        .options(selectinload(ActivityLog.actor))
+        .order_by(ActivityLog.created_at.desc())
+        .limit(200)
+        .all()
+    )
     return [
         ActivityOut(
             id=r.id,
@@ -654,7 +715,9 @@ def admin_analytics(
 @router.get("/contact")
 def admin_list_contact(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # Contact submissions contain PII (name/email/phone); restrict to staff
+    # who already handle partner inquiries.
+    user: User = Depends(require_permission("partners:manage")),
 ):
     rows = db.query(ContactMessage).order_by(ContactMessage.created_at.desc()).limit(200).all()
     return [

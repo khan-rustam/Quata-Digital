@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, log_activity, user_permissions
+from app.api.deps import get_current_user_lenient, log_activity, user_permissions
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
@@ -91,12 +91,14 @@ def login(payload: TwoFactorLoginIn, request: Request, db: Session = Depends(get
     reset_failed_attempts(user)
     log_activity(db, actor=user, action="login", resource_type="auth", request=request)
     db.commit()
-    token = create_access_token(user.id)
+    token = create_access_token(
+        user.id, password_changed_at=user.password_changed_at
+    )
     return TokenOut(access_token=token).model_dump()
 
 
 @router.get("/me", response_model=MeOut)
-def me(user: User = Depends(get_current_user)):
+def me(user: User = Depends(get_current_user_lenient)):
     perms = sorted(p for p in user_permissions(user) if p != "*")
     if any(p == "*" for p in user_permissions(user)):
         perms = ["*"]
@@ -184,6 +186,7 @@ def reset_password(payload: ResetPasswordIn, request: Request, db: Session = Dep
 
     user.password_hash = hash_password(payload.new_password)
     user.must_reset_password = False
+    user.password_changed_at = datetime.now(timezone.utc)
     reset_failed_attempts(user)
     row.used_at = datetime.now(timezone.utc)
 

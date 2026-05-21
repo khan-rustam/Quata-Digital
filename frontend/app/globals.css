@@ -187,3 +187,27 @@
     mask-image: linear-gradient(to top, black 60%, transparent 100%);
   }
 }
+
+/* Global keyboard-focus baseline. Tailwind's preflight removes the
+ * default browser ring on every focusable element, leaving keyboard
+ * users with no visible focus on plain buttons / links. This restores
+ * a 2px brand ring for the keyboard `:focus-visible` state without
+ * affecting mouse clicks. Component-level rings still take precedence. */
+:focus-visible {
+  outline: 2px solid var(--ring, var(--color-primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Honour the OS "reduce motion" setting. Disables decorative animations
+ * but keeps state-change transforms snappy so the UI still feels alive. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

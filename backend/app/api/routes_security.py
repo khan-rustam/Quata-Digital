@@ -8,7 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, log_activity, require_permission
+from app.api.deps import (
+    get_current_user,
+    get_current_user_lenient,
+    log_activity,
+    require_permission,
+)
 from app.core.security import verify_password
 from app.db.session import get_db
 from app.models import (
@@ -50,7 +55,8 @@ def begin_totp_enrol(
     payload: TotpEnrolStartIn,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # Lenient: super_admins must reach this endpoint to satisfy REQUIRE_2FA.
+    user: User = Depends(get_current_user_lenient),
 ):
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is incorrect")
@@ -73,7 +79,8 @@ def verify_totp_enrol(
     payload: TotpVerifyIn,
     request: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    # Lenient: completes the REQUIRE_2FA gate; can't use strict yet.
+    user: User = Depends(get_current_user_lenient),
 ):
     if not user.totp_secret:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Start enrolment first")

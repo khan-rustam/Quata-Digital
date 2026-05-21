@@ -20,17 +20,50 @@ const escapeHtml = (s: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+/**
+ * Protocol allow-list for markdown link and image URLs.
+ *
+ * CMS authors can produce `[text](javascript:alert(1))` or
+ * `![x](data:text/html,<script>...)` if we don't filter. We restrict to
+ * the protocols a legitimate marketing page actually needs:
+ *
+ *   - `https:` — external
+ *   - `mailto:` and `tel:` — contact links
+ *   - root-relative paths (`/something`)
+ *   - same-document anchors (`#section`)
+ *   - inline images via `data:image/...`
+ *
+ * Anything else collapses to `#` so the markup is still valid but inert.
+ */
+function safeUrl(href: string, opts: { allowDataImage?: boolean } = {}): string {
+  const trimmed = href.trim();
+  if (!trimmed) return "#";
+  if (/^https?:/i.test(trimmed)) return trimmed;
+  if (/^mailto:/i.test(trimmed)) return trimmed;
+  if (/^tel:/i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/")) return trimmed;
+  if (trimmed.startsWith("#")) return trimmed;
+  if (opts.allowDataImage && /^data:image\//i.test(trimmed)) return trimmed;
+  return "#";
+}
+
 function inline(s: string): string {
   let out = escapeHtml(s);
   // images ![alt](url) — must run before links since they share []() syntax.
   out = out.replace(
     /!\[([^\]]*)\]\(([^)\s]+)\)/g,
-    '<img src="$2" alt="$1" class="my-3 rounded-xl border border-border max-w-full h-auto" loading="lazy" />',
+    (_m, alt, url) => {
+      const safe = safeUrl(url, { allowDataImage: true });
+      return `<img src="${safe}" alt="${alt}" class="my-3 rounded-xl border border-border max-w-full h-auto" loading="lazy" />`;
+    },
   );
   // links [text](url)
   out = out.replace(
     /\[([^\]]+)\]\(([^)\s]+)\)/g,
-    '<a href="$2" target="_blank" rel="noreferrer noopener" class="text-primary underline-offset-4 hover:underline">$1</a>',
+    (_m, text, url) => {
+      const safe = safeUrl(url);
+      return `<a href="${safe}" target="_blank" rel="noreferrer noopener" class="text-primary underline-offset-4 hover:underline">${text}</a>`;
+    },
   );
   // bold
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
