@@ -146,20 +146,27 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "frontend" ]]; then
   step "FRONTEND  →  next.js :3500 (PM2 / Quata-Digi-F)"
   cd "$PROJECT_DIR/frontend"
 
-  info "npm ci (matches CI tooling; package-lock.json is the source of truth)"
-  # CI runs `npm ci` against package-lock.json, so deploy must too;
-  # otherwise a green CI run can still fail in prod because of lockfile
-  # drift between npm and pnpm. If lockfile is stale, fall back to a
-  # full `npm install` so the deploy still completes — the next push
-  # should refresh the lockfile properly.
-  if ! npm ci; then
-    info "lockfile outdated — running full npm install to regenerate"
-    npm install
+  # The VPS uses pnpm (CI uses `npm ci` against the tracked
+  # package-lock.json for lint/typecheck/build smoke). pnpm-lock.yaml
+  # is NOT tracked — it's regenerated from package.json on each deploy
+  # if missing or stale. Detect a left-over npm `node_modules` layout
+  # (no .pnpm/ directory) and nuke it before installing so pnpm starts
+  # from a clean slate — fixes the EUSAGE/`Cannot read properties of
+  # null` failure mode after a previous deploy aborted mid-install.
+  if [[ -d node_modules && ! -d node_modules/.pnpm ]]; then
+    info "node_modules looks non-pnpm — removing for a clean install"
+    rm -rf node_modules
+  fi
+
+  info "pnpm install (frozen first, regenerate if package.json drifted)"
+  if ! pnpm install --frozen-lockfile 2>/dev/null; then
+    info "lockfile missing or outdated — regenerating with full pnpm install"
+    pnpm install
   fi
   ok "frontend deps in sync"
 
-  info "npm run build"
-  npm run build
+  info "pnpm build"
+  pnpm build
   ok "next build complete"
 
   info "pm2 restart Quata-Digi-F"

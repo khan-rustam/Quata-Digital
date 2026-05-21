@@ -61,7 +61,7 @@ Last reviewed: **2026-05-21**
 | D3 | `docker-compose.yml` ships dev defaults, ports bound to `0.0.0.0` | Ports now bound to `127.0.0.1` only; header warns and the production-safety guard catches misuse. |
 | D4 | Frontend Dockerfile shipped full `node_modules` | Switched to `output: 'standalone'` + non-root runtime image. ~250 MB vs ~1 GB. |
 | D5 | `deploy.sh` no rollback on failure | Captures pre-deploy SHA + best-effort `pg_dump` snapshot, prints rollback recipe on any non-zero exit via trap. |
-| D6 | CI used `npm ci`, deploy used `pnpm` | Aligned `deploy.sh` on `npm ci` (matches the actual `package-lock.json`). |
+| D6 | CI used `npm ci`, deploy used `pnpm` | The VPS runs pnpm; `deploy.sh` now defensively wipes a non-pnpm `node_modules` before `pnpm install --frozen-lockfile`, falling back to a full `pnpm install` when the lockfile drifts. CI keeps `npm ci` for lint/typecheck against the tracked `package-lock.json` (used as the integrity reference). `pnpm-lock.yaml` is regenerated per-deploy on the VPS and intentionally not tracked. |
 | D7 | Reverse proxy / systemd unit / PM2 ecosystem not in repo | `infra/caddy/Caddyfile`, `infra/systemd/quata-digital-backend.service`, `infra/pm2/ecosystem.config.js`. |
 | D8 | No DB backup recipe | `infra/cron/backup-postgres.sh` ships nightly `pg_dump` → S3 with retention prune. |
 | D9 | Retention prune cron not committed | Template at `infra/cron/retention-prune.cron`. |
