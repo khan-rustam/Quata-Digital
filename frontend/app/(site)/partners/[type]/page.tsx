@@ -313,8 +313,8 @@ export default async function PartnerTypePage({
               </div>
               <p className="mt-3 text-sm text-muted-foreground">
                 Prefer a conversation first? Email{" "}
-                <a href="mailto:partnerships@quatadigital.com" className="text-primary font-medium">
-                  partnerships@quatadigital.com
+                <a href="mailto:pi@quatadigital.com" className="text-primary font-medium">
+                  pi@quatadigital.com
                 </a>{" "}
                 or visit our{" "}
                 <Link href="/contact" className="text-primary font-medium">

@@ -283,7 +283,7 @@ export default async function PartnersIndexPage() {
           <FaqWithAside
             asideTitle="Talk to partnerships"
             asideBody="Skip the form and write directly. We respond to every partnership enquiry within 3 business days."
-            asideEmail="partnerships@quatadigital.com"
+            asideEmail="pi@quatadigital.com"
             asideStats={[
               { value: "3 days", label: "Avg. response" },
               { value: "4 paths", label: "Ways to plug in" },
