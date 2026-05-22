@@ -19,6 +19,7 @@ import {
 import { Section, SectionHeader } from "@/components/site/section";
 import { ContactForm } from "@/components/forms/contact-form";
 import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
+import { DEFAULT_PUBLIC_PHONE } from "@/lib/site-settings";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -183,17 +184,23 @@ export default async function ContactPage() {
                   info@quatadigital.com
                 </a>
               </li>
-              {process.env.NEXT_PUBLIC_CONTACT_PHONE && (
-                <li className="flex items-start gap-2 text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
-                  <a
-                    href={`tel:${process.env.NEXT_PUBLIC_CONTACT_PHONE.replace(/\s+/g, "")}`}
-                    className="hover:text-foreground"
-                  >
-                    {process.env.NEXT_PUBLIC_CONTACT_PHONE}
-                  </a>
-                </li>
-              )}
+              {(() => {
+                // Env override wins; otherwise fall back to the baked-in
+                // default so the contact row always renders. Strip everything
+                // except digits + leading `+` from the `tel:` href so visiting
+                // links don't break on a number formatted with spaces.
+                const phoneDisplay =
+                  process.env.NEXT_PUBLIC_CONTACT_PHONE ?? DEFAULT_PUBLIC_PHONE;
+                const phoneHref = phoneDisplay.replace(/[^\d+]/g, "");
+                return (
+                  <li className="flex items-start gap-2 text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
+                    <a href={`tel:${phoneHref}`} className="hover:text-foreground">
+                      {phoneDisplay}
+                    </a>
+                  </li>
+                );
+              })()}
               <li className="flex items-start gap-2 text-muted-foreground">
                 <Clock className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
                 <span>Mon–Fri, 09:00–18:00 WAT</span>

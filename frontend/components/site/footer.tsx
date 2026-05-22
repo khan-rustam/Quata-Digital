@@ -2,7 +2,11 @@ import Link from "next/link";
 import { Logo } from "./logo";
 import { Mail, MapPin, Phone, ArrowUpRight } from "lucide-react";
 import { products } from "@/lib/ecosystem";
-import { getSiteSettings } from "@/lib/site-settings";
+import {
+  getSiteSettings,
+  DEFAULT_PUBLIC_EMAIL,
+  DEFAULT_PUBLIC_PHONE,
+} from "@/lib/site-settings";
 
 function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -81,12 +85,17 @@ const DEFAULT_ADDRESS_LINES = [
   "Veterinary Junction P.C Ntamulung Entrance",
   "Bamenda — Northwest Region, Cameroon",
 ];
-const DEFAULT_PUBLIC_EMAIL = "info@quatadigital.com";
 const DEFAULT_SUPPORT_EMAIL = "support@quatadigital.com";
 
 export async function Footer() {
   const settings = await getSiteSettings();
-  const phone = settings.contact.phone ?? process.env.NEXT_PUBLIC_CONTACT_PHONE ?? null;
+  // Resolution order: admin-configured value → env override → baked-in
+  // default. The default keeps the contact row populated on a fresh
+  // deploy where nobody has filled in Site Settings yet.
+  const phone =
+    settings.contact.phone ??
+    process.env.NEXT_PUBLIC_CONTACT_PHONE ??
+    DEFAULT_PUBLIC_PHONE;
   const publicEmail = settings.contact.email ?? DEFAULT_PUBLIC_EMAIL;
   const addressLines = settings.contact.address
     ? settings.contact.address.split("\n").map((l) => l.trim()).filter(Boolean)

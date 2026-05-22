@@ -15,6 +15,21 @@
 
 import { apiUrl } from "./api";
 
+/**
+ * Hard-coded fallbacks for the public contact channels.
+ *
+ * Precedence on every public surface is:
+ *   1. value the admin sets in /admin/site-settings (`settings.contact.*`);
+ *   2. environment variable (e.g. `NEXT_PUBLIC_CONTACT_PHONE`);
+ *   3. these constants.
+ *
+ * Keeping a baked-in default means the footer / contact page never
+ * render an empty phone row, even on a fresh deploy where the admin
+ * hasn't filled in the site settings yet.
+ */
+export const DEFAULT_PUBLIC_PHONE = "+237 680044590";
+export const DEFAULT_PUBLIC_EMAIL = "info@quatadigital.com";
+
 export type ContactSettings = {
   phone: string | null;
   email: string | null;
