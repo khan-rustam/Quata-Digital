@@ -153,10 +153,7 @@ export default async function AboutPage() {
               </li>
               <li className="flex items-start gap-3">
                 <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <span>
-                  HQ: Veterinary Junction P.C Ntamulung Entrance, Bamenda —
-                  Northwest Region
-                </span>
+                <span>HQ: Bamenda, North West Region, Cameroon</span>
               </li>
               <li className="flex items-start gap-3">
                 <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
@@ -168,9 +165,13 @@ export default async function AboutPage() {
               <li className="flex items-start gap-3">
                 <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <span>
-                  Registered:{" "}
+                  Reg.{" "}
                   <code className="text-[11px] bg-card border border-border rounded px-1 py-0.5">
-                    TPPRR:RC.B&apos;DA.2025A.189
+                    RC/BDA/2025A/189
+                  </code>{" "}
+                  · Tax ID{" "}
+                  <code className="text-[11px] bg-card border border-border rounded px-1 py-0.5">
+                    M052517750267W
                   </code>
                 </span>
               </li>
@@ -314,7 +315,7 @@ export default async function AboutPage() {
               <span className="text-muted-foreground font-normal">, Cameroon</span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              Veterinary Junction P.C Ntamulung Entrance, Northwest Region.
+              North West Region, Cameroon.
             </p>
             <div className="mt-4 text-xs text-muted-foreground">
               Founding team — small and focused.

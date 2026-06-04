@@ -50,7 +50,7 @@ const sections = [
   },
   {
     title: "10. Governing law",
-    body: `These terms are governed by the laws of Cameroon. Disputes will be resolved in the competent courts of Bamenda, Northwest Region.`,
+    body: `These terms are governed by the laws of Cameroon. Disputes will be resolved in the competent courts of Bamenda, North West Region.`,
   },
   {
     title: "11. Changes",
@@ -93,8 +93,8 @@ export default async function TermsPage() {
           ))}
         </div>
         <div className="mt-12 rounded-2xl border border-border bg-surface-soft p-6 text-sm text-muted-foreground">
-          QUATA Digital Enterprise — Bamenda, Northwest Region, Cameroon ·
-          Reg. TPPRR:RC.B&apos;DA.2025A.189
+          QUATA Digital Enterprise — Bamenda, North West Region, Cameroon ·
+          Reg. RC/BDA/2025A/189 · Tax ID M052517750267W
         </div>
       </Section>
     </>

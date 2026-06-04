@@ -82,8 +82,7 @@ const groups = [
 ];
 
 const DEFAULT_ADDRESS_LINES = [
-  "Veterinary Junction P.C Ntamulung Entrance",
-  "Bamenda — Northwest Region, Cameroon",
+  "Bamenda, North West Region, Cameroon",
 ];
 const DEFAULT_SUPPORT_EMAIL = "support@quatadigital.com";
 
@@ -300,7 +299,12 @@ export async function Footer() {
             <span className="mx-2 text-white/25">·</span>
             Reg.{" "}
             <code className="text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white/70">
-              TPPRR:RC.B&apos;DA.2025A.189
+              RC/BDA/2025A/189
+            </code>
+            <span className="mx-2 text-white/25">·</span>
+            Tax ID{" "}
+            <code className="text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-white/70">
+              M052517750267W
             </code>
           </div>
           <div className="flex items-center gap-5 text-xs text-white/55">

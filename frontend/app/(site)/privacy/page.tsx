@@ -15,7 +15,7 @@ const lastUpdated = "Effective on first product launch (May 2026)";
 const sections = [
   {
     title: "1. Who we are",
-    body: `QUATA Digital Enterprise (\"QUATA\", \"we\", \"our\", \"us\") is the controller of the personal data collected through this website and our products. We are registered in Cameroon under TPPRR:RC.B'DA.2025A.189 and operate from Bamenda, Northwest Region, Cameroon.`,
+    body: `QUATA Digital Enterprise (\"QUATA\", \"we\", \"our\", \"us\") is the controller of the personal data collected through this website and our products. We are registered in Cameroon under RC/BDA/2025A/189 (Tax ID M052517750267W) and operate from Bamenda, North West Region, Cameroon.`,
   },
   {
     title: "2. Why we collect data",
@@ -91,8 +91,8 @@ export default async function PrivacyPage() {
           ))}
         </div>
         <div className="mt-12 rounded-2xl border border-border bg-surface-soft p-6 text-sm text-muted-foreground">
-          QUATA Digital Enterprise — Bamenda, Northwest Region, Cameroon ·
-          Reg. TPPRR:RC.B&apos;DA.2025A.189
+          QUATA Digital Enterprise — Bamenda, North West Region, Cameroon ·
+          Reg. RC/BDA/2025A/189 · Tax ID M052517750267W
         </div>
       </Section>
     </>

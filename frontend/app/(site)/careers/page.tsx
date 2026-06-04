@@ -327,7 +327,7 @@ export default async function CareersPage() {
               </div>
             </div>
             <div className="mt-4 text-sm text-foreground/80">
-              Veterinary Junction P.C Ntamulung Entrance, Northwest Region.
+              North West Region, Cameroon.
             </div>
             <div className="mt-2 text-xs text-muted-foreground">Founding HQ</div>
           </div>

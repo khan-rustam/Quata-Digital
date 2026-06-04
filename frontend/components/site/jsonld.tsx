@@ -29,11 +29,15 @@ export const orgJsonLd = {
   founder: { "@type": "Person", name: "Neba Clovis Ngwa", jobTitle: "Founder & CEO" },
   address: {
     "@type": "PostalAddress",
-    streetAddress: "Veterinary Junction P.C Ntamulung Entrance",
     addressLocality: "Bamenda",
-    addressRegion: "Northwest Region",
+    addressRegion: "North West Region",
     addressCountry: "CM",
   },
+  identifier: [
+    { "@type": "PropertyValue", propertyID: "RCCM", value: "RC/BDA/2025A/189" },
+    { "@type": "PropertyValue", propertyID: "Tax ID", value: "M052517750267W" },
+  ],
+  taxID: "M052517750267W",
   sameAs: [
     "https://www.facebook.com/share/1HFDnBuFWz/",
     "https://www.instagram.com/quatadigital",

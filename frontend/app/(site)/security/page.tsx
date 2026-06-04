@@ -82,7 +82,11 @@ export default async function SecurityPage() {
             <p className="mt-3 text-sm text-emerald-900/80">
               QUATA Digital Enterprise is registered under{" "}
               <code className="text-[11px] bg-white border border-emerald-200 rounded px-1 py-0.5">
-                TPPRR:RC.B&apos;DA.2025A.189
+                RC/BDA/2025A/189
+              </code>{" "}
+              · Tax ID{" "}
+              <code className="text-[11px] bg-white border border-emerald-200 rounded px-1 py-0.5">
+                M052517750267W
               </code>
               .
             </p>

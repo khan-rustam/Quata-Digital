@@ -173,10 +173,7 @@ export default async function ContactPage() {
             <ul className="mt-5 grid sm:grid-cols-2 gap-3 text-sm">
               <li className="flex items-start gap-2 text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
-                <span>
-                  Veterinary Junction P.C Ntamulung Entrance, Bamenda —
-                  Northwest Region, Cameroon
-                </span>
+                <span>Bamenda, North West Region, Cameroon</span>
               </li>
               <li className="flex items-start gap-2 text-muted-foreground">
                 <Mail className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
