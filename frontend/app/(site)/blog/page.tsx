@@ -15,6 +15,7 @@ import { Section, SectionHeader } from "@/components/site/section";
 import { Badge } from "@/components/ui/badge";
 import { FeaturedPost } from "@/components/site/sections/featured-post";
 import { NewsletterSignup } from "@/components/site/sections/newsletter";
+import { PostCover } from "@/components/site/illustrations/editorial";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 
@@ -146,10 +147,12 @@ export default async function BlogPage() {
                 href={`/blog/${p.slug}`}
                 className="group flex flex-col rounded-2xl border border-border bg-card overflow-hidden ring-soft transition hover:-translate-y-0.5"
               >
-                <div className="h-40 w-full gradient-brand relative">
-                  <div className="absolute inset-0 dot-grid opacity-30" />
+                <div className="h-40 w-full relative overflow-hidden">
+                  <div className="absolute inset-0">
+                    <PostCover category={p.category} />
+                  </div>
                   <div className="absolute left-4 top-4">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-medium text-ink">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-medium text-ink shadow-sm">
                       <Icon className="h-3 w-3 text-primary" />
                       {p.category}
                     </span>

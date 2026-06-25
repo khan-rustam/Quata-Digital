@@ -19,6 +19,7 @@ import {
 import { Section, SectionHeader } from "@/components/site/section";
 import { ContactForm } from "@/components/forms/contact-form";
 import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
+import { Illustration } from "@/components/site/illustrations/illustration";
 import { DEFAULT_PUBLIC_PHONE } from "@/lib/site-settings";
 
 export const metadata: Metadata = {
@@ -77,18 +78,28 @@ export default async function ContactPage() {
         <div className="absolute inset-0 -z-10 bg-linear-to-b from-brand-soft/40 via-surface to-surface" />
         <div className="absolute inset-0 -z-10 dot-grid mask-fade-b opacity-50" />
         <div className="container-page pt-34 sm:pt-40 md:pt-44 pb-14 sm:pb-20 md:pb-24">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
-            <MessageCircle className="h-3.5 w-3.5 text-primary" />
-            Get in touch
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/80 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
+                <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                Get in touch
+              </div>
+              <h1 className="mt-6 text-3xl sm:text-4xl md:text-6xl font-semibold tracking-tight max-w-2xl text-balance">
+                Tell us what you&apos;re{" "}
+                <span className="text-gradient-brand">trying to do.</span>
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
+                We read every message that comes through. Pick the inbox that fits,
+                or send a general note and we&apos;ll route you to the right team.
+              </p>
+            </div>
+            <Illustration
+              name="contact-hero"
+              alt="A QUATA Digital customer-support agent with a headset replying to messages"
+              width={1200}
+              height={900}
+            />
           </div>
-          <h1 className="mt-6 text-3xl sm:text-4xl md:text-6xl font-semibold tracking-tight max-w-3xl text-balance">
-            Tell us what you&apos;re{" "}
-            <span className="text-gradient-brand">trying to do.</span>
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
-            We read every message that comes through. Pick the inbox that fits,
-            or send a general note and we&apos;ll route you to the right team.
-          </p>
         </div>
       </section>
 
@@ -204,18 +215,13 @@ export default async function ContactPage() {
               </li>
             </ul>
           </div>
-          <div className="rounded-2xl border border-dashed border-border bg-card p-6">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-muted-foreground">
-              <Globe2 className="h-5 w-5" />
-            </div>
-            <div className="mt-5 text-base font-semibold tracking-tight">
-              More locations soon
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Additional offices will follow as we expand into new African
-              markets.
-            </p>
-          </div>
+          <Illustration
+            name="contact-office"
+            alt="QUATA Digital headquarters in Bamenda, Cameroon"
+            width={800}
+            height={600}
+            caption="HQ in Bamenda — more offices will follow as we expand across Africa."
+          />
         </div>
       </Section>
 

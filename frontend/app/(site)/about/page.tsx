@@ -25,7 +25,7 @@ import { Timeline } from "@/components/site/sections/timeline";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { StatStrip } from "@/components/site/sections/stat-strip";
 import { BigQuote } from "@/components/site/sections/big-quote";
-import { BrandImage } from "@/components/site/brand-image";
+import { Illustration } from "@/components/site/illustrations/illustration";
 
 export const metadata: Metadata = {
   title: "About",
@@ -61,13 +61,11 @@ export default async function AboutPage() {
                 scale a business without friction.
               </p>
             </div>
-            <BrandImage
-              src="/images/about/hero.jpg"
-              alt="QUATA Digital team in Bamenda, Cameroon"
+            <Illustration
+              name="about-hero"
+              alt="QUATA Digital's team collaborating in their Bamenda office — laptops, a whiteboard and a product dashboard"
               width={1200}
               height={1000}
-              accent="brand"
-              priority
             />
           </div>
         </div>
@@ -248,12 +246,11 @@ export default async function AboutPage() {
       <Section className="bg-surface-soft rounded-3xl">
         <SectionHeader eyebrow="Founder" title="The team behind the rail." />
         <div className="mt-10 grid lg:grid-cols-[320px_1fr] gap-8 lg:gap-12 items-start max-w-4xl">
-          <BrandImage
-            src="/images/about/founder.jpg"
+          <Illustration
+            name="about-founder"
             alt="Neba Clovis Ngwa, Founder &amp; CEO of QUATA Digital"
-            width={640}
-            height={800}
-            accent="brand"
+            width={900}
+            height={1100}
             rounded="rounded-3xl"
           />
           <div>

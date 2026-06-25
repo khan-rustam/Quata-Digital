@@ -30,7 +30,7 @@ import { StatStrip } from "@/components/site/sections/stat-strip";
 import { ProcessSteps } from "@/components/site/sections/process-steps";
 import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { BigQuote } from "@/components/site/sections/big-quote";
-import { BrandImage } from "@/components/site/brand-image";
+import { Illustration } from "@/components/site/illustrations/illustration";
 import { api } from "@/lib/api";
 
 export const metadata: Metadata = {
@@ -122,13 +122,11 @@ export default async function CareersPage() {
                 </Button>
               </div>
             </div>
-            <BrandImage
-              src="/images/careers/hero.jpg"
-              alt="QUATA Digital team collaborating in Bamenda"
+            <Illustration
+              name="careers-hero"
+              alt="QUATA Digital teammates at work in Bamenda — building the founding team"
               width={1200}
               height={1000}
-              accent="brand"
-              priority
             />
           </div>
         </div>

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Clock } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { PostCover } from "@/components/site/illustrations/editorial";
 
 export function FeaturedPost({
   post,
@@ -30,12 +31,14 @@ export function FeaturedPost({
         className="group block rounded-3xl overflow-hidden border border-border bg-card ring-soft transition-all duration-300 hover:ring-elevated hover:-translate-y-1"
       >
         <div className="grid lg:grid-cols-2">
-          <div className="relative aspect-16/10 lg:aspect-auto gradient-brand overflow-hidden">
-            <div className="absolute inset-0 dot-grid opacity-20" />
-            <div className="absolute inset-0 flex items-end p-6 sm:p-8 text-white/90">
-              <Badge variant="outline" className="border-white/30 text-white">
+          <div className="relative aspect-16/10 lg:aspect-auto overflow-hidden min-h-55">
+            <div className="absolute inset-0">
+              <PostCover category={post.category} />
+            </div>
+            <div className="absolute inset-0 flex items-end p-6 sm:p-8">
+              <span className="inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-medium text-ink shadow-sm">
                 Featured
-              </Badge>
+              </span>
             </div>
           </div>
           <div className="p-6 sm:p-8 md:p-10 flex flex-col justify-center">

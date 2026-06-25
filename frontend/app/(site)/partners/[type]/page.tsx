@@ -19,7 +19,7 @@ import { partnerPaths, getPartnerPath } from "@/lib/partner-types";
 import { PartnerForm } from "@/components/forms/partner-form";
 import { ProcessSteps } from "@/components/site/sections/process-steps";
 import { FAQ } from "@/components/site/sections/faq";
-import { BrandImage, type BrandImageAccent } from "@/components/site/brand-image";
+import { Illustration, type IllustrationName } from "@/components/site/illustrations/illustration";
 
 const eligibilityByType: Record<string, string[]> = {
   business: [
@@ -128,14 +128,6 @@ const timelineByType: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
-// Accent palette per partner type so each path feels distinct.
-const accentByType: Record<string, BrandImageAccent> = {
-  business: "brand",
-  strategic: "ink",
-  investor: "amber",
-  service: "emerald",
-};
-
 // Long-form supporting quotes for the FAQ side-panel — keeps the right
 // half of the FAQ row from being empty.
 const faqQuoteByType: Record<string, { quote: string; voice: string }> = {
@@ -193,7 +185,6 @@ export default async function PartnerTypePage({
   const Icon = path.icon;
   const eligibility = eligibilityByType[path.slug] ?? [];
   const faqs = faqByType[path.slug] ?? [];
-  const accent = accentByType[path.slug] ?? "brand";
   const faqQuote = faqQuoteByType[path.slug];
   const disqualifiers = disqualifiersByType[path.slug] ?? [];
   const timeline = timelineByType[path.slug] ?? [];
@@ -224,13 +215,11 @@ export default async function PartnerTypePage({
                 {path.description}
               </p>
             </div>
-            <BrandImage
-              src={`/images/partners/${path.slug}/hero.jpg`}
+            <Illustration
+              name={`partner-${path.slug}-hero` as IllustrationName}
               alt={`${path.title} working with QUATA Digital`}
               width={1200}
               height={900}
-              accent={accent}
-              priority
             />
           </div>
         </div>
@@ -324,12 +313,11 @@ export default async function PartnerTypePage({
               </p>
             </div>
 
-            <BrandImage
-              src={`/images/partners/${path.slug}/sidebar.jpg`}
+            <Illustration
+              name={`partner-${path.slug}-sidebar` as IllustrationName}
               alt={`What working with QUATA looks like for a ${path.title.toLowerCase()}`}
               width={800}
               height={600}
-              accent={accent}
             />
           </div>
 
@@ -448,12 +436,11 @@ export default async function PartnerTypePage({
             />
           </div>
           <div className="lg:col-span-2 space-y-5 lg:sticky lg:top-24">
-            <BrandImage
-              src={`/images/partners/${path.slug}/faq.jpg`}
+            <Illustration
+              name={`partner-${path.slug}-faq` as IllustrationName}
               alt={`${path.title} talking with the QUATA partnerships team`}
               width={900}
               height={1100}
-              accent={accent}
               rounded="rounded-3xl"
             />
             {faqQuote && (

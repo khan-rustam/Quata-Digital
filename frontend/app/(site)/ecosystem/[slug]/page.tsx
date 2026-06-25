@@ -24,6 +24,8 @@ import { FinalCTA } from "@/components/site/cta";
 import { JsonLd, productJsonLd, breadcrumbJsonLd } from "@/components/site/jsonld";
 import { SectionRenderer } from "@/components/site/sections/section-renderer";
 import { getPageContent } from "@/lib/page-content";
+import { Illustration, type IllustrationName } from "@/components/site/illustrations/illustration";
+import { featureIcon } from "@/lib/feature-icons";
 import { cn } from "@/lib/utils";
 
 const statusVariant = {
@@ -179,16 +181,26 @@ export default async function ProductPage({
                 aria-hidden
                 className="absolute -top-3 -right-3 h-20 w-20 rounded-full border border-border bg-card/60 backdrop-blur ring-soft"
               />
-              {/* Logo card — clean white with soft 3D shadow */}
-              <div className="relative aspect-square rounded-3xl bg-card border border-border p-10 flex items-center justify-center shadow-[0_30px_80px_-30px_rgba(15,18,22,0.25),0_8px_24px_-12px_rgba(15,18,22,0.12),inset_0_1px_0_rgba(255,255,255,0.8)]">
-                <Image
-                  src={product.logo}
-                  alt={`${product.name} logo`}
-                  width={512}
-                  height={512}
-                  priority
-                  className="w-full h-full object-contain"
+              {/* Product preview — on-brand mockup of what the product does,
+                  with the logo as a floating chip so brand recognition stays. */}
+              <div className="relative rounded-3xl shadow-[0_30px_80px_-30px_rgba(15,18,22,0.25),0_8px_24px_-12px_rgba(15,18,22,0.12)]">
+                <Illustration
+                  name={`product-${product.slug}` as IllustrationName}
+                  alt={`${product.name} — ${product.shortDescription}`}
+                  width={1200}
+                  height={900}
+                  rounded="rounded-3xl"
                 />
+                <div className="absolute -top-4 -left-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-card border border-border ring-soft shadow-md p-2.5">
+                  <Image
+                    src={product.logo}
+                    alt={`${product.name} logo`}
+                    width={64}
+                    height={64}
+                    priority
+                    className="h-full w-full object-contain"
+                  />
+                </div>
               </div>
               {/* "Built on QUATA rail" badge floating at bottom */}
               <div className="absolute left-1/2 -bottom-4 -translate-x-1/2">
@@ -290,22 +302,30 @@ export default async function ProductPage({
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {product.features.length > 0 ? (
-            product.features.map((f, i) => (
+            product.features.map((f, i) => {
+              const FIcon = featureIcon(f.title, f.body);
+              return (
               <div
                 key={f.title}
                 className="rounded-2xl border border-border bg-card p-6 ring-soft"
               >
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Feature {String(i + 1).padStart(2, "0")}
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-primary">
+                    <FIcon className="h-5 w-5" />
+                  </span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Feature {String(i + 1).padStart(2, "0")}
+                  </span>
                 </div>
-                <div className="mt-3 text-base font-semibold tracking-tight">
+                <div className="mt-4 text-base font-semibold tracking-tight">
                   {f.title}
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                   {f.body}
                 </p>
               </div>
-            ))
+            );
+            })
           ) : (
             <div className="lg:col-span-3 rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground text-sm">
               Detailed feature breakdown coming soon.
