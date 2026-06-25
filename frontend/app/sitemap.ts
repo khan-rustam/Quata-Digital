@@ -2,11 +2,10 @@ import type { MetadataRoute } from "next";
 import { products } from "@/lib/ecosystem";
 import { partnerPaths } from "@/lib/partner-types";
 import { apiUrl } from "@/lib/api";
+import { fetchSeoSitemap } from "@/lib/seo-engine";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://quatadigital.com";
 
-// Crawlers re-pull the sitemap regularly; revalidating once an hour
-// keeps it fresh without recomputing on every hit.
 export const revalidate = 3600;
 
 type PublishedPage = {
@@ -14,12 +13,6 @@ type PublishedPage = {
   updated_at: string;
 };
 
-/**
- * Fetch the list of CMS pages that are currently published. Powers
- * `lastModified` in the sitemap so crawlers see real timestamps when the
- * boss edits + republishes a page. Falls back to "now" if the API is
- * unreachable so the sitemap never 500s.
- */
 async function fetchPublishedPages(): Promise<Map<string, Date>> {
   try {
     const res = await fetch(`${apiUrl}/cms/pages-index`, {
@@ -38,6 +31,16 @@ async function fetchPublishedPages(): Promise<Map<string, Date>> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const engineEntries = await fetchSeoSitemap();
+  if (engineEntries && engineEntries.length > 0) {
+    return engineEntries.map((e) => ({
+      url: e.url,
+      lastModified: e.lastModified ? new Date(e.lastModified) : new Date(),
+      changeFrequency: (e.changeFrequency as MetadataRoute.Sitemap[number]["changeFrequency"]) ?? "weekly",
+      priority: e.priority ?? 0.5,
+    }));
+  }
+
   const now = new Date();
   const lastMod = await fetchPublishedPages();
   const lm = (path: string) => lastMod.get(path) ?? now;
@@ -58,7 +61,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const entries: MetadataRoute.Sitemap = staticRoutes.map((path) => ({
     url: `${SITE}${path}`,
-    // Match against the canonical slug — Home is "" in routes but "home" in CMS.
     lastModified: path === "" ? lm("/home") : lm(path),
     changeFrequency: "weekly",
     priority: path === "" ? 1.0 : 0.7,
