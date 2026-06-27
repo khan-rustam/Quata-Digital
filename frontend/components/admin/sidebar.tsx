@@ -29,7 +29,7 @@ import { Logo } from "@/components/site/logo";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-const groups = [
+export const adminNavGroups = [
   {
     title: "Overview",
     items: [
@@ -92,7 +92,7 @@ export function AdminSidebar() {
       </div>
       {/* Scrollable nav (only this scrolls, header + footer stay put) */}
       <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4 space-y-6">
-        {groups.map((g) => (
+        {adminNavGroups.map((g) => (
           <div key={g.title}>
             <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {g.title}

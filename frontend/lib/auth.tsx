@@ -18,6 +18,9 @@ export type SessionUser = {
   full_name: string;
   role: string;
   department: string | null;
+  phone: string | null;
+  job_title: string | null;
+  avatar_url: string | null;
   permissions: string[];
   requires_2fa: boolean;
   has_2fa: boolean;

@@ -78,11 +78,11 @@ function ProfileForm({ onSaved }: { onSaved: () => void }) {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="job_title">Job title</Label>
-        <Input id="job_title" name="job_title" placeholder="What do you do at QUATA?" />
+        <Input id="job_title" name="job_title" defaultValue={user?.job_title ?? ""} placeholder="What do you do at QUATA?" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="phone">Phone</Label>
-        <Input id="phone" name="phone" type="tel" placeholder="+237 6 7000 0000" autoComplete="tel" />
+        <Input id="phone" name="phone" type="tel" defaultValue={user?.phone ?? ""} placeholder="+237 6 7000 0000" autoComplete="tel" />
       </div>
       <div>
         <Button type="submit" disabled={submitting}>

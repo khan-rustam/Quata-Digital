@@ -229,10 +229,10 @@ export function PortraitFounder() {
 
         {/* Monogram badge */}
         <circle cx={650} cy={620} r={56} fill={C.orange} />
-        <text x={650} y={636} textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize={34} fill={C.white} fontWeight={800}>NCN</text>
+        <text x={650} y={636} textAnchor="middle" fontFamily="system-ui, sans-serif" fontSize={38} fill={C.white} fontWeight={800}>CN</text>
 
         {/* Name + chips */}
-        <text x={160} y={760} fontFamily="system-ui, sans-serif" fontSize={42} fill={C.ink} fontWeight={800}>Nkwa C. N.</text>
+        <text x={160} y={760} fontFamily="system-ui, sans-serif" fontSize={42} fill={C.ink} fontWeight={800}>Clovis Ngwa</text>
 
         <Card x={160} y={792} w={250} h={66} r={20} fill={C.orangeTint} stroke={C.orangeSoft}>
           <IconBadge cx={200} cy={825} r={22} bg={C.orange} icon={Rocket} iconScale={1.0} />

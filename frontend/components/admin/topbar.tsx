@@ -4,15 +4,19 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { NotificationsDropdown } from "./notifications-dropdown";
+import { AdminMobileNav } from "./mobile-nav";
 
 export function AdminTopbar({ title }: { title: string }) {
   const { user } = useAuth();
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface/80 backdrop-blur">
       <div className="flex items-center justify-between gap-4 px-5 lg:px-8 h-16">
-        <div>
-          <div className="text-xs text-muted-foreground">QUATA Admin</div>
-          <h1 className="text-base font-semibold tracking-tight">{title}</h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <AdminMobileNav />
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">QUATA Admin</div>
+            <h1 className="text-base font-semibold tracking-tight truncate">{title}</h1>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button

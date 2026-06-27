@@ -170,7 +170,7 @@ export default async function CareersPage() {
       <Section className="py-12">
         <BigQuote
           quote="We're a small team building infrastructure for the next generation of African businesses. If that excites you, we want to hear from you."
-          author="Neba Clovis Ngwa"
+          author="Clovis Ngwa"
           role="Founder & CEO, QUATA Digital"
         />
       </Section>
