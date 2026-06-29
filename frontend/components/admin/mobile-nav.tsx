@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
@@ -15,6 +16,12 @@ import { adminNavGroups } from "./sidebar";
  * a hamburger (in the topbar) that opens an off-canvas drawer with the full,
  * permission-filtered nav. Closes on backdrop click, link tap, Escape and on
  * route change.
+ *
+ * The overlay is rendered through a portal to <body>. The topbar header it
+ * lives in uses `backdrop-blur`, and an ancestor with `backdrop-filter`
+ * becomes the containing block for `position: fixed` descendants — without
+ * the portal the `fixed inset-0` overlay collapses to the 64px-tall header
+ * box instead of covering the viewport.
  */
 export function AdminMobileNav() {
   const [open, setOpen] = React.useState(false);
@@ -54,8 +61,9 @@ export function AdminMobileNav() {
         <Menu className="h-5 w-5" />
       </button>
 
-      {open && (
-        <div className="lg:hidden fixed inset-0 z-50">
+      {open &&
+        createPortal(
+          <div className="lg:hidden fixed inset-0 z-50">
           {/* Backdrop */}
           <button
             type="button"
@@ -136,8 +144,9 @@ export function AdminMobileNav() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
