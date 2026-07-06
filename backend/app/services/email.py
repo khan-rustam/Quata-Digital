@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import smtplib
+import ssl
 from email.message import EmailMessage
 from typing import Iterable
 
@@ -62,12 +63,25 @@ def send_email(*, to: str | Iterable[str], subject: str, body: str, html: str | 
         if html:
             msg.add_alternative(html, subtype="html")
         try:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
-                if settings.SMTP_USE_TLS:
-                    smtp.starttls()
-                if settings.SMTP_USER:
-                    smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                smtp.send_message(msg)
+            # Port 465 is implicit TLS (SMTPS) — connect with SMTP_SSL. Ports
+            # 587/25 start plaintext and upgrade via STARTTLS. Using the wrong
+            # transport for the port hangs or fails the handshake, so pick by
+            # port rather than assuming one style.
+            if settings.SMTP_PORT == 465:
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(
+                    settings.SMTP_HOST, settings.SMTP_PORT, timeout=20, context=context
+                ) as smtp:
+                    if settings.SMTP_USER:
+                        smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                    smtp.send_message(msg)
+            else:
+                with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as smtp:
+                    if settings.SMTP_USE_TLS:
+                        smtp.starttls(context=ssl.create_default_context())
+                    if settings.SMTP_USER:
+                        smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                    smtp.send_message(msg)
             return True
         except Exception as exc:  # noqa: BLE001
             log.exception("SMTP send failed: %s", exc)
