@@ -10,11 +10,6 @@ import {
   Clock,
   CheckCircle2,
   Users,
-  Wallet,
-  HeartPulse,
-  Home,
-  Plane,
-  GraduationCap,
   Sparkles,
   Mail,
   MessageSquare,
@@ -27,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JobApplicationForm } from "@/components/forms/job-application-form";
 import { ProcessSteps } from "@/components/site/sections/process-steps";
-import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { BigQuote } from "@/components/site/sections/big-quote";
 import { FAQ } from "@/components/site/sections/faq";
 import { JsonLd, jobJsonLd, breadcrumbJsonLd } from "@/components/site/jsonld";
@@ -301,27 +295,11 @@ export default async function JobPage({
         </div>
       </Section>
 
-      {/* 5. Benefits */}
-      <Section className="bg-surface-soft rounded-3xl">
-        <SectionHeader
-          eyebrow="Compensation & benefits"
-          title="What QUATA offers."
-        />
-        <div className="mt-10">
-          <FeatureGrid
-            columns={4}
-            variant="bordered"
-            items={[
-              { icon: Wallet, title: "Competitive comp + equity", body: "Cash and meaningful equity, transparent bands.", tone: "brand" },
-              { icon: HeartPulse, title: "Health cover", body: "For you and dependents.", tone: "rose" },
-              { icon: Home, title: "Remote-friendly", body: "Hubs in 3 cities, work from anywhere in-region.", tone: "sky" },
-              { icon: Plane, title: "Annual offsite", body: "Whole-team gathering once a year.", tone: "amber" },
-              { icon: GraduationCap, title: "$1,500 learning", body: "Books, courses, conferences — yearly.", tone: "violet" },
-              { icon: HeartPulse, title: "Parental leave", body: "16 weeks paid for primary caregiver.", tone: "emerald" },
-            ]}
-          />
-        </div>
-      </Section>
+      {/* 5. Benefits — intentionally hidden pending approved compensation
+          policy (boss Q4). The perk claims ($1,500 learning, 16 weeks
+          parental leave, health for dependents, "hubs in 3 cities", equity)
+          were unapproved marketing copy. Re-add a FeatureGrid of perks here
+          once leadership signs off on the real, current numbers. */}
 
       {/* 6. Apply form */}
       <Section id="apply">

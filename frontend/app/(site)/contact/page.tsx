@@ -276,7 +276,7 @@ export default async function ContactPage() {
               },
               {
                 q: "Where do I send a security disclosure?",
-                a: "security@quatadigital.com (full details on the /security page).",
+                a: "support@quatadigital.com (full details on the /security page).",
               },
               {
                 q: "I want to be a vendor or supplier — where do I write?",

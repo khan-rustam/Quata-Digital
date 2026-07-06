@@ -7,7 +7,7 @@ SEED_ON_STARTUP=true.
 
 Reflects the real QUATA Digital Enterprise content provided by leadership:
 - Founded May 2025 in Bamenda, Cameroon
-- Founder & CEO: Neba Clovis Ngwa
+- Founder & CEO: Clovis Neba
 - Active markets: Cameroon (QUATAPAY + ABAQWA launching May 2026)
 - ABAQWA is the BUSINESS INFRASTRUCTURE platform (not mobility)
 """
@@ -901,11 +901,11 @@ def run_seed(db: Session) -> None:
         upsert_department(db, slug, name)
     db.flush()
 
-    # Real super admin: Neba Clovis Ngwa, founder & CEO
+    # Real super admin: Clovis Neba, founder & CEO
     upsert_user(
         db,
         email=settings.DEFAULT_ADMIN_EMAIL,
-        full_name="Neba Clovis Ngwa",
+        full_name="Clovis Neba",
         role_slug="super_admin",
         dept_slug="administration",
         title="Founder & CEO",

@@ -13,7 +13,7 @@ import {
   HeadphonesIcon as Headphones,
   Sparkles,
 } from "lucide-react";
-import { products, getProduct } from "@/lib/ecosystem";
+import { products, getProduct, visibleMetrics } from "@/lib/ecosystem";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Section, SectionHeader } from "@/components/site/section";
@@ -368,12 +368,12 @@ export default async function ProductPage({
         </Section>
       )}
 
-      {/* 5. Stats */}
-      {product.metrics.length > 0 && (
+      {/* 5. Stats — pre-launch performance/SLA claims gated until 2026-07-20 (Q5) */}
+      {visibleMetrics(product).length > 0 && (
         <Section className="py-12 md:py-16">
           <StatStrip
             variant="card"
-            items={product.metrics.map((m, i) => ({
+            items={visibleMetrics(product).map((m, i) => ({
               value: m.value,
               label: m.label,
               icon: i === 0 ? Zap : i === 1 ? ShieldCheck : i === 2 ? Code2 : Wallet,

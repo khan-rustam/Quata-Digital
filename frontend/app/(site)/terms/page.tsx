@@ -58,7 +58,7 @@ const sections = [
   },
   {
     title: "12. Contact",
-    body: `Questions: legal@quatadigital.com`,
+    body: `Questions: support@quatadigital.com`,
   },
 ];
 

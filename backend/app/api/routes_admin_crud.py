@@ -337,6 +337,12 @@ def _assert_can_assign_role(actor: User, role: Role) -> None:
     therefore requires the actor to already hold ``*``. Without this a
     ``staff:manage`` holder (e.g. the seeded ``manager`` role) could promote
     itself — or anyone — to ``super_admin``.
+
+    On top of the subset guard, assigning *any* privileged role (one that
+    grants permissions at all) requires ``rbac:manage`` — held by ``admin``
+    and ``super_admin`` but not ``manager``. This encodes the policy that
+    managers may only create/assign regular-staff roles (staff, intern,
+    contractor); managing other admins is an administrator action.
     """
     actor_perms = user_permissions(actor)
     if "*" in actor_perms:
@@ -346,6 +352,12 @@ def _assert_can_assign_role(actor: User, role: Role) -> None:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "You cannot assign a role with more permissions than your own.",
+        )
+    if target_perms and "rbac:manage" not in actor_perms:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can only assign regular-staff roles. Assigning a management "
+            "role requires an administrator.",
         )
 
 
@@ -368,6 +380,14 @@ def _assert_can_manage_target(actor: User, target: User) -> None:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "You cannot modify a user who has more permissions than you.",
+        )
+    # Managers (staff:manage without rbac:manage) may only manage regular
+    # staff. Editing/suspending any privileged account is an admin action.
+    if target_perms and "rbac:manage" not in actor_perms:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You can only manage regular-staff accounts. Managing another "
+            "admin requires an administrator.",
         )
 
 

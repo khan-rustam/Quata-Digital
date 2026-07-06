@@ -83,7 +83,10 @@ class Settings(BaseSettings):
     # ---------- 2FA ----------
     TOTP_ISSUER: str = "QUATA Digital"
     # Roles for which 2FA enrolment is mandatory before any admin action.
-    REQUIRE_2FA_FOR_ROLES: List[str] = ["super_admin"]
+    # ``"*"`` means every role must enrol (company policy: all staff on 2FA).
+    # Use ``role_requires_2fa()`` rather than testing membership directly so
+    # the wildcard is honoured and new roles are covered automatically.
+    REQUIRE_2FA_FOR_ROLES: List[str] = ["*"]
 
     # ---------- Rate limits (slowapi-compatible strings) ----------
     RATE_LIMIT_LOGIN: str = "10/minute"
@@ -163,6 +166,14 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() in {"production", "prod"}
+
+    def role_requires_2fa(self, role_slug: str) -> bool:
+        """Whether a role must enrol in 2FA before any admin action.
+
+        Honours the ``"*"`` wildcard (all roles) so enforcement can't be
+        silently skipped when new roles are added.
+        """
+        return "*" in self.REQUIRE_2FA_FOR_ROLES or role_slug in self.REQUIRE_2FA_FOR_ROLES
 
     @property
     def cors_origins(self) -> List[str]:

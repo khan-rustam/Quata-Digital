@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ExternalLink, Loader2, Mail, Phone } from "lucide-react";
+import { Download, Loader2, Mail, Phone } from "lucide-react";
 import { SlideOver, SlideOverContent } from "@/components/admin/slide-over";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useApi, useApiAction } from "@/lib/use-api";
+import { apiUrl } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
 
 type AppDetail = {
@@ -13,7 +15,7 @@ type AppDetail = {
   full_name: string;
   email: string;
   phone: string | null;
-  resume_url: string;
+  has_resume: boolean;
   cover_letter: string | null;
   status: "new" | "shortlisted" | "interviewed" | "rejected" | "hired";
   job_title: string | null;
@@ -44,6 +46,37 @@ export function ApplicationDetailSlideOver({
   const { data, loading } = useApi<AppDetail>(path);
   const action = useApiAction();
   const toast = useToast();
+  const { token } = useAuth();
+  const [downloading, setDownloading] = React.useState(false);
+
+  async function downloadResume() {
+    if (!applicationId) return;
+    setDownloading(true);
+    try {
+      // CVs are private (Q1): fetch through the authenticated endpoint and
+      // hand the browser a blob — the file is not publicly reachable.
+      const res = await fetch(
+        `${apiUrl}/admin/applications/${applicationId}/resume`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+      );
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const filename = cd.match(/filename="?([^"]+)"?/)?.[1] ?? `resume-${applicationId}`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Couldn't open resume", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function setStatus(status: AppDetail["status"]) {
     if (!applicationId) return;
@@ -113,19 +146,26 @@ export function ApplicationDetailSlideOver({
               )}
             </div>
 
-            {/* Resume */}
+            {/* Resume — private CV, downloaded through the authenticated endpoint */}
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Resume</div>
-              <a
-                href={data.resume_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm hover:bg-surface-soft transition"
-              >
-                <ExternalLink className="h-4 w-4 text-primary" />
-                Open resume
-                <code className="text-[10px] text-muted-foreground truncate max-w-[280px]">{data.resume_url}</code>
-              </a>
+              {data.has_resume ? (
+                <button
+                  type="button"
+                  onClick={downloadResume}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm hover:bg-surface-soft transition disabled:opacity-60"
+                >
+                  {downloading ? (
+                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 text-primary" />
+                  )}
+                  {downloading ? "Preparing…" : "Download CV"}
+                </button>
+              ) : (
+                <div className="text-sm text-muted-foreground">No CV attached.</div>
+              )}
             </div>
 
             {/* Cover letter */}

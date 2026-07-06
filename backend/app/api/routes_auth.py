@@ -119,7 +119,7 @@ def me(user: User = Depends(get_current_user_lenient)):
         job_title=user.job_title,
         avatar_url=user.avatar_url,
         permissions=perms,
-        requires_2fa=role_slug in settings.REQUIRE_2FA_FOR_ROLES,
+        requires_2fa=settings.role_requires_2fa(role_slug),
         has_2fa=bool(user.totp_enabled),
         must_reset_password=bool(user.must_reset_password),
     )

@@ -2,18 +2,23 @@
 
 import { motion } from "framer-motion";
 
-const logos = [
-  "Aerial Bank",
-  "Sahel Telco",
-  "Pulse Logistics",
-  "Mara Foods",
-  "Karoo Retail",
-  "Niger River Group",
-];
+// Real, permissioned partner names go here as they are confirmed. Left empty
+// on purpose (boss Q6): the previous entries ("Aerial Bank", "Sahel Telco",
+// …) were invented placeholders and stating them as real partners is a
+// reputational/legal risk. While this list is empty, neutral "coming soon"
+// slots render instead of fake company names — drop real names in to go live.
+const partners: string[] = [];
+
+const PLACEHOLDER_SLOTS = 6;
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
 export function LogoCloud() {
+  const hasPartners = partners.length > 0;
+  const tiles = hasPartners
+    ? partners
+    : Array.from({ length: PLACEHOLDER_SLOTS }, (_, i) => `slot-${i}`);
+
   return (
     <motion.div
       initial="hidden"
@@ -26,10 +31,12 @@ export function LogoCloud() {
       className="container-page py-10"
     >
       <div className="text-center text-xs uppercase tracking-wider text-muted-foreground">
-        Trusted by partners building across the continent
+        {hasPartners
+          ? "Trusted by partners building across the continent"
+          : "Partnerships announced soon"}
       </div>
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4 items-center">
-        {logos.map((name) => (
+        {tiles.map((name) => (
           <motion.div
             key={name}
             variants={{
@@ -38,7 +45,7 @@ export function LogoCloud() {
             }}
             className="flex items-center justify-center rounded-xl border border-dashed border-border bg-surface-soft px-3 sm:px-4 py-3 text-xs sm:text-sm text-muted-foreground transition-all duration-300 hover:border-primary/30 hover:text-foreground hover:bg-card cursor-default"
           >
-            {name}
+            {hasPartners ? name : "Coming soon"}
           </motion.div>
         ))}
       </div>

@@ -63,7 +63,7 @@ def get_current_user(
             "password_reset_required",
         )
     role_slug = user.role.slug if user.role else "staff"
-    if role_slug in settings.REQUIRE_2FA_FOR_ROLES and not user.totp_enabled:
+    if settings.role_requires_2fa(role_slug) and not user.totp_enabled:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "two_factor_enrolment_required",

@@ -171,7 +171,7 @@ export default async function CareersPage() {
       <Section className="py-12">
         <BigQuote
           quote="We're a small team building infrastructure for the next generation of African businesses. If that excites you, we want to hear from you."
-          author="Clovis Ngwa"
+          author="Clovis Neba"
           role="Founder & CEO, QUATA Digital"
         />
       </Section>
@@ -298,7 +298,7 @@ export default async function CareersPage() {
             columns={3}
             variant="bordered"
             items={[
-              { icon: Wallet, title: "Competitive comp", body: "Cash competitive for level + market. Equity for key roles.", tone: "brand" },
+              { icon: Wallet, title: "Competitive comp", body: "Cash competitive for level + market.", tone: "brand" },
               { icon: Sparkles, title: "High-impact work", body: "Touch every part of the business — and ship things customers use.", tone: "amber" },
               { icon: GraduationCap, title: "Learning & growth", body: "Real space to grow — early teammates lead what comes next.", tone: "violet" },
               { icon: Home, title: "Remote-friendly", body: "Hybrid for Bamenda; remote available for the right roles.", tone: "sky" },
@@ -307,9 +307,6 @@ export default async function CareersPage() {
             ]}
           />
         </div>
-        <p className="mt-6 text-xs text-muted-foreground">
-          Health, parental leave and broader benefits will scale as the team grows.
-        </p>
       </Section>
 
       {/* 8. Locations */}

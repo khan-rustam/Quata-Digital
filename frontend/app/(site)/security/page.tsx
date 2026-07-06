@@ -156,8 +156,8 @@ export default async function SecurityPage() {
             <div className="mt-4 text-base font-semibold">How to report</div>
             <p className="mt-2 text-sm text-muted-foreground">
               Email{" "}
-              <a href="mailto:security@quatadigital.com" className="text-primary font-medium">
-                security@quatadigital.com
+              <a href="mailto:support@quatadigital.com" className="text-primary font-medium">
+                support@quatadigital.com
               </a>{" "}
               with: a description, steps to reproduce, the impact you observed
               and any proof-of-concept artefacts. Please don&apos;t publicly
@@ -183,7 +183,7 @@ export default async function SecurityPage() {
           <FaqWithAside
             asideTitle="Report a vulnerability"
             asideBody="Found something? Email us with the details. We acknowledge every report within 24 hours and credit researchers in our hall of fame."
-            asideEmail="security@quatadigital.com"
+            asideEmail="support@quatadigital.com"
             asideIcon="shieldAlert"
             asideStats={[
               { value: "24h", label: "Acknowledgement" },
@@ -208,7 +208,7 @@ export default async function SecurityPage() {
               },
               {
                 q: "Can I get a security questionnaire filled out?",
-                a: "Yes — email security@quatadigital.com and we'll route it to the right team.",
+                a: "Yes — email support@quatadigital.com and we'll route it to the right team.",
               },
             ]}
           />
@@ -226,11 +226,11 @@ export default async function SecurityPage() {
             Reach the security team directly.
           </p>
           <a
-            href="mailto:security@quatadigital.com"
+            href="mailto:support@quatadigital.com"
             className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-medium hover:bg-primary/90"
           >
             <Mail className="h-4 w-4" />
-            security@quatadigital.com
+            support@quatadigital.com
           </a>
         </div>
       </Section>

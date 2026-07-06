@@ -142,7 +142,7 @@ export default async function HomePage() {
       <Section className="py-16 md:py-20">
         <BigQuote
           quote="Africa doesn't need another standalone app. It needs infrastructure that connects daily life — and lets the next ten thousand builders plug in."
-          author="Neba Clovis Ngwa"
+          author="Clovis Neba"
           role="Founder & CEO, QUATA Digital"
         />
       </Section>

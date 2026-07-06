@@ -95,6 +95,38 @@ def normalize_upload_url(url: str | None) -> str | None:
     return f"{base}{url[idx:]}"
 
 
+def resolve_local_upload_path(url: str | None) -> Optional[Path]:
+    """Map one of our own ``/uploads/...`` URLs back to its on-disk path.
+
+    Used to serve private files (applicant resumes) through an authenticated
+    endpoint instead of the public static mount. Returns the resolved Path
+    only when:
+      * the URL is one we stored (``is_internal_upload_url``), and
+      * the resolved file stays inside ``UPLOAD_DIR`` — a tampered
+        ``resume_url`` like ``/uploads/../../etc/passwd`` is rejected, and
+      * the file actually exists.
+
+    Returns ``None`` for S3-backed URLs (no ``/uploads/`` marker) and any
+    foreign / traversing / missing path.
+    """
+    if not url or not is_internal_upload_url(url):
+        return None
+    marker = "/uploads/"
+    idx = url.find(marker)
+    if idx == -1:
+        return None
+    rel = url[idx + len(marker):].split("?", 1)[0].split("#", 1)[0].lstrip("/")
+    if not rel:
+        return None
+    base = Path(settings.UPLOAD_DIR).resolve()
+    candidate = (base / rel).resolve()
+    try:
+        candidate.relative_to(base)
+    except ValueError:
+        return None  # escaped UPLOAD_DIR — reject
+    return candidate if candidate.is_file() else None
+
+
 def save_upload(file: UploadFile, folder: str = "general", *, public: bool = False) -> dict:
     """Save an UploadFile under <yyyy>/<mm>/<folder>/<token>-<name>.
 

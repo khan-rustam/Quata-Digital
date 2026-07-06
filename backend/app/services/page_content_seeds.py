@@ -71,7 +71,7 @@ HOME_SECTIONS: list[dict] = [
     {
         "type": "big_quote",
         "quote": "Africa doesn't need another standalone app. It needs infrastructure that connects daily life — and lets the next ten thousand builders plug in.",
-        "author": "Neba Clovis Ngwa",
+        "author": "Clovis Neba",
         "role": "Founder & CEO, QUATA Digital",
     },
     {
@@ -129,7 +129,7 @@ ABOUT_SECTIONS: list[dict] = [
     {
         "type": "big_quote",
         "quote": "We're not bolting another app onto the continent. We're laying rail.",
-        "author": "Neba Clovis Ngwa",
+        "author": "Clovis Neba",
         "role": "Founder & CEO",
     },
     {
@@ -273,8 +273,8 @@ CONTACT_SECTIONS: list[dict] = [
         "items": [
             {"title": "General enquiries", "body": "info@quatadigital.com — anything that doesn't fit a specific path."},
             {"title": "Partnerships", "body": "Use the partner application form on /partners — it routes to the right team automatically."},
-            {"title": "Press", "body": "press@quatadigital.com — interviews, statements, fact-checks."},
-            {"title": "Security", "body": "security@quatadigital.com — responsible disclosure of vulnerabilities."},
+            {"title": "Press", "body": "support@quatadigital.com — interviews, statements, fact-checks."},
+            {"title": "Security", "body": "support@quatadigital.com — responsible disclosure of vulnerabilities."},
         ],
     },
     {
@@ -325,7 +325,7 @@ PRIVACY_SECTIONS: list[dict] = [
             "## 6. Your rights\n\n"
             "Depending on where you live, you may have rights to access, correct, port, delete or restrict "
             "the processing of your personal data. To exercise any of these rights, email "
-            "privacy@quatadigital.com.\n\n"
+            "support@quatadigital.com.\n\n"
             "## 7. Data residency\n\n"
             "Primary data storage is hosted on secure cloud infrastructure. Data may be processed in "
             "multiple regions depending on service optimisation and availability. We aim to align with "
@@ -339,7 +339,7 @@ PRIVACY_SECTIONS: list[dict] = [
             "We may update this policy from time to time. The latest version is always available on this "
             "page, with the \"effective date\" at the top.\n\n"
             "## 10. Contact\n\n"
-            "Questions or requests: privacy@quatadigital.com"
+            "Questions or requests: support@quatadigital.com"
         ),
     },
 ]
@@ -390,7 +390,7 @@ TERMS_SECTIONS: list[dict] = [
             "We may update these terms periodically. Continued use after changes constitutes acceptance "
             "of the updated terms.\n\n"
             "## 12. Contact\n\n"
-            "Questions: legal@quatadigital.com"
+            "Questions: support@quatadigital.com"
         ),
     },
 ]
@@ -424,7 +424,7 @@ SECURITY_SECTIONS: list[dict] = [
         "items": [
             {
                 "question": "How do I report a security vulnerability?",
-                "answer": "Email security@quatadigital.com with details. We acknowledge within one business day and aim to remediate within 30 days for high-severity issues. We don't currently run a paid bug-bounty programme, but we do credit researchers in our disclosure log.",
+                "answer": "Email support@quatadigital.com with details. We acknowledge within one business day and aim to remediate within 30 days for high-severity issues. We don't currently run a paid bug-bounty programme, but we do credit researchers in our disclosure log.",
             },
             {
                 "question": "Is QUATA SOC 2 / ISO 27001 / PCI-DSS certified?",
@@ -444,8 +444,8 @@ SECURITY_SECTIONS: list[dict] = [
         "type": "cta",
         "title": "Have a security concern?",
         "subtitle": "We take responsible disclosure seriously. Email us directly and we'll get back within one business day.",
-        "primary_cta_label": "security@quatadigital.com",
-        "primary_cta_href": "mailto:security@quatadigital.com",
+        "primary_cta_label": "support@quatadigital.com",
+        "primary_cta_href": "mailto:support@quatadigital.com",
     },
 ]
 

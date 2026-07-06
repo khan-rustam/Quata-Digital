@@ -144,6 +144,19 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
+# Applicant CVs are private (boss Q1): resumes land under
+# ``/uploads/<yyyy>/<mm>/resumes/...`` but must NOT be downloadable from the
+# public static mount. This guard runs before the mount and 404s any public
+# hit on a resume path; the only way to read a CV is the authenticated
+# ``GET /admin/applications/{id}/resume`` endpoint (careers:manage).
+@app.middleware("http")
+async def block_public_resume_access(request, call_next):
+    path = request.url.path
+    if path.startswith("/uploads/") and "/resumes/" in path:
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+    return await call_next(request)
+
+
 # Static uploads — local-disk on the same VPS, no S3 needed.
 Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")

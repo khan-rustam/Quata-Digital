@@ -35,7 +35,7 @@ const sections = [
   },
   {
     title: "6. Your rights",
-    body: `Depending on where you live, you may have rights to access, correct, port, delete or restrict the processing of your personal data. To exercise any of these rights, email privacy@quatadigital.com.`,
+    body: `Depending on where you live, you may have rights to access, correct, port, delete or restrict the processing of your personal data. To exercise any of these rights, email support@quatadigital.com.`,
   },
   {
     title: "7. Data residency",
@@ -51,7 +51,7 @@ const sections = [
   },
   {
     title: "10. Contact",
-    body: `Questions or requests: privacy@quatadigital.com`,
+    body: `Questions or requests: support@quatadigital.com`,
   },
 ];
 

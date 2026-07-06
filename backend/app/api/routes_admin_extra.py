@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import cast, func, String as SqlString
 from sqlalchemy.orm import Session
@@ -284,13 +285,15 @@ def get_application(
     a = db.get(Application, app_id)
     if not a:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
-    from app.services.uploads import normalize_upload_url
+    from app.services.uploads import is_internal_upload_url
+    # CVs are private (boss Q1): never hand the raw file URL to the browser.
+    # The reviewer downloads via the authenticated endpoint below instead.
     return {
         "id": a.id,
         "full_name": a.full_name,
         "email": a.email,
         "phone": a.phone,
-        "resume_url": normalize_upload_url(a.resume_url),
+        "has_resume": is_internal_upload_url(a.resume_url),
         "cover_letter": a.cover_letter,
         "status": a.status,
         "job_id": a.job_id,
@@ -298,6 +301,40 @@ def get_application(
         "created_at": a.created_at,
         "updated_at": a.updated_at,
     }
+
+
+@router.get("/applications/{app_id}/resume")
+def download_application_resume(
+    app_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    """Stream an applicant's CV to an authorised reviewer only (boss Q1).
+
+    CVs are private — the file is not served from the public ``/uploads``
+    mount (see the resume guard in ``main.py``), so this authenticated route
+    is the only way to read one. Local-disk backend only: resumes are never
+    written to S3 in this deployment, and every access is audit-logged.
+    """
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    from app.services.uploads import resolve_local_upload_path
+
+    path = resolve_local_upload_path(a.resume_url)
+    if path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume file not available")
+    log_activity(
+        db,
+        actor=user,
+        action="download",
+        resource_type="resume",
+        resource_id=a.id,
+        request=request,
+    )
+    db.commit()
+    return FileResponse(path, filename=f"resume-{a.id}{path.suffix.lower()}")
 
 
 # -------- Staff detail --------

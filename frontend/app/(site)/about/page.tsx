@@ -204,7 +204,7 @@ export default async function AboutPage() {
               {
                 date: "May 2025",
                 title: "QUATA Digital founded",
-                body: "QUATA Digital Enterprise founded in Bamenda, Cameroon by Clovis Ngwa, with one objective: build next-generation digital infrastructure tailored for African markets.",
+                body: "QUATA Digital Enterprise founded in Bamenda, Cameroon by Clovis Neba, with one objective: build next-generation digital infrastructure tailored for African markets.",
                 icon: Building2,
               },
               {
@@ -248,13 +248,13 @@ export default async function AboutPage() {
         <div className="mt-10 grid lg:grid-cols-[320px_1fr] gap-8 lg:gap-12 items-start max-w-4xl">
           <Illustration
             name="about-founder"
-            alt="Clovis Ngwa, Founder &amp; CEO of QUATA Digital"
+            alt="Clovis Neba, Founder &amp; CEO of QUATA Digital"
             width={900}
             height={1100}
             rounded="rounded-3xl"
           />
           <div>
-            <div className="text-xl font-semibold tracking-tight">Clovis Ngwa</div>
+            <div className="text-xl font-semibold tracking-tight">Clovis Neba</div>
             <div className="text-sm text-muted-foreground">Founder &amp; CEO</div>
             <p className="mt-4 text-base text-foreground/85 max-w-xl">
               Founded QUATA Digital in May 2025 in Bamenda with a simple
@@ -274,7 +274,7 @@ export default async function AboutPage() {
       <Section className="py-12">
         <BigQuote
           quote="Africa is experiencing rapid digital adoption, but the infrastructure to support that growth at scale is still evolving. We're here to build that foundation — for the businesses that will define the next decade."
-          author="Clovis Ngwa"
+          author="Clovis Neba"
           role="Founder & CEO, QUATA Digital"
         />
       </Section>

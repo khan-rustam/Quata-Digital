@@ -26,7 +26,7 @@ export const orgJsonLd = {
   logo: `${SITE}/logo.png`,
   description:
     "QUATA Digital is building Africa's connected digital ecosystem — payments, business operations and commerce on one rail.",
-  founder: { "@type": "Person", name: "Neba Clovis Ngwa", jobTitle: "Founder & CEO" },
+  founder: { "@type": "Person", name: "Clovis Neba", jobTitle: "Founder & CEO" },
   address: {
     "@type": "PostalAddress",
     addressLocality: "Bamenda",

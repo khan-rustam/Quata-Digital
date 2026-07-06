@@ -3,6 +3,14 @@ export type ProductFAQ = { q: string; a: string };
 export type ProductMetric = {
   value: string;
   label: string;
+  /**
+   * A quantitative performance / SLA claim for a not-yet-launched product
+   * (e.g. "99.95% uptime SLA", "same-day settlement"). Stating specific
+   * numbers before launch is a trust/regulatory risk, so these are hidden
+   * until {@link PERFORMANCE_CLAIMS_LIVE_AT} (boss Q5). Descriptive metrics
+   * leave this unset and always show.
+   */
+  claim?: boolean;
 };
 
 export type ProductUseCase = {
@@ -135,9 +143,9 @@ export const products: Product[] = [
     ],
     metrics: [
       { value: "<1s", label: "Wallet transfer" },
-      { value: "99.95%", label: "Operational uptime SLA" },
+      { value: "99.95%", label: "Operational uptime SLA", claim: true },
       { value: "MoMo + Cards", label: "Channels supported" },
-      { value: "Same-day", label: "Settlement window" },
+      { value: "Same-day", label: "Settlement window", claim: true },
     ],
   },
   {
@@ -626,4 +634,27 @@ export const products: Product[] = [
 
 export function getProduct(slug: string): Product | undefined {
   return products.find((p) => p.slug === slug);
+}
+
+/**
+ * Date after which pre-launch performance/SLA claims (metrics flagged with
+ * `claim: true`) become public (boss Q5 — "go live after the 20th").
+ * NOTE: the product pages are statically generated (`generateStaticParams`),
+ * so this is evaluated when the site is built — a deploy made on or after
+ * this date shows the claims. Bump the date here to reschedule.
+ */
+export const PERFORMANCE_CLAIMS_LIVE_AT = new Date("2026-07-20T00:00:00Z");
+
+/** Whether gated performance claims should be shown yet. */
+export function performanceClaimsLive(now: Date = new Date()): boolean {
+  return now >= PERFORMANCE_CLAIMS_LIVE_AT;
+}
+
+/**
+ * Metrics safe to render right now: all descriptive metrics, plus the
+ * gated `claim` metrics only once {@link performanceClaimsLive} is true.
+ */
+export function visibleMetrics(product: Product): ProductMetric[] {
+  if (performanceClaimsLive()) return product.metrics;
+  return product.metrics.filter((m) => !m.claim);
 }
