@@ -159,10 +159,13 @@ def check_in(
             device_name=existing.device.name if existing.device else None,
             status=existing.status,
         )
+    # Self-service check-ins originate from the web/app — never let a user
+    # forge a "biometric" record, which must come from a device webhook.
+    self_source = payload.source if payload.source in {"manual", "gps", "web"} else "web"
     log = AttendanceLog(
         user_id=user.id,
         check_in_at=datetime.now(timezone.utc),
-        source=payload.source,
+        source=self_source,
         device_id=payload.device_id,
         latitude=payload.latitude,
         longitude=payload.longitude,

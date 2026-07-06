@@ -37,9 +37,11 @@ const typeVariant = {
 export default function MessagesPage() {
   const { data, loading, refresh } = useApi<Message[]>("/admin/messages");
   const departments = useApi<{ id: number; name: string; slug: string }[]>("/admin/departments");
+  const staff = useApi<{ id: number; full_name: string; email: string }[]>("/admin/staff");
   const action = useApiAction();
   const toast = useToast();
   const [sending, setSending] = React.useState(false);
+  const [audience, setAudience] = React.useState("all");
 
   // Live updates: refresh when a new message arrives over WebSocket
   const ws = useWebSocket("/ws/messages", {
@@ -83,7 +85,7 @@ export default function MessagesPage() {
           <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-2">
               <Label htmlFor="audience">Audience</Label>
-              <Select id="audience" name="audience" defaultValue="all">
+              <Select id="audience" name="audience" value={audience} onChange={(e) => setAudience(e.target.value)}>
                 <option value="all">All staff</option>
                 <option value="department">Department</option>
                 <option value="individual">Individual</option>
@@ -98,17 +100,32 @@ export default function MessagesPage() {
               </Select>
             </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="department">Department (if scoped)</Label>
-            <Select id="department" name="department_slug" defaultValue="">
-              <option value="">—</option>
-              {(departments.data ?? []).map((d) => (
-                <option key={d.id} value={d.slug}>
-                  {d.name}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {audience === "department" && (
+            <div className="grid gap-2">
+              <Label htmlFor="department">Department</Label>
+              <Select id="department" name="department_slug" required defaultValue="">
+                <option value="" disabled>Select a department…</option>
+                {(departments.data ?? []).map((d) => (
+                  <option key={d.id} value={d.slug}>
+                    {d.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+          {audience === "individual" && (
+            <div className="grid gap-2">
+              <Label htmlFor="recipient_id">Recipient</Label>
+              <Select id="recipient_id" name="recipient_id" required defaultValue="">
+                <option value="" disabled>Select a staff member…</option>
+                {(staff.data ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.full_name} — {s.email}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="body">Message</Label>
             <Textarea id="body" name="body" rows={6} required placeholder="Type your message here. Markdown supported." />

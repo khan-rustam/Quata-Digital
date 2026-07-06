@@ -226,7 +226,6 @@ export function MarkdownEditor({
           <Textarea
             ref={ref}
             value={value}
-            name={name}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             rows={rows}
@@ -239,6 +238,11 @@ export function MarkdownEditor({
           </div>
         )}
       </div>
+
+      {/* Always carry the current value in the form, even in preview-only mode
+          (the visible textarea unmounts in preview, which previously submitted
+          a literal "null"). */}
+      <input type="hidden" name={name} value={value} />
 
       {error && (
         <div className="border-t border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">

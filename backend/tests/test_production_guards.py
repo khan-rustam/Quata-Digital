@@ -47,6 +47,8 @@ def test_production_with_safe_config_boots():
         AUTO_CREATE_TABLES=False,
         SEED_ON_STARTUP=False,
         EMAIL_BACKEND="smtp",
+        PUBLIC_BASE_URL="https://api.quatadigital.com",
+        FRONTEND_URL="https://quatadigital.com",
     )
     s.assert_production_safe()  # must not raise
 
@@ -59,8 +61,29 @@ def test_seed_allowed_when_explicit_override_set():
         ALLOW_PRODUCTION_SEED=True,
         DEFAULT_ADMIN_PASSWORD="A-Real-Password-2026!",
         EMAIL_BACKEND="smtp",
+        PUBLIC_BASE_URL="https://api.quatadigital.com",
+        FRONTEND_URL="https://quatadigital.com",
     )
     s.assert_production_safe()
+
+
+def test_production_rejects_localhost_public_base_url():
+    """A leftover localhost PUBLIC_BASE_URL/FRONTEND_URL must refuse to boot —
+    otherwise stored upload/resume URLs and reset links point at the wrong host."""
+    s = _settings(
+        SECRET_KEY="x" * 64,
+        AUTO_CREATE_TABLES=False,
+        SEED_ON_STARTUP=False,
+        EMAIL_BACKEND="smtp",
+        # PUBLIC_BASE_URL / FRONTEND_URL left at their localhost dev defaults
+    )
+    try:
+        s.assert_production_safe()
+    except ProductionConfigError as exc:
+        assert "PUBLIC_BASE_URL" in str(exc)
+        assert "FRONTEND_URL" in str(exc)
+    else:
+        raise AssertionError("expected ProductionConfigError for localhost URLs")
 
 
 def test_cors_strips_localhost_in_production():

@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from sqlalchemy.orm import Session
-from starlette.responses import Response
 
-from app.api.deps import get_current_user, log_activity
+from app.api.deps import log_activity, require_permission
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.db.session import get_db
 from app.models import MediaAsset, User
-from app.services.captcha import verify_captcha_or_raise
 from app.services.uploads import save_upload
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -18,10 +16,10 @@ def upload_file(
     request: Request,
     file: UploadFile = File(...),
     folder: str = Form("general"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_permission("content:manage")),
     db: Session = Depends(get_db),
 ):
-    """Authenticated upload endpoint. Returns a public URL.
+    """Authenticated upload endpoint (content managers only). Returns a URL.
 
     Every successful upload also creates a `MediaAsset` row so the file is
     discoverable from the admin media library and can be reused across
@@ -70,21 +68,21 @@ def public_upload(
     request: Request,
     file: UploadFile = File(...),
     folder: str = Form("public"),
-    captcha_token: str = Form(""),
     db: Session = Depends(get_db),
 ):
     """Anonymous upload used by the careers form for resumes.
 
-    Hardening over the previous shape:
+    Hardening:
     * slowapi rate-limit per-IP (matches the rest of the public surface);
-    * hCaptcha token required when site keys are configured;
-    * forces ``public=True`` so the upload service refuses SVG and
-      anything outside the public-safe allow-list;
-    * sets ``X-Content-Type-Options: nosniff`` and a ``Content-Disposition:
-      attachment`` hint so direct hits to ``/uploads/...`` cannot execute
-      smuggled HTML even if a future mis-config slips a bad type through.
+    * forces ``public=True`` so the upload service refuses SVG and anything
+      outside the public-safe allow-list, and size-caps the stream.
+
+    NOTE: this endpoint is deliberately NOT gated on hCaptcha. The upload
+    fires the instant the applicant picks a file — before the form-level
+    captcha is solved — so a captcha check here made every job application
+    impossible once keys were configured. The bot gate lives on the actual
+    submission (`POST /jobs/{id}/apply`), which still verifies the token.
     """
-    verify_captcha_or_raise(captcha_token, request)
     if folder not in {"resumes", "public"}:
         folder = "public"
     info = save_upload(file, folder=folder, public=True)

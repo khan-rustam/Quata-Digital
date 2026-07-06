@@ -8,6 +8,7 @@ If DEVICE_REQUIRE_SIGNATURE=true, devices must additionally sign each request:
    message  = f"{X-Device-Timestamp}.{raw_request_body}"
    signature = HMAC-SHA256(device.api_token, message).hexdigest()
 """
+import hmac
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -40,7 +41,8 @@ def _device_from_token(db: Session, device_id: int, token: str | None) -> Device
     device = db.get(Device, device_id)
     if not device:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Device not found")
-    if not device.api_token or device.api_token != token:
+    # Constant-time comparison to avoid leaking the token via response timing.
+    if not device.api_token or not token or not hmac.compare_digest(device.api_token, token):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid device token")
     return device
 

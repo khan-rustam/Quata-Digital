@@ -5,6 +5,7 @@ import * as Popover from "@radix-ui/react-popover";
 import Link from "next/link";
 import { Bell, Check } from "lucide-react";
 import { useApi } from "@/lib/use-api";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 type Event = {
@@ -39,7 +40,12 @@ function subscribeSeenId(onChange: () => void) {
 }
 
 export function NotificationsDropdown() {
-  const { data, loading } = useApi<Event[]>("/admin/activity");
+  // The activity feed requires `activity:view`; don't fire a doomed 403
+  // request for admins who lack it — just show an empty bell.
+  const { hasPermission } = useAuth();
+  const { data, loading } = useApi<Event[]>(
+    hasPermission("activity:view") ? "/admin/activity" : null,
+  );
   // useSyncExternalStore — re-renders if another tab marks notifications read.
   const seenId = React.useSyncExternalStore(subscribeSeenId, readSeenId, () => 0);
 

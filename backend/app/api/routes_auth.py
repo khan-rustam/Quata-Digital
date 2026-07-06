@@ -25,6 +25,11 @@ from app.services.security_extras import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# A throwaway bcrypt hash used to run a password comparison even when the
+# account doesn't exist, so response timing doesn't reveal which emails are
+# registered. Computed once at import.
+_DUMMY_PW_HASH = hash_password("timing-equalizer-not-a-real-password")
+
 
 # ---------------- Login (with lockout + 2FA) ----------------
 
@@ -39,12 +44,12 @@ class TwoFactorLoginIn(BaseModel):
 @limiter.limit(settings.RATE_LIMIT_LOGIN)
 def login(payload: TwoFactorLoginIn, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email.lower()).first()
-    if not user:
-        # Avoid disclosing which emails exist.
+    if not user or user.is_deleted:
+        # Run a dummy verify so timing doesn't reveal whether the account
+        # exists, and return the same generic error for missing/closed
+        # accounts so neither can be enumerated.
+        verify_password(payload.password, _DUMMY_PW_HASH)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
-
-    if user.is_deleted:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is closed")
 
     if is_locked(user):
         retry_in = int((user.locked_until - datetime.now(timezone.utc)).total_seconds())

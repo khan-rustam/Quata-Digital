@@ -14,6 +14,8 @@ import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/admin/empty-state";
 import { PartnerDetailSlideOver } from "@/components/admin/partner-detail";
 import { useApi, useApiAction } from "@/lib/use-api";
+import { apiUrl } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
 
 type Partner = {
@@ -47,9 +49,31 @@ export default function PartnersAdminPage() {
   params.set("page_size", String(pageSize));
   const path = `/admin/partners?${params.toString()}`;
 
-  const { data, loading, refresh } = useApi<Partner[]>(path);
+  const { data, loading, refresh } = useApi<{ items: Partner[]; total: number }>(path);
+  const rows = data?.items ?? [];
   const action = useApiAction();
+  const { token } = useAuth();
   const toast = useToast();
+
+  async function onExport() {
+    try {
+      const res = await fetch(`${apiUrl}/admin/partners/export.csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "partner-requests.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Export failed", err instanceof Error ? err.message : "Try again.");
+    }
+  }
 
   const [openDetail, setOpenDetail] = React.useState(false);
   const [detailId, setDetailId] = React.useState<number | null>(null);
@@ -195,14 +219,8 @@ export default function PartnersAdminPage() {
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </Select>
-          <Button asChild variant="outline">
-            <a
-              href={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/admin/partners/export.csv`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Download className="h-4 w-4" /> Export CSV
-            </a>
+          <Button onClick={onExport} variant="outline">
+            <Download className="h-4 w-4" /> Export CSV
           </Button>
         </>
       }
@@ -226,7 +244,7 @@ export default function PartnersAdminPage() {
 
       {loading ? (
         <TableSkeleton rows={6} cols={7} />
-      ) : (data?.length ?? 0) === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={Handshake}
           title="No partner requests match"
@@ -235,7 +253,7 @@ export default function PartnersAdminPage() {
       ) : (
         <DataTable
           columns={columns}
-          rows={data ?? []}
+          rows={rows}
           loading={false}
           selectable
           selectedIds={selected}
@@ -245,7 +263,7 @@ export default function PartnersAdminPage() {
       <Pagination
         page={page}
         pageSize={pageSize}
-        total={(data?.length ?? 0) + (page - 1) * pageSize}
+        total={data?.total ?? 0}
         onPageChange={setPage}
       />
 

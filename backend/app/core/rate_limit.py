@@ -52,8 +52,10 @@ limiter = Limiter(**_kwargs)
 
 
 def rate_limit_handler(_request: Request, exc: RateLimitExceeded):
+    # Fixed, safe Retry-After. (The previous parse of exc.detail could raise
+    # ValueError *inside* the error handler for some limit strings.)
     return JSONResponse(
         status_code=429,
         content={"detail": "Too many requests — slow down."},
-        headers={"Retry-After": str(int(exc.detail.split("/")[-1] if "/" in str(exc.detail) else 60))},
+        headers={"Retry-After": "60"},
     )

@@ -133,12 +133,12 @@ def overview(
 
 # ---------- Partners ----------
 
-@router.get("/partners", response_model=List[PartnerOut])
+@router.get("/partners")
 def admin_list_partners(
     db: Session = Depends(get_db),
     partner_type: Optional[str] = None,
     status_filter: Optional[str] = Query(default=None, alias="status"),
-    q: Optional[str] = Query(default=None, description="Search payload"),
+    q: Optional[str] = Query(default=None, max_length=120, description="Search payload"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     user: User = Depends(require_permission("partners:manage")),
@@ -149,15 +149,24 @@ def admin_list_partners(
     if status_filter:
         qry = qry.filter(PartnerRequest.status == status_filter)
     if q:
-        # SQLite-friendly LIKE on the JSON-encoded payload column
+        # SQLite-friendly LIKE on the JSON-encoded payload column (bound param)
         from sqlalchemy import cast, String as SqlString
         qry = qry.filter(cast(PartnerRequest.payload, SqlString).ilike(f"%{q}%"))
-    return (
+    total = qry.count()
+    rows = (
         qry.order_by(PartnerRequest.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
+    # Paginated envelope so the admin UI can compute total pages (a bare list
+    # made "Next" impossible past page 1).
+    return {
+        "items": [PartnerOut.model_validate(r) for r in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.patch("/partners/{partner_id}", response_model=PartnerOut)
@@ -291,7 +300,13 @@ def admin_list_apps(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("careers:manage")),
 ):
-    rows = db.query(Application).order_by(Application.created_at.desc()).all()
+    rows = (
+        db.query(Application)
+        .options(selectinload(Application.job))  # avoid an N+1 on job_title
+        .order_by(Application.created_at.desc())
+        .limit(500)  # bound the public-fed table; use /applications/v2 to filter
+        .all()
+    )
     return [
         {
             "id": r.id,
@@ -418,6 +433,12 @@ def admin_create_message(
     # impersonating leadership across the org.
     user: User = Depends(require_permission("staff:manage")),
 ):
+    # Reject targeted sends with no target rather than silently delivering to
+    # nobody (which previously reported success).
+    if payload.audience == "department" and not payload.department_slug:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Select a department for a department message.")
+    if payload.audience == "individual" and not payload.recipient_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Select a recipient for an individual message.")
     msg = Message(
         subject=payload.subject,
         body=payload.body,

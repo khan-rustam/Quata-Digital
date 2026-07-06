@@ -1,12 +1,27 @@
 from datetime import datetime, date
 from typing import Any, List, Optional, Dict
 
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 
 
 class PartnerSubmitIn(BaseModel):
     payload: Dict[str, Any]
     captcha_token: Optional[str] = None
+
+    @field_validator("payload")
+    @classmethod
+    def _cap_payload(cls, v: Any) -> Any:
+        """Bound the free-form partner payload so an anonymous submitter can't
+        stuff megabytes of junk into the DB."""
+        import json as _json
+
+        if not isinstance(v, dict):
+            raise ValueError("payload must be an object")
+        if len(v) > 40:
+            raise ValueError("payload has too many fields")
+        if len(_json.dumps(v, default=str)) > 20_000:
+            raise ValueError("payload is too large")
+        return v
 
 
 class PartnerOut(BaseModel):
@@ -102,11 +117,11 @@ class JobOut(BaseModel):
 
 
 class JobApplicationIn(BaseModel):
-    full_name: str
+    full_name: str = Field(min_length=1, max_length=160)
     email: EmailStr
-    phone: Optional[str] = None
-    resume_url: str
-    cover_letter: Optional[str] = None
+    phone: Optional[str] = Field(default=None, max_length=40)
+    resume_url: str = Field(min_length=1, max_length=500)
+    cover_letter: Optional[str] = Field(default=None, max_length=8000)
     captcha_token: Optional[str] = None
 
 
@@ -257,11 +272,11 @@ class ActivityOut(BaseModel):
 
 
 class ContactIn(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=160)
     email: EmailStr
-    company: Optional[str] = None
-    reason: str
-    message: str
+    company: Optional[str] = Field(default=None, max_length=160)
+    reason: str = Field(min_length=1, max_length=80)
+    message: str = Field(min_length=1, max_length=8000)
     captcha_token: Optional[str] = None
 
 

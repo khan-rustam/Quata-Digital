@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, log_activity, require_permission
+from app.api.deps import get_current_user, log_activity, require_permission, user_permissions
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import (
@@ -27,6 +27,7 @@ from app.schemas.common import (
     ApplicationOut,
     BlogPostOut,
     DepartmentOut,
+    DeviceOut,
     JobOut,
     PageOut,
     ProductOut,
@@ -318,6 +319,58 @@ def update_application_status(
 
 # -------------------- Staff --------------------
 
+def _role_permission_set(role: Role | None) -> set[str]:
+    """Effective permission set a role grants (wildcard for super_admin)."""
+    if not role:
+        return set()
+    perms = {p.permission for p in role.permissions}
+    if role.slug == "super_admin":
+        perms.add("*")
+    return perms
+
+
+def _assert_can_assign_role(actor: User, role: Role) -> None:
+    """Prevent vertical privilege escalation.
+
+    An actor may only grant a role whose permissions are a subset of the
+    actor's own effective permissions. Granting ``super_admin`` (wildcard)
+    therefore requires the actor to already hold ``*``. Without this a
+    ``staff:manage`` holder (e.g. the seeded ``manager`` role) could promote
+    itself — or anyone — to ``super_admin``.
+    """
+    actor_perms = user_permissions(actor)
+    if "*" in actor_perms:
+        return
+    target_perms = _role_permission_set(role)
+    if "*" in target_perms or not target_perms.issubset(actor_perms):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You cannot assign a role with more permissions than your own.",
+        )
+
+
+def _assert_can_manage_target(actor: User, target: User) -> None:
+    """Block managing a user who outranks you.
+
+    A non-super-admin cannot edit, suspend or re-role an account whose
+    current role carries permissions the actor does not hold (protects
+    super_admins and higher-tier admins from lower-tier staff managers).
+    Editing your own record is always allowed (role elevation is still
+    blocked separately by ``_assert_can_assign_role``).
+    """
+    if actor.id == target.id:
+        return
+    actor_perms = user_permissions(actor)
+    if "*" in actor_perms:
+        return
+    target_perms = _role_permission_set(target.role)
+    if "*" in target_perms or not target_perms.issubset(actor_perms):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You cannot modify a user who has more permissions than you.",
+        )
+
+
 @router.post("/staff", response_model=StaffOut, status_code=201)
 def create_staff(
     payload: StaffIn,
@@ -330,6 +383,7 @@ def create_staff(
     role = db.query(Role).filter(Role.slug == payload.role_slug).first()
     if not role:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown role")
+    _assert_can_assign_role(user, role)
     dept = (
         db.query(Department).filter(Department.slug == payload.department_slug).first()
         if payload.department_slug
@@ -387,11 +441,13 @@ def update_staff(
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    _assert_can_manage_target(user, u)
     data = payload.model_dump(exclude_unset=True)
     if "role_slug" in data:
         role = db.query(Role).filter(Role.slug == data.pop("role_slug")).first()
         if not role:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown role")
+        _assert_can_assign_role(user, role)
         u.role_id = role.id
     if "department_slug" in data:
         slug = data.pop("department_slug")
@@ -399,6 +455,12 @@ def update_staff(
         u.department_id = dept.id if dept else None
     for k, v in data.items():
         setattr(u, k, v)
+    # Keep the access flag in sync with the human-facing status so that
+    # "suspending" a user through the edit form actually revokes access.
+    # `is_active` is re-checked on every request (deps.get_current_user_lenient),
+    # so this also invalidates any live token the user still holds.
+    if "status" in data:
+        u.is_active = data["status"] != "suspended"
     log_activity(db, actor=user, action="update", resource_type="user", resource_id=user_id, request=request)
     db.commit()
     db.refresh(u)
@@ -425,6 +487,7 @@ def delete_staff(
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    _assert_can_manage_target(user, u)
     u.is_active = False
     u.status = "suspended"
     log_activity(db, actor=user, action="suspend", resource_type="user", resource_id=user_id, request=request)
@@ -519,7 +582,7 @@ def create_device(
     return d
 
 
-@router.put("/devices/{device_id}", response_model=DeviceWithToken)
+@router.put("/devices/{device_id}", response_model=DeviceOut)
 def update_device(
     device_id: int,
     payload: DevicePatch,
@@ -535,6 +598,8 @@ def update_device(
     log_activity(db, actor=user, action="update", resource_type="device", resource_id=device_id, request=request)
     db.commit()
     db.refresh(d)
+    # NB: api_token is intentionally omitted here — it is only returned on
+    # create/rotate so the secret isn't echoed back on routine edits.
     return d
 
 

@@ -41,9 +41,17 @@ export default function OverviewPage() {
         user ? `${user.full_name.split(" ")[0]}, here's what's moving across the ecosystem today.` : ""
       }
     >
-      {loading || !data ? (
+      {loading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+      ) : !data ? (
+        <div className="rounded-2xl border border-border bg-card p-10 text-center ring-soft">
+          <div className="text-base font-semibold">Dashboard unavailable</div>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            We couldn&apos;t load your overview. Your account may not have access to
+            these metrics — pick a section you manage from the sidebar.
+          </p>
         </div>
       ) : (
         <>

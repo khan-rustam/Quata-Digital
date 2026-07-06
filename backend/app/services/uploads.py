@@ -40,6 +40,61 @@ def _safe_name(name: str) -> str:
     return base[:120]
 
 
+def _safe_folder(folder: str | None) -> str:
+    """Sanitise a caller-supplied upload folder to a single flat segment.
+
+    The folder is used to build the on-disk path (``<yyyy>/<mm>/<folder>``),
+    so an unsanitised value like ``../../etc`` would escape ``UPLOAD_DIR``.
+    We strip any path separators / traversal and fall back to ``general``.
+    """
+    if not folder:
+        return "general"
+    seg = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(str(folder)))
+    seg = seg.strip("._")
+    return seg[:40] or "general"
+
+
+def is_internal_upload_url(url: str | None) -> bool:
+    """True only when ``url`` references a file we ourselves stored.
+
+    Applicant-supplied ``resume_url`` is otherwise a free-form string that an
+    admin later opens by clicking — an attacker could point it at a phishing
+    page or a ``javascript:``/``data:`` URI. We accept only our own upload
+    origin(s) or a relative ``/uploads/...`` path.
+    """
+    if not url or not isinstance(url, str):
+        return False
+    u = url.strip()
+    if u.startswith("/uploads/"):
+        return True
+    prefixes: list[str] = []
+    base = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    if base:
+        prefixes.append(f"{base}/uploads/")
+    s3base = (settings.S3_PUBLIC_URL_BASE or "").rstrip("/")
+    if s3base:
+        prefixes.append(f"{s3base}/")
+    return any(u.startswith(p) for p in prefixes)
+
+
+def normalize_upload_url(url: str | None) -> str | None:
+    """Rebuild a stored upload URL against the *current* ``PUBLIC_BASE_URL``.
+
+    Rows written earlier may carry a stale host (e.g. the ``localhost`` dev
+    default), which makes admin "open file" links dead once deployed. We only
+    rewrite the scheme+host prefix up to and including ``/uploads/``; S3/CDN
+    URLs (which don't contain our ``/uploads/`` marker) pass through unchanged.
+    """
+    if not url:
+        return url
+    marker = "/uploads/"
+    idx = url.find(marker)
+    if idx == -1:
+        return url
+    base = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    return f"{base}{url[idx:]}"
+
+
 def save_upload(file: UploadFile, folder: str = "general", *, public: bool = False) -> dict:
     """Save an UploadFile under <yyyy>/<mm>/<folder>/<token>-<name>.
 
@@ -65,7 +120,8 @@ def save_upload(file: UploadFile, folder: str = "general", *, public: bool = Fal
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "SVG uploads not allowed")
 
     now = datetime.now(timezone.utc)
-    rel_dir = Path(now.strftime("%Y")) / now.strftime("%m") / folder
+    # Never trust the caller-supplied folder in a filesystem path.
+    rel_dir = Path(now.strftime("%Y")) / now.strftime("%m") / _safe_folder(folder)
     token = secrets.token_urlsafe(8)
     safe = _safe_name(file.filename or "upload")
     filename = f"{token}-{safe}"

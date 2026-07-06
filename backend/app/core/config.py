@@ -214,6 +214,20 @@ class Settings(BaseSettings):
                 "with SMTP credentials, or EMAIL_BACKEND=disabled to "
                 "explicitly opt out of outbound email."
             )
+        # These build absolute URLs baked into stored records (upload/resume
+        # URLs) and outbound links (password-reset emails). A leftover dev
+        # value silently produces dead links, so refuse to boot on it.
+        for name, val in (
+            ("PUBLIC_BASE_URL", self.PUBLIC_BASE_URL),
+            ("FRONTEND_URL", self.FRONTEND_URL),
+        ):
+            low = (val or "").lower()
+            if (not low) or "localhost" in low or "127.0.0.1" in low or "0.0.0.0" in low:
+                problems.append(
+                    f"{name} is still a dev value ({val!r}). Set it to the real "
+                    "public origin — upload/resume URLs and password-reset "
+                    "links are built from it."
+                )
         if problems:
             raise ProductionConfigError(
                 "Production config refused to start:\n  - "

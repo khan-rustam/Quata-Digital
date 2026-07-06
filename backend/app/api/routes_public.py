@@ -49,7 +49,7 @@ def list_products(db: Session = Depends(get_db)):
 @router.get("/products/{slug}", response_model=ProductOut)
 def get_product(slug: str, db: Session = Depends(get_db)):
     p = db.query(Product).filter(Product.slug == slug).first()
-    if not p:
+    if not p or not p.is_published:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Product not found")
     return p
 
@@ -89,12 +89,11 @@ def submit_partner(
 @router.get("/jobs", response_model=List[JobOut])
 def list_jobs(
     db: Session = Depends(get_db),
-    published: Optional[bool] = Query(default=True),
     department: Optional[str] = None,
 ):
-    q = db.query(Job)
-    if published is True:
-        q = q.filter(Job.is_published == True)  # noqa: E712
+    # Public endpoint: only ever expose published jobs (the admin surface has
+    # its own /admin/jobs listing that includes drafts).
+    q = db.query(Job).filter(Job.is_published == True)  # noqa: E712
     if department:
         q = q.filter(Job.department == department)
     jobs = q.order_by(Job.created_at.desc()).all()
@@ -114,7 +113,7 @@ def list_jobs(
 @router.get("/jobs/{job_id}", response_model=JobOut)
 def get_job(job_id: int, db: Session = Depends(get_db)):
     j = db.get(Job, job_id)
-    if not j:
+    if not j or not j.is_published:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found")
     count = (
         db.query(func.count(Application.id))
@@ -136,9 +135,15 @@ def apply_to_job(
     db: Session = Depends(get_db),
 ):
     job = db.get(Job, job_id)
-    if not job:
+    if not job or not job.is_published:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found")
     verify_captcha_or_raise(payload.captcha_token, get_client_ip(request))
+    from app.services.uploads import is_internal_upload_url
+    if not is_internal_upload_url(payload.resume_url):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Resume must be uploaded through the application form.",
+        )
     app_row = Application(
         job_id=job_id,
         full_name=payload.full_name,
@@ -170,12 +175,10 @@ def apply_to_job(
 @router.get("/blog", response_model=List[BlogPostOut])
 def list_posts(
     db: Session = Depends(get_db),
-    published: Optional[bool] = Query(default=True),
 ):
     from app.schemas.common import serialize_blog_post
-    q = db.query(BlogPost)
-    if published is True:
-        q = q.filter(BlogPost.is_published == True)  # noqa: E712
+    # Public endpoint: only published posts (admin has /admin/blog for drafts).
+    q = db.query(BlogPost).filter(BlogPost.is_published == True)  # noqa: E712
     posts = q.order_by(BlogPost.published_at.desc().nulls_last(), BlogPost.created_at.desc()).all()
     return [serialize_blog_post(p) for p in posts]
 

@@ -14,7 +14,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import decode_token
+from app.core.security import decode_token_full
 from app.db.session import SessionLocal
 from app.models import User
 
@@ -68,12 +68,22 @@ hub = Hub()
 def _user_from_token(token: str | None) -> User | None:
     if not token:
         return None
-    sub = decode_token(token)
-    if not sub:
+    payload = decode_token_full(token)
+    if not payload or not payload.get("sub"):
         return None
     db: Session = SessionLocal()
     try:
-        return db.get(User, int(sub))
+        user = db.get(User, int(payload["sub"]))
+        if not user or not user.is_active:
+            return None
+        # Honour the same password-change (`pwc`) revocation the HTTP auth
+        # dependency enforces — a token minted before a password reset must
+        # not keep an authenticated socket alive.
+        if user.password_changed_at:
+            pwc = payload.get("pwc")
+            if pwc is None or int(pwc) < int(user.password_changed_at.timestamp()):
+                return None
+        return user
     finally:
         db.close()
 

@@ -220,7 +220,7 @@ def update_partner_notes(
     return {"ok": True, "notes": pr.notes}
 
 
-@router.get("/partners/{partner_id}")
+@router.get("/partners/{partner_id:int}")
 def get_partner_request(
     partner_id: int,
     db: Session = Depends(get_db),
@@ -284,12 +284,13 @@ def get_application(
     a = db.get(Application, app_id)
     if not a:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    from app.services.uploads import normalize_upload_url
     return {
         "id": a.id,
         "full_name": a.full_name,
         "email": a.email,
         "phone": a.phone,
-        "resume_url": a.resume_url,
+        "resume_url": normalize_upload_url(a.resume_url),
         "cover_letter": a.cover_letter,
         "status": a.status,
         "job_id": a.job_id,

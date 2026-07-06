@@ -22,7 +22,7 @@ type Product = {
   slug: string;
   name: string;
   category: string;
-  status: string; // live | beta | coming_soon | planned | (free-form server-side)
+  status: string; // live | beta | coming_soon (validated server-side)
   tagline: string;
   description: string;
   is_published: boolean;
@@ -217,7 +217,6 @@ export default function ProductsAdminPage() {
               <option value="live">Live</option>
               <option value="beta">Beta</option>
               <option value="coming_soon">Coming soon</option>
-              <option value="planned">Planned</option>
             </Select>
           </div>
         </div>
