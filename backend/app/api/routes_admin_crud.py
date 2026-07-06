@@ -1,6 +1,7 @@
 """Admin CRUD endpoints: blog posts, CMS pages, products, jobs, staff, departments, devices, applications."""
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -51,7 +52,14 @@ from app.schemas.crud import (
     StaffIn,
     StaffPatch,
 )
-from app.services.email import notify_leave_decided
+from app.services.email import (
+    notify_applicant_hired,
+    notify_applicant_rejected,
+    notify_applicant_shortlisted,
+    notify_leave_decided,
+)
+
+log = logging.getLogger("quata.careers")
 
 router = APIRouter(prefix="/admin", tags=["admin-crud"])
 
@@ -296,6 +304,20 @@ def update_application_status(
     if not a:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
     a.status = payload.status
+    job_title = a.job.title if a.job else "the role"
+
+    # Persist scheduling details that came from the admin dialog so they show
+    # on the dashboard, then fire the matching automated email (best-effort —
+    # a mail failure must never roll back the status change).
+    if payload.status == "shortlisted":
+        if payload.interview_at is not None:
+            a.interview_at = payload.interview_at
+        if payload.interview_location is not None:
+            a.interview_location = payload.interview_location
+    elif payload.status == "hired":
+        if payload.start_date is not None:
+            a.start_date = payload.start_date
+
     log_activity(
         db,
         actor=user,
@@ -303,10 +325,47 @@ def update_application_status(
         resource_type="application",
         resource_id=app_id,
         request=request,
-        details={"to": payload.status},
+        details={"to": payload.status, "notified": payload.notify},
     )
     db.commit()
     db.refresh(a)
+
+    if payload.notify:
+        interview_when = (
+            a.interview_at.strftime("%A, %d %B %Y at %H:%M")
+            if a.interview_at
+            else None
+        )
+        start_when = a.start_date.strftime("%A, %d %B %Y") if a.start_date else None
+        try:
+            if payload.status == "shortlisted":
+                notify_applicant_shortlisted(
+                    applicant_email=a.email,
+                    applicant_name=a.full_name,
+                    job_title=job_title,
+                    interview_when=interview_when,
+                    interview_location=a.interview_location,
+                    documents=payload.documents,
+                    message=payload.message,
+                )
+            elif payload.status == "hired":
+                notify_applicant_hired(
+                    applicant_email=a.email,
+                    applicant_name=a.full_name,
+                    job_title=job_title,
+                    start_when=start_when,
+                    message=payload.message,
+                )
+            elif payload.status == "rejected":
+                notify_applicant_rejected(
+                    applicant_email=a.email,
+                    applicant_name=a.full_name,
+                    job_title=job_title,
+                    message=payload.message,
+                )
+        except Exception:  # noqa: BLE001 — email is best-effort
+            log.exception("hiring email failed for application %s (%s)", app_id, payload.status)
+
     return ApplicationOut(
         id=a.id,
         full_name=a.full_name,

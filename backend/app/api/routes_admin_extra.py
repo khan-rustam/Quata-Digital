@@ -298,6 +298,9 @@ def get_application(
         "status": a.status,
         "job_id": a.job_id,
         "job_title": a.job.title if a.job else None,
+        "interview_at": a.interview_at,
+        "interview_location": a.interview_location,
+        "start_date": a.start_date,
         "created_at": a.created_at,
         "updated_at": a.updated_at,
     }

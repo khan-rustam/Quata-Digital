@@ -93,6 +93,15 @@ DEFAULT_SETTINGS: list[dict] = [
         "sort_order": 10,
     },
     {
+        "key": "contact.whatsapp",
+        "group": "contact",
+        "label": "WhatsApp number",
+        "description": "Shown in the footer and on the contact page as a click-to-chat link. Hidden when blank.",
+        "field_type": "phone",
+        "is_secret": False,
+        "sort_order": 15,
+    },
+    {
         "key": "contact.email",
         "group": "contact",
         "label": "Public email",

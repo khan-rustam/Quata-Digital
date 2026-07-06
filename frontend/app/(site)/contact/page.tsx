@@ -20,7 +20,7 @@ import { Section, SectionHeader } from "@/components/site/section";
 import { ContactForm } from "@/components/forms/contact-form";
 import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { Illustration } from "@/components/site/illustrations/illustration";
-import { DEFAULT_PUBLIC_PHONE } from "@/lib/site-settings";
+import { DEFAULT_PUBLIC_PHONE, DEFAULT_PUBLIC_WHATSAPP } from "@/lib/site-settings";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -205,6 +205,23 @@ export default async function ContactPage() {
                     <Phone className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
                     <a href={`tel:${phoneHref}`} className="hover:text-foreground">
                       {phoneDisplay}
+                    </a>
+                  </li>
+                );
+              })()}
+              {(() => {
+                const waDisplay = DEFAULT_PUBLIC_WHATSAPP;
+                const waDigits = waDisplay.replace(/[^0-9]/g, "");
+                return (
+                  <li className="flex items-start gap-2 text-muted-foreground">
+                    <MessageCircle className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
+                    <a
+                      href={`https://wa.me/${waDigits}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:text-foreground"
+                    >
+                      WhatsApp {waDisplay}
                     </a>
                   </li>
                 );

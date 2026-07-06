@@ -1,5 +1,5 @@
 """Pydantic IO schemas for admin CRUD."""
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional, Dict
 
 from pydantic import BaseModel, EmailStr, Field
@@ -103,6 +103,15 @@ class JobPatch(BaseModel):
 
 class ApplicationStatusIn(BaseModel):
     status: str = Field(pattern="^(new|shortlisted|interviewed|rejected|hired)$")
+    # Optional hiring-workflow details supplied from the admin dialog. When
+    # `notify` is true, moving to shortlisted/hired/rejected triggers the
+    # matching automated email to the candidate (copied to careers@).
+    interview_at: Optional[datetime] = None
+    interview_location: Optional[str] = Field(default=None, max_length=255)
+    documents: Optional[str] = Field(default=None, max_length=2000)  # email-only
+    start_date: Optional[date] = None
+    message: Optional[str] = Field(default=None, max_length=4000)
+    notify: bool = True
 
 
 # ---------- Departments ----------

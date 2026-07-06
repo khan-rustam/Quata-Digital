@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True
     EMAIL_FROM: str = "QUATA Digital <noreply@quatadigital.com>"
     EMAIL_NOTIFY_TO: str = "info@quatadigital.com"
+    # Mailbox that receives a copy of every hiring-workflow email
+    # (shortlist / hire / rejection). Comma-separated for multiple.
+    CAREERS_NOTIFY_TO: str = "careers@quatadigital.com"
 
     # Default locale + supported locales
     DEFAULT_LOCALE: str = "en"

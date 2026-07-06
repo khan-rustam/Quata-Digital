@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Logo } from "./logo";
-import { Mail, MapPin, Phone, ArrowUpRight } from "lucide-react";
+import { Mail, MapPin, Phone, MessageCircle, ArrowUpRight } from "lucide-react";
 import { products } from "@/lib/ecosystem";
 import {
   getSiteSettings,
   DEFAULT_PUBLIC_EMAIL,
   DEFAULT_PUBLIC_PHONE,
+  DEFAULT_PUBLIC_WHATSAPP,
 } from "@/lib/site-settings";
 
 function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -95,6 +96,8 @@ export async function Footer() {
     settings.contact.phone ??
     process.env.NEXT_PUBLIC_CONTACT_PHONE ??
     DEFAULT_PUBLIC_PHONE;
+  const whatsapp = settings.contact.whatsapp ?? DEFAULT_PUBLIC_WHATSAPP;
+  const whatsappDigits = whatsapp?.replace(/[^0-9]/g, "");
   const publicEmail = settings.contact.email ?? DEFAULT_PUBLIC_EMAIL;
   const addressLines = settings.contact.address
     ? settings.contact.address.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -244,6 +247,19 @@ export async function Footer() {
                     className="text-white/75 hover:text-white transition"
                   >
                     {phone}
+                  </a>
+                </li>
+              )}
+              {whatsappDigits && (
+                <li className="flex items-center gap-2.5">
+                  <MessageCircle className="h-3.5 w-3.5 text-accent" />
+                  <a
+                    href={`https://wa.me/${whatsappDigits}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-white/75 hover:text-white transition"
+                  >
+                    WhatsApp {whatsapp}
                   </a>
                 </li>
               )}

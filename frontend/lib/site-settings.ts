@@ -28,10 +28,12 @@ import { apiUrl } from "./api";
  * hasn't filled in the site settings yet.
  */
 export const DEFAULT_PUBLIC_PHONE = "+237 680044590";
+export const DEFAULT_PUBLIC_WHATSAPP = "+237 655633003";
 export const DEFAULT_PUBLIC_EMAIL = "info@quatadigital.com";
 
 export type ContactSettings = {
   phone: string | null;
+  whatsapp: string | null;
   email: string | null;
   address: string | null;
   support_hours: string | null;
@@ -57,7 +59,7 @@ export type SiteSettings = {
 };
 
 const EMPTY: SiteSettings = {
-  contact: { phone: null, email: null, address: null, support_hours: null },
+  contact: { phone: null, whatsapp: null, email: null, address: null, support_hours: null },
   social: {
     linkedin_url: null,
     twitter_url: null,
@@ -88,6 +90,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     return {
       contact: {
         phone: pick(map, "contact.phone"),
+        whatsapp: pick(map, "contact.whatsapp"),
         email: pick(map, "contact.email"),
         address: pick(map, "contact.address"),
         support_hours: pick(map, "contact.support_hours"),

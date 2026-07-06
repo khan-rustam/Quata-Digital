@@ -1,6 +1,7 @@
+from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, JSON, Text, ForeignKey
+from sqlalchemy import String, Boolean, JSON, Text, ForeignKey, DateTime, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, SoftDeleteMixin
@@ -33,5 +34,11 @@ class Application(Base, TimestampMixin, SoftDeleteMixin):
     resume_url: Mapped[str] = mapped_column(String(500))
     cover_letter: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(24), default="new")  # new|shortlisted|interviewed|rejected|hired
+
+    # Hiring-workflow scheduling, set when the admin advances the candidate and
+    # the automated shortlist/hire emails go out. Shown on the admin dashboard.
+    interview_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    interview_location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     job = relationship("Job")

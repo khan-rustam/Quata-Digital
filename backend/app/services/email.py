@@ -125,6 +125,132 @@ def notify_application_received(job_title: str, applicant_email: str, applicant_
     )
 
 
+def _careers_recipients() -> list[str]:
+    """Mailbox(es) that get a copy of every hiring-workflow email."""
+    raw = settings.CAREERS_NOTIFY_TO or ""
+    return [r.strip() for r in raw.split(",") if r.strip()]
+
+
+def notify_applicant_shortlisted(
+    *,
+    applicant_email: str,
+    applicant_name: str,
+    job_title: str,
+    interview_when: str | None,
+    interview_location: str | None,
+    documents: str | None,
+    message: str | None = None,
+) -> None:
+    """Tell a shortlisted candidate they've advanced, with interview details.
+
+    Sends to the candidate and copies the careers mailbox. Best-effort: a
+    mail failure must not roll back the status change (caller wraps this).
+    """
+    lines = [
+        f"Hi {applicant_name},",
+        "",
+        f"Good news — you've been shortlisted for the {job_title} role at "
+        f"QUATA Digital and we'd like to invite you to an interview.",
+    ]
+    if interview_when:
+        lines += ["", f"Interview date & time: {interview_when}"]
+    if interview_location:
+        lines.append(f"Location: {interview_location}")
+    if documents:
+        lines += ["", "Please bring the following documents with you:", documents]
+    if message:
+        lines += ["", message]
+    lines += ["", "We look forward to meeting you.", "", "— The QUATA People team"]
+    send_email(
+        to=applicant_email,
+        subject=f"You've been shortlisted — {job_title} at QUATA Digital",
+        body="\n".join(lines),
+    )
+    careers = _careers_recipients()
+    if careers:
+        send_email(
+            to=careers,
+            subject=f"[QUATA Careers] Shortlisted — {applicant_name} ({job_title})",
+            body=(
+                f"{applicant_name} <{applicant_email}> was shortlisted for {job_title}.\n"
+                f"Interview: {interview_when or '—'} · {interview_location or '—'}"
+            ),
+        )
+
+
+def notify_applicant_hired(
+    *,
+    applicant_email: str,
+    applicant_name: str,
+    job_title: str,
+    start_when: str | None,
+    message: str | None = None,
+) -> None:
+    """Congratulate a hired candidate and give them their start date."""
+    lines = [
+        f"Hi {applicant_name},",
+        "",
+        f"Congratulations! We're delighted to offer you the {job_title} role "
+        f"at QUATA Digital — welcome to the team.",
+    ]
+    if start_when:
+        lines += ["", f"Your start date is: {start_when}"]
+    if message:
+        lines += ["", message]
+    lines += [
+        "",
+        "We'll follow up shortly with onboarding details.",
+        "",
+        "— The QUATA People team",
+    ]
+    send_email(
+        to=applicant_email,
+        subject=f"Offer — {job_title} at QUATA Digital",
+        body="\n".join(lines),
+    )
+    careers = _careers_recipients()
+    if careers:
+        send_email(
+            to=careers,
+            subject=f"[QUATA Careers] Hired — {applicant_name} ({job_title})",
+            body=(
+                f"{applicant_name} <{applicant_email}> was hired for {job_title}.\n"
+                f"Start date: {start_when or '—'}"
+            ),
+        )
+
+
+def notify_applicant_rejected(
+    *,
+    applicant_email: str,
+    applicant_name: str,
+    job_title: str,
+    message: str | None = None,
+) -> None:
+    """Send a courteous 'not moving forward' note to the candidate."""
+    body = message or (
+        f"Hi {applicant_name},\n\n"
+        f"Thank you for your interest in the {job_title} role at QUATA Digital "
+        f"and for the time you invested in your application. After careful "
+        f"consideration we won't be moving forward on this occasion.\n\n"
+        f"We were impressed by many candidates and encourage you to apply for "
+        f"future roles that match your skills. We wish you the very best.\n\n"
+        f"— The QUATA People team"
+    )
+    send_email(
+        to=applicant_email,
+        subject=f"Update on your application — {job_title} at QUATA Digital",
+        body=body,
+    )
+    careers = _careers_recipients()
+    if careers:
+        send_email(
+            to=careers,
+            subject=f"[QUATA Careers] Rejected — {applicant_name} ({job_title})",
+            body=f"{applicant_name} <{applicant_email}> was rejected for {job_title}.",
+        )
+
+
 def notify_leave_decided(applicant_email: str, applicant_name: str, status: str, start: str, end: str) -> None:
     send_email(
         to=applicant_email,
