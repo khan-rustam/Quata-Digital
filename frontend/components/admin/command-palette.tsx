@@ -32,6 +32,8 @@ type Item = {
   keywords?: string[];
   icon: typeof Search;
   group: "Navigate" | "Account" | "Quick action";
+  /** Permission required to see this entry (null = always shown). */
+  perm?: string | null;
 };
 
 export function CommandPalette() {
@@ -39,7 +41,7 @@ export function CommandPalette() {
   const [query, setQuery] = React.useState("");
   const [highlight, setHighlight] = React.useState(0);
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut, hasPermission } = useAuth();
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -61,30 +63,36 @@ export function CommandPalette() {
 
   const items: Item[] = React.useMemo(() => [
     { label: "Overview", href: "/admin/overview", icon: LayoutDashboard, group: "Navigate", keywords: ["dashboard", "home"] },
-    { label: "Analytics", href: "/admin/analytics", icon: BarChart3, group: "Navigate" },
-    { label: "CMS pages", href: "/admin/cms", icon: FileText, group: "Navigate", keywords: ["blog", "posts"] },
-    { label: "Products", href: "/admin/products", icon: Package, group: "Navigate" },
-    { label: "Partner requests", href: "/admin/partners", icon: Handshake, group: "Navigate" },
-    { label: "Careers & jobs", href: "/admin/careers", icon: Briefcase, group: "Navigate", keywords: ["jobs", "applicants"] },
-    { label: "Employees", href: "/admin/staff", icon: Users, group: "Navigate", keywords: ["staff"] },
-    { label: "Departments", href: "/admin/departments", icon: Building, group: "Navigate" },
-    { label: "Roles & permissions", href: "/admin/roles", icon: Shield, group: "Navigate", keywords: ["rbac", "permissions"] },
+    { label: "Analytics", href: "/admin/analytics", icon: BarChart3, group: "Navigate", perm: "analytics:view" },
+    { label: "CMS pages", href: "/admin/cms", icon: FileText, group: "Navigate", keywords: ["blog", "posts"], perm: "content:manage" },
+    { label: "Products", href: "/admin/products", icon: Package, group: "Navigate", perm: "content:manage" },
+    { label: "Partner requests", href: "/admin/partners", icon: Handshake, group: "Navigate", perm: "partners:manage" },
+    { label: "Careers & jobs", href: "/admin/careers", icon: Briefcase, group: "Navigate", keywords: ["jobs", "applicants"], perm: "careers:manage" },
+    { label: "Employees", href: "/admin/staff", icon: Users, group: "Navigate", keywords: ["staff"], perm: "staff:manage" },
+    { label: "Departments", href: "/admin/departments", icon: Building, group: "Navigate", perm: "staff:manage" },
+    { label: "Roles & permissions", href: "/admin/roles", icon: Shield, group: "Navigate", keywords: ["rbac", "permissions"], perm: "rbac:manage" },
     { label: "Messages", href: "/admin/messages", icon: MessageSquare, group: "Navigate", keywords: ["chat", "internal"] },
     { label: "Leave", href: "/admin/leave", icon: CalendarDays, group: "Navigate", keywords: ["holiday"] },
     { label: "Attendance", href: "/admin/attendance", icon: Clock, group: "Navigate" },
-    { label: "Devices", href: "/admin/devices", icon: Cpu, group: "Navigate", keywords: ["biometric", "webhook"] },
-    { label: "Activity logs", href: "/admin/activity", icon: Activity, group: "Navigate", keywords: ["audit"] },
+    { label: "Devices", href: "/admin/devices", icon: Cpu, group: "Navigate", keywords: ["biometric", "webhook"], perm: "devices:manage" },
+    { label: "Activity logs", href: "/admin/activity", icon: Activity, group: "Navigate", keywords: ["audit"], perm: "activity:view" },
     { label: "Settings", href: "/admin/settings", icon: Settings, group: "Account" },
     { label: "Sign out", action: signOut, icon: LogOut, group: "Account" },
   ], [signOut]);
 
+  // Only surface entries the current user can actually open.
+  const permitted = React.useMemo(
+    () => items.filter((it) => !it.perm || hasPermission(it.perm)),
+    [items, hasPermission],
+  );
+
   const filtered = React.useMemo(() => {
     const q = query.toLowerCase().trim();
-    if (!q) return items;
-    return items.filter((it) =>
+    if (!q) return permitted;
+    return permitted.filter((it) =>
       [it.label, ...(it.keywords ?? [])].some((s) => s.toLowerCase().includes(q))
     );
-  }, [items, query]);
+  }, [permitted, query]);
 
   function activate(it: Item) {
     setOpen(false);

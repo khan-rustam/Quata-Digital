@@ -15,6 +15,7 @@ from app.schemas.auth import LoginIn, MeOut, TokenOut
 from app.services.email import send_email
 from app.services.security_extras import (
     consume_recovery_code,
+    decrypt_totp_secret,
     hash_reset_token,
     is_locked,
     make_reset_token,
@@ -85,7 +86,7 @@ def login(payload: TwoFactorLoginIn, request: Request, db: Session = Depends(get
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid recovery code")
             user.totp_recovery_codes = remaining
         elif payload.totp_code:
-            if not verify_totp(user.totp_secret or "", payload.totp_code):
+            if not verify_totp(decrypt_totp_secret(user.totp_secret) or "", payload.totp_code):
                 register_failed_login(user)
                 db.commit()
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid 2FA code")
@@ -188,6 +189,16 @@ def reset_password(payload: ResetPasswordIn, request: Request, db: Session = Dep
     row = db.query(PasswordResetToken).filter(PasswordResetToken.token_hash == h).first()
     if not row or row.used_at or row.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired reset token")
+    # Atomically claim the token: the guarded UPDATE only matches while
+    # used_at is still NULL, so two concurrent requests with the same token
+    # can't both succeed (closes a check-then-set race).
+    claimed = (
+        db.query(PasswordResetToken)
+        .filter(PasswordResetToken.id == row.id, PasswordResetToken.used_at.is_(None))
+        .update({PasswordResetToken.used_at: datetime.now(timezone.utc)})
+    )
+    if not claimed:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired reset token")
     user = db.get(User, row.user_id)
     if not user or user.is_deleted or not user.is_active:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired reset token")
@@ -196,7 +207,6 @@ def reset_password(payload: ResetPasswordIn, request: Request, db: Session = Dep
     user.must_reset_password = False
     user.password_changed_at = datetime.now(timezone.utc)
     reset_failed_attempts(user)
-    row.used_at = datetime.now(timezone.utc)
 
     log_activity(
         db,

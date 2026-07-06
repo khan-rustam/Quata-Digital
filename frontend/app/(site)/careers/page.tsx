@@ -79,7 +79,8 @@ export default async function CareersPage() {
     return <SectionRenderer sections={cms.sections} />;
   }
   const fetched = await getJobs();
-  const jobs = fetched.length > 0 ? fetched : fallbackJobs;
+  const usingFallback = fetched.length === 0;
+  const jobs = usingFallback ? fallbackJobs : fetched;
 
   const byDepartment = jobs.reduce<Record<string, Job[]>>((acc, j) => {
     (acc[j.department] ??= []).push(j);
@@ -199,7 +200,9 @@ export default async function CareersPage() {
                 {items.map((j) => (
                   <Link
                     key={j.id}
-                    href={`/careers/${j.id}`}
+                    /* Fallback roles aren't backed by a real job record, so
+                       their detail page would 404 — send those to /contact. */
+                    href={usingFallback ? "/contact" : `/careers/${j.id}`}
                     className="group flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-2xl border border-border bg-card p-5 ring-soft transition hover:-translate-y-0.5"
                   >
                     <div>

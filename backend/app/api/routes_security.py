@@ -28,6 +28,8 @@ from app.models import (
     User,
 )
 from app.services.security_extras import (
+    decrypt_totp_secret,
+    encrypt_totp_secret,
     hash_recovery_code,
     make_recovery_codes,
     new_totp_secret,
@@ -61,7 +63,7 @@ def begin_totp_enrol(
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is incorrect")
     secret = new_totp_secret()
-    user.totp_secret = secret
+    user.totp_secret = encrypt_totp_secret(secret)
     user.totp_enabled = False  # not enabled until verified
     log_activity(db, actor=user, action="2fa_enrol_started", resource_type="user", resource_id=user.id, request=request)
     db.commit()
@@ -84,7 +86,7 @@ def verify_totp_enrol(
 ):
     if not user.totp_secret:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Start enrolment first")
-    if not verify_totp(user.totp_secret, payload.code):
+    if not verify_totp(decrypt_totp_secret(user.totp_secret) or "", payload.code):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid code")
 
     user.totp_enabled = True

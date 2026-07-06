@@ -76,7 +76,9 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # --- 2FA ---
-    totp_secret: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # Stored Fernet-encrypted (see security_extras.encrypt_totp_secret); the
+    # ciphertext is longer than the raw base32 secret, hence 255.
+    totp_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     totp_recovery_codes: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 

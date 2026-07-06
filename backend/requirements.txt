@@ -19,6 +19,9 @@ websockets>=14.0
 pyotp>=2.9.0
 qrcode>=7.4.0
 slowapi>=0.1.9
+# Encrypts TOTP secrets at rest (services/security_extras). Usually present
+# transitively; pinned explicitly since we import it directly.
+cryptography>=42.0.0
 
 # Image pipeline (dimensions + WebP optimisation for uploads)
 Pillow>=10.4.0

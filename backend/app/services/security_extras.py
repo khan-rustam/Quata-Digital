@@ -12,6 +12,7 @@ from typing import Optional
 
 import pyotp
 import qrcode
+from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.config import settings
 from app.core.security import hash_password
@@ -78,6 +79,31 @@ def verify_totp(secret: str, code: str) -> bool:
         return False
     code = code.strip().replace(" ", "")
     return pyotp.TOTP(secret).verify(code, valid_window=1)
+
+
+# ---------------- TOTP secret encryption at rest ----------------
+# Secrets are encrypted with a key derived from SECRET_KEY so a stolen DB
+# doesn't hand an attacker working 2FA seeds. Rotating SECRET_KEY forces
+# 2FA re-enrolment (same trade-off it already makes for JWTs).
+
+def _totp_cipher() -> Fernet:
+    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode()).digest())
+    return Fernet(key)
+
+
+def encrypt_totp_secret(secret: str) -> str:
+    return _totp_cipher().encrypt(secret.encode()).decode()
+
+
+def decrypt_totp_secret(stored: str | None) -> str | None:
+    """Return the plaintext TOTP secret. Transparently accepts legacy rows
+    that stored the raw base32 secret (pre-encryption)."""
+    if not stored:
+        return stored
+    try:
+        return _totp_cipher().decrypt(stored.encode()).decode()
+    except (InvalidToken, ValueError):
+        return stored
 
 
 def make_recovery_codes(n: int = 8) -> list[str]:
