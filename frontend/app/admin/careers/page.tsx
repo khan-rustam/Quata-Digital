@@ -51,14 +51,26 @@ const appStatusVariant: Record<Application["status"], "default" | "warn" | "succ
   hired: "success",
 };
 
+function readApplicantParam(): number | null {
+  if (typeof window === "undefined") return null;
+  const a = new URLSearchParams(window.location.search).get("applicant");
+  return a && /^\d+$/.test(a) ? Number(a) : null;
+}
+
 export default function CareersAdminPage() {
+  // Deep link from the "new applicant" email (/admin/careers?applicant=<id>).
+  // Read once as initial state — admin pages render client-side behind auth
+  // (PageShell gates on useAuth), so window exists and there's no SSR mismatch.
+  const [initialApplicant] = React.useState<number | null>(readApplicantParam);
+  const [tab, setTab] = React.useState<string>(initialApplicant != null ? "apps" : "jobs");
+
   return (
     <PageShell
       title="Careers"
       description="Create job listings, publish to the site and track applicants."
       requirePermission="careers:manage"
     >
-      <Tabs defaultValue="jobs">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="apps">Applicants</TabsTrigger>
@@ -67,7 +79,7 @@ export default function CareersAdminPage() {
           <JobsManager />
         </TabsContent>
         <TabsContent value="apps">
-          <ApplicantsManager />
+          <ApplicantsManager initialApplicant={initialApplicant} />
         </TabsContent>
       </Tabs>
     </PageShell>
@@ -259,29 +271,16 @@ function JobsManager() {
   );
 }
 
-function ApplicantsManager() {
+function ApplicantsManager({ initialApplicant }: { initialApplicant: number | null }) {
   const apps = useApi<Application[]>("/admin/applications");
-  const action = useApiAction();
-  const toast = useToast();
-  const [openDetail, setOpenDetail] = React.useState(false);
-  const [detailId, setDetailId] = React.useState<number | null>(null);
+  // Deep link from the "new applicant" email opens that candidate's panel on
+  // mount — the CV (view/download) and hiring dialogs live there.
+  const [openDetail, setOpenDetail] = React.useState(initialApplicant != null);
+  const [detailId, setDetailId] = React.useState<number | null>(initialApplicant);
 
   function viewDetail(id: number) {
     setDetailId(id);
     setOpenDetail(true);
-  }
-
-  async function setStatus(id: number, status: Application["status"]) {
-    try {
-      await action(`/admin/applications/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
-      toast.success("Updated", `Set to ${status}.`);
-      apps.refresh();
-    } catch (err) {
-      toast.error("Couldn't update", err instanceof Error ? err.message : "Try again.");
-    }
   }
 
   const cols: Column<Application>[] = [
@@ -307,15 +306,13 @@ function ApplicantsManager() {
     {
       key: "actions",
       header: "",
-      className: "w-72 text-right",
+      className: "w-28 text-right",
+      // Review opens the detail panel where the CV (view/download) and the
+      // shortlist/hire/reject dialogs live — so every status change captures
+      // the interview date / start date and sends a complete candidate email.
       cell: (a) => (
-        <div className="flex justify-end flex-wrap gap-1">
-          <Button size="sm" variant="outline" onClick={() => viewDetail(a.id)}>View</Button>
-          <Button size="sm" variant="ghost" onClick={() => setStatus(a.id, "shortlisted")}>Shortlist</Button>
-          <Button size="sm" onClick={() => setStatus(a.id, "hired")}>Hire</Button>
-          <Button size="sm" variant="ghost" className="text-rose-700" onClick={() => setStatus(a.id, "rejected")}>
-            Reject
-          </Button>
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => viewDetail(a.id)}>Review</Button>
         </div>
       ),
     },

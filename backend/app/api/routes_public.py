@@ -166,7 +166,13 @@ def apply_to_job(
     )
     db.commit()
     try:
-        notify_application_received(job.title, payload.email, payload.full_name)
+        notify_application_received(
+            job.title,
+            payload.email,
+            payload.full_name,
+            application_id=app_row.id,
+            applicant_phone=payload.phone,
+        )
     except Exception:  # noqa: BLE001
         pass
     return {"ok": True, "id": app_row.id}

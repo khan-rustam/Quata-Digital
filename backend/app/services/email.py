@@ -122,7 +122,13 @@ def notify_partner_status_changed(partner_id: int, partner_type: str, status: st
         )
 
 
-def notify_application_received(job_title: str, applicant_email: str, applicant_name: str) -> None:
+def notify_application_received(
+    job_title: str,
+    applicant_email: str,
+    applicant_name: str,
+    application_id: int | None = None,
+    applicant_phone: str | None = None,
+) -> None:
     send_email(
         to=applicant_email,
         subject=f"We got your application — {job_title}",
@@ -132,10 +138,34 @@ def notify_application_received(job_title: str, applicant_email: str, applicant_
             f"— The QUATA People team"
         ),
     )
+    # Ops notification with a direct link into the admin. The CV is private
+    # (not a public URL), so we link to the review screen — the reviewer signs
+    # in and uses View / Download CV there — rather than exposing the file.
+    base = (settings.FRONTEND_URL or "").rstrip("/")
+    review_link = (
+        f"{base}/admin/careers?applicant={application_id}"
+        if application_id
+        else f"{base}/admin/careers"
+    )
+    lines = [
+        f"A new applicant just submitted for {job_title}:",
+        "",
+        f"  Name:  {applicant_name}",
+        f"  Email: {applicant_email}",
+    ]
+    if applicant_phone:
+        lines.append(f"  Phone: {applicant_phone}")
+    lines += [
+        "",
+        "Review the application and open the CV (view or download) here:",
+        review_link,
+        "",
+        "You'll need to sign in — CVs are private and only visible to staff.",
+    ]
     send_email(
         to=_ops_recipients(),
         subject=f"[QUATA] New applicant — {job_title}",
-        body=f"A new applicant just submitted for {job_title}: {applicant_name} <{applicant_email}>",
+        body="\n".join(lines),
     )
 
 
