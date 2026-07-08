@@ -72,6 +72,14 @@ class Settings(BaseSettings):
     # Mailbox that receives a copy of every hiring-workflow email
     # (shortlist / hire / rejection). Comma-separated for multiple.
     CAREERS_NOTIFY_TO: str = "careers@quatadigital.com"
+    # Recruitment mail (application ack, shortlist/hire/reject) is sent as this
+    # address instead of EMAIL_FROM.
+    CAREERS_EMAIL_FROM: str = "QUATA Recruitment <careers@quatadigital.com>"
+    # Optional: authenticate recruitment mail as the careers mailbox for best
+    # deliverability (From matches the SMTP login). If blank, the default
+    # SMTP_USER/PASSWORD is used and only the From header is careers@.
+    CAREERS_SMTP_USER: str = ""
+    CAREERS_SMTP_PASSWORD: str = ""
 
     # Default locale + supported locales
     DEFAULT_LOCALE: str = "en"

@@ -54,6 +54,20 @@ function fmtDate(s: string | null): string | null {
   return isNaN(d.getTime()) ? s : d.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
+// Open the browser's native date/time calendar on click — the built-in
+// picker icon is easy to miss, so clicking anywhere on the field pops it.
+function openNativePicker(e: React.MouseEvent<HTMLInputElement>) {
+  const el = e.currentTarget;
+  if ("showPicker" in el) {
+    try {
+      el.showPicker();
+    } catch {
+      /* showPicker requires user activation; the click qualifies, but guard
+         against browser quirks so nothing throws */
+    }
+  }
+}
+
 export function ApplicationDetailSlideOver({
   open,
   onOpenChange,
@@ -327,11 +341,11 @@ export function ApplicationDetailSlideOver({
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor="interview_date">Interview date</Label>
-            <Input id="interview_date" name="interview_date" type="date" required />
+            <Input id="interview_date" name="interview_date" type="date" required onClick={openNativePicker} className="cursor-pointer" />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="interview_time">Time</Label>
-            <Input id="interview_time" name="interview_time" type="time" defaultValue="09:00" required />
+            <Input id="interview_time" name="interview_time" type="time" defaultValue="09:00" required onClick={openNativePicker} className="cursor-pointer" />
           </div>
         </div>
         <div className="grid gap-1.5">
@@ -363,7 +377,7 @@ export function ApplicationDetailSlideOver({
       >
         <div className="grid gap-1.5">
           <Label htmlFor="start_date">Start date</Label>
-          <Input id="start_date" name="start_date" type="date" required />
+          <Input id="start_date" name="start_date" type="date" required onClick={openNativePicker} className="cursor-pointer" />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="hire_message">Message (optional)</Label>

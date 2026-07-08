@@ -26,11 +26,30 @@ def _recipients(to: str | Iterable[str]) -> list[str]:
     return [t for t in to if t]
 
 
-def send_email(*, to: str | Iterable[str], subject: str, body: str, html: str | None = None) -> bool:
-    """Send an email via the configured backend. Returns True if dispatched."""
+def send_email(
+    *,
+    to: str | Iterable[str],
+    subject: str,
+    body: str,
+    html: str | None = None,
+    from_addr: str | None = None,
+    smtp_user: str | None = None,
+    smtp_password: str | None = None,
+) -> bool:
+    """Send an email via the configured backend. Returns True if dispatched.
+
+    ``from_addr`` / ``smtp_user`` / ``smtp_password`` override the defaults so
+    a caller can send as a different mailbox (e.g. recruitment mail from
+    careers@). When an override is None the corresponding ``settings`` value
+    is used.
+    """
     recipients = _recipients(to)
     if not recipients:
         return False
+
+    sender = from_addr or settings.EMAIL_FROM
+    user = smtp_user if smtp_user is not None else settings.SMTP_USER
+    password = smtp_password if smtp_password is not None else settings.SMTP_PASSWORD
 
     backend = settings.EMAIL_BACKEND.lower()
 
@@ -42,7 +61,7 @@ def send_email(*, to: str | Iterable[str], subject: str, body: str, html: str | 
             "\n" + "=" * 72
             + f"\n[email · console backend]"
             + f"\nTo: {', '.join(recipients)}"
-            + f"\nFrom: {settings.EMAIL_FROM}"
+            + f"\nFrom: {sender}"
             + f"\nSubject: {subject}"
             + "\n" + "-" * 72 + "\n"
             + body
@@ -56,7 +75,7 @@ def send_email(*, to: str | Iterable[str], subject: str, body: str, html: str | 
 
     if backend == "smtp":
         msg = EmailMessage()
-        msg["From"] = settings.EMAIL_FROM
+        msg["From"] = sender
         msg["To"] = ", ".join(recipients)
         msg["Subject"] = subject
         msg.set_content(body)
@@ -72,15 +91,15 @@ def send_email(*, to: str | Iterable[str], subject: str, body: str, html: str | 
                 with smtplib.SMTP_SSL(
                     settings.SMTP_HOST, settings.SMTP_PORT, timeout=20, context=context
                 ) as smtp:
-                    if settings.SMTP_USER:
-                        smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                    if user:
+                        smtp.login(user, password)
                     smtp.send_message(msg)
             else:
                 with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as smtp:
                     if settings.SMTP_USE_TLS:
                         smtp.starttls(context=ssl.create_default_context())
-                    if settings.SMTP_USER:
-                        smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                    if user:
+                        smtp.login(user, password)
                     smtp.send_message(msg)
             return True
         except Exception as exc:  # noqa: BLE001
@@ -129,13 +148,13 @@ def notify_application_received(
     application_id: int | None = None,
     applicant_phone: str | None = None,
 ) -> None:
-    send_email(
+    _send_careers_email(
         to=applicant_email,
         subject=f"We got your application — {job_title}",
         body=(
             f"Hi {applicant_name},\n\nThanks for applying for {job_title} at QUATA Digital. "
             f"We've received your application and will review it shortly.\n\n"
-            f"— The QUATA People team"
+            f"— The QUATA Recruitment Team"
         ),
     )
     # Ops notification with a direct link into the admin. The CV is private
@@ -162,7 +181,7 @@ def notify_application_received(
         "",
         "You'll need to sign in — CVs are private and only visible to staff.",
     ]
-    send_email(
+    _send_careers_email(
         to=_ops_recipients(),
         subject=f"[QUATA] New applicant — {job_title}",
         body="\n".join(lines),
@@ -173,6 +192,24 @@ def _careers_recipients() -> list[str]:
     """Mailbox(es) that get a copy of every hiring-workflow email."""
     raw = settings.CAREERS_NOTIFY_TO or ""
     return [r.strip() for r in raw.split(",") if r.strip()]
+
+
+def _send_careers_email(*, to, subject: str, body: str) -> bool:
+    """Send recruitment mail as the careers mailbox (From = CAREERS_EMAIL_FROM).
+
+    Authenticates as CAREERS_SMTP_USER when configured (best deliverability);
+    otherwise uses the default SMTP account but still shows careers@ as sender.
+    """
+    careers_user = settings.CAREERS_SMTP_USER or None
+    careers_password = settings.CAREERS_SMTP_PASSWORD if careers_user else None
+    return send_email(
+        to=to,
+        subject=subject,
+        body=body,
+        from_addr=settings.CAREERS_EMAIL_FROM or None,
+        smtp_user=careers_user,
+        smtp_password=careers_password,
+    )
 
 
 def notify_applicant_shortlisted(
@@ -204,15 +241,15 @@ def notify_applicant_shortlisted(
         lines += ["", "Please bring the following documents with you:", documents]
     if message:
         lines += ["", message]
-    lines += ["", "We look forward to meeting you.", "", "— The QUATA People team"]
-    send_email(
+    lines += ["", "We look forward to meeting you.", "", "— The QUATA Recruitment Team"]
+    _send_careers_email(
         to=applicant_email,
         subject=f"You've been shortlisted — {job_title} at QUATA Digital",
         body="\n".join(lines),
     )
     careers = _careers_recipients()
     if careers:
-        send_email(
+        _send_careers_email(
             to=careers,
             subject=f"[QUATA Careers] Shortlisted — {applicant_name} ({job_title})",
             body=(
@@ -245,16 +282,16 @@ def notify_applicant_hired(
         "",
         "We'll follow up shortly with onboarding details.",
         "",
-        "— The QUATA People team",
+        "— The QUATA Recruitment Team",
     ]
-    send_email(
+    _send_careers_email(
         to=applicant_email,
         subject=f"Offer — {job_title} at QUATA Digital",
         body="\n".join(lines),
     )
     careers = _careers_recipients()
     if careers:
-        send_email(
+        _send_careers_email(
             to=careers,
             subject=f"[QUATA Careers] Hired — {applicant_name} ({job_title})",
             body=(
@@ -279,16 +316,16 @@ def notify_applicant_rejected(
         f"consideration we won't be moving forward on this occasion.\n\n"
         f"We were impressed by many candidates and encourage you to apply for "
         f"future roles that match your skills. We wish you the very best.\n\n"
-        f"— The QUATA People team"
+        f"— The QUATA Recruitment Team"
     )
-    send_email(
+    _send_careers_email(
         to=applicant_email,
         subject=f"Update on your application — {job_title} at QUATA Digital",
         body=body,
     )
     careers = _careers_recipients()
     if careers:
-        send_email(
+        _send_careers_email(
             to=careers,
             subject=f"[QUATA Careers] Rejected — {applicant_name} ({job_title})",
             body=f"{applicant_name} <{applicant_email}> was rejected for {job_title}.",
