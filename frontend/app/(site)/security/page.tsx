@@ -15,12 +15,15 @@ import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { SectionRenderer } from "@/components/site/sections/section-renderer";
 import { getPageContent } from "@/lib/page-content";
+import { buildMetadata } from "@/lib/seo-engine";
 
-export const metadata: Metadata = {
-  title: "Security",
-  description:
-    "Security posture, compliance and responsible disclosure at QUATA Digital.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return buildMetadata("/security", {
+    title: "Security",
+    description:
+      "Security posture, compliance and responsible disclosure at QUATA Digital.",
+  });
+}
 
 export default async function SecurityPage() {
   const cms = await getPageContent("security");

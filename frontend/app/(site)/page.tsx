@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { buildMetadata } from "@/lib/seo-engine";
 import {
   Layers,
   Network,
@@ -24,6 +26,12 @@ import { BigQuote } from "@/components/site/sections/big-quote";
 import { CoverageMap } from "@/components/site/sections/coverage-map";
 import { SectionRenderer } from "@/components/site/sections/section-renderer";
 import { getPageContent } from "@/lib/page-content";
+
+export function generateMetadata(): Promise<Metadata> {
+  // Empty fallback: with the engine down/empty this is a no-op and the root
+  // layout's metadata stands; once the tenant has page data the engine drives it.
+  return buildMetadata("/", {});
+}
 
 export default async function HomePage() {
   // CMS-first: if the boss has published sections for the home page, render

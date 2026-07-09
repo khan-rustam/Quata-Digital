@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SectionRenderer } from "@/components/site/sections/section-renderer";
 import { getPageContent } from "@/lib/page-content";
+import { buildMetadata } from "@/lib/seo-engine";
 import {
   Mail,
   MapPin,
@@ -22,11 +23,13 @@ import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { Illustration } from "@/components/site/illustrations/illustration";
 import { DEFAULT_PUBLIC_PHONE, DEFAULT_PUBLIC_WHATSAPP } from "@/lib/site-settings";
 
-export const metadata: Metadata = {
-  title: "Contact",
-  description:
-    "Get in touch with QUATA Digital — Bamenda, Cameroon. info@quatadigital.com / support@quatadigital.com.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return buildMetadata("/contact", {
+    title: "Contact",
+    description:
+      "Get in touch with QUATA Digital — Bamenda, Cameroon. info@quatadigital.com / support@quatadigital.com.",
+  });
+}
 
 const channels = [
   {

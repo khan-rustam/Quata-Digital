@@ -5,22 +5,28 @@
  * error, timeout, or unexpected response returns null so the calling page
  * falls back to its local metadata. The engine must never take the site down.
  *
- * Environment variables (set in .env.local; see .env.example):
- *   SEO_ENGINE_URL   — base URL of the engine API   (server-only)
- *   SEO_TENANT_SLUG  — override the tenant slug      (server-only)
- *   SEO_API_KEY      — API key issued by the engine  (server-only)
+ * Environment variables (server-only — NEVER prefix with NEXT_PUBLIC_):
+ *   SEO_ENGINE_URL   — base URL of the engine API   (default below)
+ *   SEO_TENANT_SLUG  — override the tenant slug      (default: quatadigital)
+ *   SEO_API_KEY      — read-only key from the engine admin UI (Tenants → API key)
  */
 
 import type { Metadata } from "next";
 
+// Production engine is mounted at the host ROOT — no `/api/v1` prefix — and the
+// host is the single-level `apiseo.` subdomain (hosting can't serve a
+// multi-level `api.seo.` subdomain — it never resolved). Endpoints:
+//   GET /public/{tenant}/meta?path=       (X-API-Key)
+//   GET /public/{tenant}/sitemap.json     (public)
+// Override per deployment with SEO_ENGINE_URL.
 const ENGINE_URL =
-  process.env.SEO_ENGINE_URL ?? "https://api.seo.quatadigital.com";
+  process.env.SEO_ENGINE_URL ?? "https://apiseo.quatadigital.com";
 
 const TENANT = process.env.SEO_TENANT_SLUG ?? "quatadigital";
 
 const API_KEY = process.env.SEO_API_KEY ?? "";
 
-/** Flat response shape served by GET /api/v1/public/{tenant}/meta */
+/** Flat response shape served by GET /public/{tenant}/meta */
 export interface SeoMetaResponse {
   path: string;
   title?: string | null;
@@ -44,6 +50,43 @@ export interface SeoSitemapEntry {
 }
 
 /**
+ * Internal engine fetch. Returns parsed JSON, or null on any error/non-2xx.
+ *
+ * Hardened against a Node/undici crash that surfaces as
+ *   `TypeError: controller[kState].transformAlgorithm is not a function`
+ * emitted *asynchronously* from undici's gzip/br decompression stream when an
+ * aborted (timed-out) or non-OK *compressed* response is torn down — so it
+ * escapes the try/catch around `await`. Two belt-and-suspenders mitigations:
+ *   1. `Accept-Encoding: identity` — the engine returns uncompressed bytes, so
+ *      undici never builds a decompression stream to crash on.
+ *   2. Drain the body on the non-OK path so an unconsumed stream can't throw on GC.
+ * Fail-open: every error path returns null and the caller uses its fallback.
+ */
+async function engineFetch<T>(
+  url: string,
+  opts: { timeoutMs: number; revalidate: number; headers?: Record<string, string> }
+): Promise<T | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "Accept-Encoding": "identity", ...(opts.headers ?? {}) },
+      signal: AbortSignal.timeout(opts.timeoutMs),
+      next: { revalidate: opts.revalidate },
+    });
+    if (!res.ok) {
+      try {
+        await res.body?.cancel();
+      } catch {
+        /* ignore — best-effort drain */
+      }
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch rendered SEO metadata for a single path from the engine.
  * Returns the parsed response or null on any error. 2s timeout so a slow
  * engine never blocks SSR. Cached by Next.js for 5 minutes.
@@ -51,18 +94,12 @@ export interface SeoSitemapEntry {
 export async function fetchSeoMeta(
   path: string
 ): Promise<SeoMetaResponse | null> {
-  try {
-    const url = `${ENGINE_URL}/api/v1/public/${TENANT}/meta?path=${encodeURIComponent(path)}`;
-    const res = await fetch(url, {
-      headers: { "X-API-Key": API_KEY },
-      signal: AbortSignal.timeout(2000),
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as SeoMetaResponse;
-  } catch {
-    return null;
-  }
+  const url = `${ENGINE_URL}/public/${TENANT}/meta?path=${encodeURIComponent(path)}`;
+  return engineFetch<SeoMetaResponse>(url, {
+    timeoutMs: 2000,
+    revalidate: 300,
+    headers: { "X-API-Key": API_KEY },
+  });
 }
 
 /**
@@ -70,19 +107,10 @@ export async function fetchSeoMeta(
  * Returns an array of entries or null on any error. Cached for 1 hour.
  */
 export async function fetchSeoSitemap(): Promise<SeoSitemapEntry[] | null> {
-  try {
-    const url = `${ENGINE_URL}/api/v1/public/${TENANT}/sitemap.json`;
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(5000),
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) return null;
-    return data as SeoSitemapEntry[];
-  } catch {
-    return null;
-  }
+  const url = `${ENGINE_URL}/public/${TENANT}/sitemap.json`;
+  const data = await engineFetch<unknown>(url, { timeoutMs: 5000, revalidate: 3600 });
+  if (!Array.isArray(data) || data.length === 0) return null;
+  return data as SeoSitemapEntry[];
 }
 
 /**

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SectionRenderer } from "@/components/site/sections/section-renderer";
 import { getPageContent } from "@/lib/page-content";
+import { buildMetadata } from "@/lib/seo-engine";
 import {
   ArrowRight,
   Sparkles,
@@ -28,11 +29,13 @@ import { FaqWithAside } from "@/components/site/sections/faq-with-aside";
 import { FinalCTA } from "@/components/site/cta";
 import { partnerPaths } from "@/lib/partner-types";
 
-export const metadata: Metadata = {
-  title: "Partner gateway",
-  description:
-    "Four ways to plug into the QUATA Digital ecosystem — as a business, strategic, capital or service partner.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return buildMetadata("/partners", {
+    title: "Partner gateway",
+    description:
+      "Four ways to plug into the QUATA Digital ecosystem — as a business, strategic, capital or service partner.",
+  });
+}
 
 const pathIcons = {
   business: Building2,

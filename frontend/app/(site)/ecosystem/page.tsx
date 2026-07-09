@@ -14,6 +14,7 @@ import {
 import { Section, SectionHeader } from "@/components/site/section";
 import { SectionRenderer } from "@/components/site/sections/section-renderer";
 import { getPageContent } from "@/lib/page-content";
+import { buildMetadata } from "@/lib/seo-engine";
 import { EcosystemGrid } from "@/components/site/ecosystem-grid";
 import { FeatureGrid } from "@/components/site/sections/feature-grid";
 import { StatStrip } from "@/components/site/sections/stat-strip";
@@ -23,11 +24,13 @@ import { ComparisonTable } from "@/components/site/sections/comparison";
 import { FinalCTA } from "@/components/site/cta";
 import { products } from "@/lib/ecosystem";
 
-export const metadata: Metadata = {
-  title: "Ecosystem",
-  description:
-    "Explore the QUATA Digital ecosystem — payments, business operations and commerce, all on one rail.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return buildMetadata("/ecosystem", {
+    title: "Ecosystem",
+    description:
+      "Explore the QUATA Digital ecosystem — payments, business operations and commerce, all on one rail.",
+  });
+}
 
 const categories = [
   { name: "Payments", icon: Wallet, slugs: ["quatapay"] },

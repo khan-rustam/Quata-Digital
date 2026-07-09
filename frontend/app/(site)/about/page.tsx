@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SectionRenderer } from "@/components/site/sections/section-renderer";
 import { getPageContent } from "@/lib/page-content";
+import { buildMetadata } from "@/lib/seo-engine";
 import {
   Compass,
   Globe2,
@@ -27,11 +28,13 @@ import { StatStrip } from "@/components/site/sections/stat-strip";
 import { BigQuote } from "@/components/site/sections/big-quote";
 import { Illustration } from "@/components/site/illustrations/illustration";
 
-export const metadata: Metadata = {
-  title: "About",
-  description:
-    "QUATA Digital is building Africa's connected digital ecosystem — payments, business operations and commerce on one rail. Founded May 2025 in Bamenda, Cameroon.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return buildMetadata("/about", {
+    title: "About",
+    description:
+      "QUATA Digital is building Africa's connected digital ecosystem — payments, business operations and commerce on one rail. Founded May 2025 in Bamenda, Cameroon.",
+  });
+}
 
 export default async function AboutPage() {
   const cms = await getPageContent("about");
