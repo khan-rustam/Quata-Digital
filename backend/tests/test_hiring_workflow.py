@@ -65,6 +65,24 @@ def test_hiring_workflow_transitions_persist_and_notify(client, admin_headers):
     ).json()["status"] == "rejected"
 
 
+def test_full_pipeline_stages_accepted(client, admin_headers):
+    """Slice 1B: the new enterprise stages persist (no email, no migration)."""
+    app_id = _make_application(client, admin_headers, "stages.flow@example.com")
+    for stage in [
+        "hr_review", "interview_scheduled", "assessment",
+        "reference_check", "offer", "offer_accepted", "archived",
+    ]:
+        r = client.patch(
+            f"/api/v1/admin/applications/{app_id}",
+            headers=admin_headers,
+            json={"status": stage, "notify": False},
+        )
+        assert r.status_code == 200, f"{stage}: {r.text}"
+        assert client.get(
+            f"/api/v1/admin/applications/{app_id}", headers=admin_headers
+        ).json()["status"] == stage
+
+
 def test_status_update_without_notify_skips_email(client, admin_headers):
     app_id = _make_application(client, admin_headers, "silent.flow@example.com")
     r = client.patch(

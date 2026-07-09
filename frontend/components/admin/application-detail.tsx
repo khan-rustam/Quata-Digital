@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { stageLabel, stageVariant, PLAIN_STAGES } from "@/lib/applicant-stages";
 import { useApi, useApiAction } from "@/lib/use-api";
 import { apiUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -22,7 +23,7 @@ type AppDetail = {
   phone: string | null;
   has_resume: boolean;
   cover_letter: string | null;
-  status: "new" | "shortlisted" | "interviewed" | "rejected" | "hired";
+  status: string;
   job_title: string | null;
   interview_at: string | null;
   interview_location: string | null;
@@ -49,14 +50,6 @@ const TIMELINE_LABEL: Record<string, string> = {
   assign: "HR officer assigned",
   note: "Internal note added",
   download: "CV downloaded",
-};
-
-const variant: Record<AppDetail["status"], "default" | "warn" | "success" | "danger" | "brand"> = {
-  new: "default",
-  shortlisted: "brand",
-  interviewed: "warn",
-  rejected: "danger",
-  hired: "success",
 };
 
 const DEFAULT_DOCUMENTS =
@@ -217,6 +210,13 @@ export function ApplicationDetailSlideOver({
     }
   }
 
+  // Plain stage move (no automated email). shortlist/hire/reject keep their
+  // dedicated dialogs so their candidate emails still fire.
+  async function moveStage(status: string) {
+    if (!applicationId || status === data?.status) return;
+    await patchStatus({ status, notify: false }, `Moved to ${stageLabel(status)}`);
+  }
+
   async function submitShortlist(form: FormData) {
     const dateStr = String(form.get("interview_date") || "");
     const timeStr = String(form.get("interview_time") || "09:00");
@@ -284,15 +284,29 @@ export function ApplicationDetailSlideOver({
               {/* Status + actions */}
               <div className="rounded-2xl border border-border bg-surface-soft p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <Badge variant={variant[data.status]} className="capitalize">{data.status}</Badge>
+                  <Badge variant={stageVariant(data.status)}>{stageLabel(data.status)}</Badge>
                   <div className="flex gap-1.5 flex-wrap justify-end">
                     <Button size="sm" variant="ghost" onClick={() => setShortlistOpen(true)}>Shortlist</Button>
-                    <Button size="sm" variant="ghost" onClick={() => patchStatus({ status: "interviewed", notify: false }, "Marked interviewed")}>Interviewed</Button>
                     <Button size="sm" onClick={() => setHireOpen(true)}>Hire</Button>
                     <Button size="sm" variant="ghost" className="text-rose-700" onClick={() => setRejectOpen(true)}>
                       Reject
                     </Button>
                   </div>
+                </div>
+
+                {/* Move through the pipeline (plain stages — no email). */}
+                <div className="mt-3">
+                  <label htmlFor="stage" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Move to stage
+                  </label>
+                  <Select id="stage" value={data.status} onChange={(e) => moveStage(e.target.value)} className="mt-1.5">
+                    {!PLAIN_STAGES.some((s) => s.value === data.status) && (
+                      <option value={data.status} disabled>{stageLabel(data.status)} (current)</option>
+                    )}
+                    {PLAIN_STAGES.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </Select>
                 </div>
 
                 {/* Scheduling — reflects what was sent to the candidate */}

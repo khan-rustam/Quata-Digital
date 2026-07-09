@@ -27,12 +27,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [x] Activity timeline on the applicant profile (from existing activity log)
 - migration `j0o1p2q3r4s5`; endpoints `/applications/{id}/{assignment,notes,timeline}`; tests `test_applicant_collaboration.py`
 
-### 1B. Full recruitment pipeline stages
-- [ ] Expand status → Draft, Published, Applied, HR Review, Shortlisted,
-      Interview Scheduled, Interview Completed, Assessment, Reference Check,
-      Offer Generated, Offer Accepted, Onboarding, Probation, Confirmed,
-      Promotion, Transfer, Resignation, Archived
-- [ ] Per-stage: status, timestamp, assigned HR, notes, attachments, comments, logs
+### 1B. Full recruitment pipeline stages ✅ shipped
+- [x] Applicant pipeline: New → HR Review → Shortlisted → Interview Scheduled →
+      Interview Completed → Assessment → Reference Check → Offer → Offer Accepted →
+      Hired / Rejected / Archived ("Move to stage" selector; shortlist/hire/reject
+      keep their email dialogs). Backward-compatible; no migration (string status).
+- [x] Per-stage status + timestamp + assigned HR + notes + comments + logs (1A timeline)
 - [ ] Attachments on applicants (offer letters, assessments, reference checks)
 - [ ] Keep rejected applicants searchable (never hard-delete) — talent pool base
 

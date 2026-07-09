@@ -102,7 +102,16 @@ class JobPatch(BaseModel):
 
 
 class ApplicationStatusIn(BaseModel):
-    status: str = Field(pattern="^(new|shortlisted|interviewed|rejected|hired)$")
+    # Full recruitment pipeline (backward-compatible: the original
+    # new/shortlisted/interviewed/rejected/hired all remain valid). Automated
+    # candidate emails still fire only on shortlisted/hired/rejected.
+    status: str = Field(
+        pattern=(
+            "^(new|hr_review|shortlisted|interview_scheduled|interviewed|"
+            "assessment|reference_check|offer|offer_accepted|hired|rejected|"
+            "archived)$"
+        )
+    )
     # Optional hiring-workflow details supplied from the admin dialog. When
     # `notify` is true, moving to shortlisted/hired/rejected triggers the
     # matching automated email to the candidate (copied to careers@).

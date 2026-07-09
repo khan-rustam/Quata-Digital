@@ -18,6 +18,7 @@ import { ApplicationDetailSlideOver } from "@/components/admin/application-detai
 import { useApi, useApiAction } from "@/lib/use-api";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
+import { stageLabel, stageVariant } from "@/lib/applicant-stages";
 
 type Job = {
   id: number;
@@ -39,16 +40,8 @@ type Application = {
   full_name: string;
   email: string;
   job_title: string;
-  status: "new" | "shortlisted" | "interviewed" | "rejected" | "hired";
+  status: string;
   created_at: string;
-};
-
-const appStatusVariant: Record<Application["status"], "default" | "warn" | "success" | "danger" | "brand"> = {
-  new: "default",
-  shortlisted: "brand",
-  interviewed: "warn",
-  rejected: "danger",
-  hired: "success",
 };
 
 function readApplicantParam(): number | null {
@@ -299,7 +292,7 @@ function ApplicantsManager({ initialApplicant }: { initialApplicant: number | nu
       key: "status",
       header: "Status",
       cell: (a) => (
-        <Badge variant={appStatusVariant[a.status]} className="capitalize">{a.status}</Badge>
+        <Badge variant={stageVariant(a.status)}>{stageLabel(a.status)}</Badge>
       ),
     },
     { key: "date", header: "Submitted", cell: (a) => formatDate(a.created_at) },
