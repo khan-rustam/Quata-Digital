@@ -19,6 +19,7 @@ from app.models import (
     ContactMessage,
     Department,
     EmployeeExit,
+    TrainingRecord,
     Device,
     Job,
     LeaveRequest,
@@ -351,6 +352,106 @@ def hr_alerts(
         "contracts_expiring": contracts_expiring,
         "on_probation": on_probation,
     }
+
+
+def _days_to_next_birthday(dob, today):
+    try:
+        bday = dob.replace(year=today.year)
+    except ValueError:  # 29 Feb
+        return None
+    if bday < today:
+        try:
+            bday = dob.replace(year=today.year + 1)
+        except ValueError:
+            return None
+    return (bday - today).days
+
+
+@router.get("/notifications")
+def notifications(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage", "careers:manage", "analytics:view")),
+):
+    """Actionable HR notifications aggregated live from existing data — new
+    applicants, pending approvals, contract/probation/training expiry, birthdays
+    and work anniversaries. No new tables; computed on read."""
+    today = datetime.now(timezone.utc).date()
+    items: list[dict] = []
+
+    for a in (
+        db.query(Application)
+        .filter(Application.status == "new")
+        .order_by(Application.created_at.desc())
+        .limit(20)
+        .all()
+    ):
+        items.append({
+            "type": "application", "severity": "info",
+            "title": f"New applicant: {a.full_name}",
+            "detail": a.job.title if a.job else "",
+            "link": f"/admin/careers?applicant={a.id}", "date": a.created_at.date(),
+        })
+
+    pending_leave = db.query(LeaveRequest).filter(LeaveRequest.status == "pending").count()
+    if pending_leave:
+        items.append({
+            "type": "leave", "severity": "warn",
+            "title": f"{pending_leave} leave request{'s' if pending_leave != 1 else ''} awaiting approval",
+            "detail": "", "link": "/admin/leave", "date": today,
+        })
+
+    employees = db.query(User).filter(User.is_deleted == False, User.is_active == True).all()  # noqa: E712
+    for u in employees:
+        if u.contract_expiry:
+            d = (u.contract_expiry - today).days
+            if d <= 60:
+                items.append({
+                    "type": "contract", "severity": "serious" if d < 0 else "warn",
+                    "title": f"Contract {'expired' if d < 0 else 'expiring'}: {u.full_name}",
+                    "detail": f"{'was due' if d < 0 else 'due'} {u.contract_expiry.isoformat()}",
+                    "link": f"/admin/staff/{u.id}", "date": u.contract_expiry,
+                })
+        if u.probation_status == "probation" and u.confirmation_date and u.confirmation_date < today:
+            items.append({
+                "type": "probation", "severity": "warn",
+                "title": f"Probation overdue: {u.full_name}",
+                "detail": f"confirm by {u.confirmation_date.isoformat()}",
+                "link": f"/admin/staff/{u.id}", "date": u.confirmation_date,
+            })
+        if u.date_of_birth:
+            days = _days_to_next_birthday(u.date_of_birth, today)
+            if days is not None and days <= 14:
+                items.append({
+                    "type": "birthday", "severity": "info",
+                    "title": f"Birthday {'today' if days == 0 else f'in {days}d'}: {u.full_name}",
+                    "detail": "", "link": f"/admin/staff/{u.id}", "date": today,
+                })
+        if u.date_hired and u.date_hired.month == today.month and u.date_hired.year < today.year:
+            yrs = today.year - u.date_hired.year
+            items.append({
+                "type": "anniversary", "severity": "info",
+                "title": f"{yrs}-year work anniversary: {u.full_name}",
+                "detail": "", "link": f"/admin/staff/{u.id}", "date": today,
+            })
+
+    for t in (
+        db.query(TrainingRecord)
+        .filter(TrainingRecord.expires_on.isnot(None), TrainingRecord.expires_on <= today + timedelta(days=30))
+        .all()
+    ):
+        d = (t.expires_on - today).days
+        items.append({
+            "type": "training", "severity": "serious" if d < 0 else "warn",
+            "title": f"Training {'expired' if d < 0 else 'expiring'}: {t.title}",
+            "detail": t.expires_on.isoformat(), "link": f"/admin/staff/{t.user_id}", "date": t.expires_on,
+        })
+
+    order = {"serious": 0, "warn": 1, "info": 2}
+    items.sort(key=lambda i: (order.get(i["severity"], 3), str(i["date"])))
+    by_sev = {"serious": 0, "warn": 0, "info": 0}
+    for i in items:
+        by_sev[i["severity"]] = by_sev.get(i["severity"], 0) + 1
+    return {"total": len(items), "by_severity": by_sev, "items": items}
 
 
 # ---------- Partners ----------

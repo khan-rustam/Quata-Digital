@@ -144,7 +144,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [ ] AI HR assistant (AI): summaries, recommendations, forecasts, reports
 - [ ] Performance & succession planning · Workforce planning
 - [ ] Reports & exports (PDF/Excel/CSV) everywhere
-- [ ] Notification centre (contract/probation/birthday/anniversary/expiry/…)
+- [x] Notification centre — /admin/notifications + GET /admin/notifications:
+      live feed of new applicants, pending approvals, contract/probation/training
+      expiry, birthdays and work anniversaries, ranked by urgency. Computed on
+      read (no new table).
 - [ ] Integration API layer (QuataPay, biometric, NFC, payroll, SMS/push) — auth+versioned
 
 ---

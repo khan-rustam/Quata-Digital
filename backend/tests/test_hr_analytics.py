@@ -63,3 +63,17 @@ def test_hr_analytics_funnel_counts_real_applicants(client, admin_headers):
     body = client.get("/api/v1/admin/hr-analytics", headers=admin_headers).json()
     new_bucket = next((f for f in body["recruitment_funnel"] if f["stage"] == "new"), None)
     assert new_bucket is not None and new_bucket["count"] >= 1
+
+
+def test_notifications(client, admin_headers):
+    s = client.post(
+        "/api/v1/admin/staff",
+        headers=admin_headers,
+        json={"email": "notif.staff@example.com", "full_name": "Notif Staff", "role_slug": "staff"},
+    ).json()
+    soon = (date.today() + timedelta(days=5)).isoformat()
+    client.patch(f"/api/v1/admin/staff/{s['id']}/profile", headers=admin_headers, json={"contract_expiry": soon})
+
+    body = client.get("/api/v1/admin/notifications", headers=admin_headers).json()
+    assert "items" in body and "total" in body and "by_severity" in body
+    assert any(it["type"] == "contract" and str(s["id"]) in it["link"] for it in body["items"])
