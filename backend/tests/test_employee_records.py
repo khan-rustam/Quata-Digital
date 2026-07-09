@@ -128,3 +128,25 @@ def test_alumni_list(client, admin_headers):
     row = next((a for a in alumni if a["id"] == s["id"]), None)
     assert row is not None
     assert row["exit_type"] == "retirement" and row["rehire_eligible"] is False
+
+
+def test_salary_records(client, admin_headers):
+    me = client.get("/api/v1/auth/me", headers=admin_headers).json()  # super_admin has rbac:manage
+    r = client.post(
+        f"/api/v1/admin/staff/{me['id']}/salary",
+        headers=admin_headers,
+        json={"basic_salary": 500000, "allowances": 100000, "tax": 50000, "pension": 20000,
+              "effective_date": "2026-01-01", "payment_method": "bank"},
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["gross"] == 600000
+    assert body["total_deductions"] == 70000
+    assert body["net"] == 530000
+
+    sid = body["id"]
+    lst = client.get(f"/api/v1/admin/staff/{me['id']}/salary", headers=admin_headers).json()
+    assert any(x["id"] == sid for x in lst)
+    assert client.delete(
+        f"/api/v1/admin/staff/{me['id']}/salary/{sid}", headers=admin_headers
+    ).status_code == 204

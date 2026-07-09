@@ -33,6 +33,7 @@ from app.models import (
     Asset,
     DisciplinaryAction,
     EmployeeExit,
+    SalaryRecord,
     Role,
     RolePermission,
     User,
@@ -1091,6 +1092,101 @@ def _assert_can_manage_target(actor, target):
     higher-privileged account requires the same rbac gate as staff mgmt."""
     from app.api.routes_admin_crud import _assert_can_manage_target as _impl
     _impl(actor, target)
+
+
+class SalaryIn(BaseModel):
+    effective_date: Optional[date] = None
+    currency: str = Field(default="XAF", max_length=8)
+    basic_salary: int = Field(default=0, ge=0)
+    allowances: int = Field(default=0, ge=0)
+    bonus: int = Field(default=0, ge=0)
+    overtime: int = Field(default=0, ge=0)
+    tax: int = Field(default=0, ge=0)
+    pension: int = Field(default=0, ge=0)
+    insurance: int = Field(default=0, ge=0)
+    loan_deduction: int = Field(default=0, ge=0)
+    advance_deduction: int = Field(default=0, ge=0)
+    payment_method: Optional[str] = Field(default=None, pattern="^(bank|quatapay|cash)$")
+    notes: Optional[str] = Field(default=None, max_length=1000)
+
+
+def _salary_dict(s: SalaryRecord) -> dict:
+    gross = s.basic_salary + s.allowances + s.bonus + s.overtime
+    deductions = s.tax + s.pension + s.insurance + s.loan_deduction + s.advance_deduction
+    return {
+        "id": s.id,
+        "effective_date": s.effective_date,
+        "currency": s.currency,
+        "basic_salary": s.basic_salary,
+        "allowances": s.allowances,
+        "bonus": s.bonus,
+        "overtime": s.overtime,
+        "tax": s.tax,
+        "pension": s.pension,
+        "insurance": s.insurance,
+        "loan_deduction": s.loan_deduction,
+        "advance_deduction": s.advance_deduction,
+        "payment_method": s.payment_method,
+        "notes": s.notes,
+        "gross": gross,
+        "total_deductions": deductions,
+        "net": gross - deductions,
+        "created_at": s.created_at,
+    }
+
+
+# Salary is sensitive — restricted to rbac:manage (admin/super_admin), not the
+# broader staff:manage that department managers hold.
+@router.get("/staff/{user_id:int}/salary")
+def list_salary(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    rows = (
+        db.query(SalaryRecord)
+        .filter(SalaryRecord.user_id == user_id)
+        .order_by(SalaryRecord.effective_date.desc().nulls_last(), SalaryRecord.created_at.desc())
+        .all()
+    )
+    return [_salary_dict(s) for s in rows]
+
+
+@router.post("/staff/{user_id:int}/salary", status_code=201)
+def add_salary(
+    user_id: int,
+    payload: SalaryIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    s = SalaryRecord(user_id=user_id, **payload.model_dump())
+    db.add(s)
+    db.flush()
+    log_activity(db, actor=user, action="salary", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+    db.refresh(s)
+    return _salary_dict(s)
+
+
+@router.delete("/staff/{user_id:int}/salary/{record_id}", status_code=204)
+def delete_salary(
+    user_id: int,
+    record_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    s = db.get(SalaryRecord, record_id)
+    if not s or s.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
+    db.delete(s)
+    log_activity(db, actor=user, action="salary_delete", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
 
 
 @router.get("/staff/{user_id:int}")

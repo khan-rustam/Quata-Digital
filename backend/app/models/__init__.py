@@ -3,7 +3,7 @@ from .user import User, Role, Department, BusinessUnit, RolePermission, Password
 from .product import Product
 from .blog import BlogPost, Page
 from .career import Job, Application, ApplicationNote, ApplicationAttachment
-from .hr import PerformanceReview, TrainingRecord, Asset, DisciplinaryAction, EmployeeExit
+from .hr import PerformanceReview, TrainingRecord, Asset, DisciplinaryAction, EmployeeExit, SalaryRecord
 from .partner import PartnerRequest
 from .messaging import Message, MessageRecipient
 from .leave import LeaveRequest
@@ -38,6 +38,7 @@ __all__ = [
     "Asset",
     "DisciplinaryAction",
     "EmployeeExit",
+    "SalaryRecord",
     "PartnerRequest",
     "Message",
     "MessageRecipient",

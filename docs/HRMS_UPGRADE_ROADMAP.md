@@ -121,7 +121,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 
 ## PHASE 3 — HR Ops & Intelligence  (Prompt 3)
 
-- [ ] Payroll preparation (structure, allowances, deductions; link to QuataPay later)
+- [x] Payroll preparation — SalaryRecord (basic/allowances/bonus/overtime, tax/
+      pension/insurance/loan/advance, computed gross/deductions/net, payment
+      method incl. QuataPay). Admin-only (rbac:manage). 'Compensation' card on
+      the staff detail. migration u1z2a3b4c5d6. Disbursement engine still future.
 - [~] Contract management — expiry alerts done (GET /admin/hr-alerts + dashboard
       "Contracts expiring" panel, from 2A contract_expiry). Versions/renewals pending.
 - [~] Probation management — on-probation + overdue alerts done (dashboard panel,

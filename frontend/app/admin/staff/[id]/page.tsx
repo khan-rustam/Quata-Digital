@@ -30,6 +30,7 @@ import { EmployeeTraining } from "@/components/admin/employee-training";
 import { EmployeeAssets } from "@/components/admin/employee-assets";
 import { EmployeeDisciplinary } from "@/components/admin/employee-disciplinary";
 import { EmployeeExitCard } from "@/components/admin/employee-exit";
+import { EmployeeCompensation } from "@/components/admin/employee-compensation";
 
 type Detail = {
   profile: {
@@ -107,7 +108,7 @@ export default function StaffDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data, loading, refresh } = useApi<Detail>(id ? `/admin/staff/${id}` : null);
-  const { token } = useAuth();
+  const { token, hasPermission } = useAuth();
   const toast = useToast();
   const [cardBusy, setCardBusy] = React.useState(false);
 
@@ -320,6 +321,13 @@ export default function StaffDetailPage() {
       <div className="mt-4">
         <EmployeeAssets staffId={profile.id} />
       </div>
+
+      {/* Compensation — admin only (salary is sensitive) */}
+      {hasPermission("rbac:manage") && (
+        <div className="mt-4">
+          <EmployeeCompensation staffId={profile.id} />
+        </div>
+      )}
 
       {/* Disciplinary (confidential) */}
       <div className="mt-4">

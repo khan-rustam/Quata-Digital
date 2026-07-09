@@ -98,3 +98,27 @@ class EmployeeExit(Base, TimestampMixin):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user = relationship("User", foreign_keys=[user_id])
+
+
+class SalaryRecord(Base, TimestampMixin):
+    """Compensation structure snapshot (HRMS payroll prep). Append-only salary
+    history — never deleted in spirit; amounts are whole units (e.g. XAF).
+    Payroll disbursement itself is future (via QuataPay)."""
+
+    __tablename__ = "salary_records"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    effective_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    currency: Mapped[str] = mapped_column(String(8), default="XAF")
+    basic_salary: Mapped[int] = mapped_column(Integer, default=0)
+    allowances: Mapped[int] = mapped_column(Integer, default=0)
+    bonus: Mapped[int] = mapped_column(Integer, default=0)
+    overtime: Mapped[int] = mapped_column(Integer, default=0)
+    tax: Mapped[int] = mapped_column(Integer, default=0)
+    pension: Mapped[int] = mapped_column(Integer, default=0)
+    insurance: Mapped[int] = mapped_column(Integer, default=0)
+    loan_deduction: Mapped[int] = mapped_column(Integer, default=0)
+    advance_deduction: Mapped[int] = mapped_column(Integer, default=0)
+    payment_method: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)  # bank|quatapay|cash
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
