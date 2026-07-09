@@ -1087,6 +1087,58 @@ def reverse_employee_exit(
     db.commit()
 
 
+class ContractRenewIn(BaseModel):
+    contract_expiry: date
+
+
+@router.post("/staff/{user_id:int}/confirm-probation")
+def confirm_probation(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Confirm an employee off probation: set probation_status='confirmed' and
+    stamp confirmation_date (today if not already set). Clears the probation
+    alert on the HR dashboard."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    u.probation_status = "confirmed"
+    if not u.confirmation_date:
+        u.confirmation_date = datetime.now(timezone.utc).date()
+    log_activity(db, actor=user, action="confirm_probation", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+    return {"ok": True, "probation_status": u.probation_status, "confirmation_date": u.confirmation_date}
+
+
+@router.post("/staff/{user_id:int}/renew-contract")
+def renew_contract(
+    user_id: int,
+    payload: ContractRenewIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Renew/extend an employment contract by setting a new expiry date."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    previous = u.contract_expiry
+    u.contract_expiry = payload.contract_expiry
+    log_activity(
+        db,
+        actor=user,
+        action="renew_contract",
+        resource_type="user",
+        resource_id=user_id,
+        request=request,
+        details={"from": previous.isoformat() if previous else None, "to": payload.contract_expiry.isoformat()},
+    )
+    db.commit()
+    return {"ok": True, "contract_expiry": u.contract_expiry}
+
+
 def _assert_can_manage_target(actor, target):
     """Local shim so this module doesn't import the CRUD helper; offboarding a
     higher-privileged account requires the same rbac gate as staff mgmt."""

@@ -6,8 +6,11 @@ import { Users, UserCheck, Briefcase, FileText, CalendarOff, Clock, Building2, T
 import { PageShell } from "@/components/admin/page-shell";
 import { StatCard } from "@/components/admin/stat-card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { CardSkeleton } from "@/components/ui/skeleton";
-import { useApi } from "@/lib/use-api";
+import { useApi, useApiAction } from "@/lib/use-api";
+import { useToast } from "@/components/ui/toast";
 
 type Totals = {
   employees: number;
@@ -90,9 +93,50 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
+function defaultRenewDate(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function HrDashboardPage() {
   const { data, loading } = useApi<HrAnalytics>("/admin/hr-analytics");
   const alerts = useApi<HrAlerts>("/admin/hr-alerts");
+  const action = useApiAction();
+  const toast = useToast();
+  const [busyId, setBusyId] = React.useState<number | null>(null);
+  const [renewingId, setRenewingId] = React.useState<number | null>(null);
+  const [renewDate, setRenewDate] = React.useState<string>(defaultRenewDate);
+
+  async function confirmProbation(id: number, name: string) {
+    setBusyId(id);
+    try {
+      await action(`/admin/staff/${id}/confirm-probation`, { method: "POST" });
+      toast.success(`${name} confirmed`, "Removed from probation.");
+      alerts.refresh();
+    } catch (err) {
+      toast.error("Couldn't confirm", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function renewContract(id: number, name: string) {
+    setBusyId(id);
+    try {
+      await action(`/admin/staff/${id}/renew-contract`, {
+        method: "POST",
+        body: JSON.stringify({ contract_expiry: renewDate }),
+      });
+      toast.success(`${name}'s contract renewed`, `New expiry ${new Date(`${renewDate}T00:00:00`).toLocaleDateString()}.`);
+      setRenewingId(null);
+      alerts.refresh();
+    } catch (err) {
+      toast.error("Couldn't renew", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <PageShell
@@ -125,16 +169,38 @@ export default function HrDashboardPage() {
                     <div className="text-sm text-muted-foreground">None in the window.</div>
                   ) : (
                     alerts.data.contracts_expiring.map((c) => (
-                      <Link key={c.id} href={`/admin/staff/${c.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-surface-soft px-3 py-2 hover:bg-card transition">
-                        <FileClock className={`h-4 w-4 shrink-0 ${c.expired ? "text-rose-600" : "text-amber-600"}`} />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium truncate">{c.full_name}</div>
-                          <div className="text-[11px] text-muted-foreground truncate">{c.department ?? "—"} · {new Date(`${c.contract_expiry}T00:00:00`).toLocaleDateString()}</div>
+                      <div key={c.id} className="rounded-xl border border-border bg-surface-soft px-3 py-2">
+                        <div className="flex items-center gap-3">
+                          <FileClock className={`h-4 w-4 shrink-0 ${c.expired ? "text-rose-600" : "text-amber-600"}`} />
+                          <Link href={`/admin/staff/${c.id}`} className="min-w-0 flex-1 hover:underline">
+                            <div className="text-sm font-medium truncate">{c.full_name}</div>
+                            <div className="text-[11px] text-muted-foreground truncate">{c.department ?? "—"} · {new Date(`${c.contract_expiry}T00:00:00`).toLocaleDateString()}</div>
+                          </Link>
+                          <Badge variant={c.expired ? "danger" : "warn"}>
+                            {c.expired ? "Expired" : `${c.days_left}d left`}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRenewingId(renewingId === c.id ? null : c.id)}
+                          >
+                            Renew
+                          </Button>
                         </div>
-                        <Badge variant={c.expired ? "danger" : "warn"}>
-                          {c.expired ? "Expired" : `${c.days_left}d left`}
-                        </Badge>
-                      </Link>
+                        {renewingId === c.id && (
+                          <div className="mt-2 flex items-center gap-2 pl-7">
+                            <Input
+                              type="date"
+                              value={renewDate}
+                              onChange={(e) => setRenewDate(e.target.value)}
+                              className="h-8 w-auto text-xs"
+                            />
+                            <Button size="sm" disabled={busyId === c.id} onClick={() => renewContract(c.id, c.full_name)}>
+                              {busyId === c.id ? "Saving…" : "Save"}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     ))
                   )}
                 </div>
@@ -145,17 +211,20 @@ export default function HrDashboardPage() {
                     <div className="text-sm text-muted-foreground">No one on probation.</div>
                   ) : (
                     alerts.data.on_probation.map((pr) => (
-                      <Link key={pr.id} href={`/admin/staff/${pr.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-surface-soft px-3 py-2 hover:bg-card transition">
+                      <div key={pr.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface-soft px-3 py-2">
                         <UserCog className={`h-4 w-4 shrink-0 ${pr.overdue ? "text-rose-600" : "text-primary"}`} />
-                        <div className="min-w-0 flex-1">
+                        <Link href={`/admin/staff/${pr.id}`} className="min-w-0 flex-1 hover:underline">
                           <div className="text-sm font-medium truncate">{pr.full_name}</div>
                           <div className="text-[11px] text-muted-foreground truncate">
                             {pr.department ?? "—"}
                             {pr.confirmation_date ? ` · confirm by ${new Date(`${pr.confirmation_date}T00:00:00`).toLocaleDateString()}` : ""}
                           </div>
-                        </div>
+                        </Link>
                         {pr.overdue ? <Badge variant="danger">Overdue</Badge> : <Badge variant="warn">Probation</Badge>}
-                      </Link>
+                        <Button size="sm" variant="outline" disabled={busyId === pr.id} onClick={() => confirmProbation(pr.id, pr.full_name)}>
+                          {busyId === pr.id ? "…" : "Confirm"}
+                        </Button>
+                      </div>
                     ))
                   )}
                 </div>
