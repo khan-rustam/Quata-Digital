@@ -225,7 +225,9 @@ class MessageOut(BaseModel):
 
 
 class LeaveIn(BaseModel):
-    leave_type: str = Field(pattern="^(annual|sick|parental|unpaid|other)$")
+    leave_type: str = Field(
+        pattern="^(annual|sick|maternity|paternity|parental|emergency|compassionate|study|unpaid|other)$"
+    )
     start_date: date
     end_date: date
     reason: Optional[str] = None

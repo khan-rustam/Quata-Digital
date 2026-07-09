@@ -33,6 +33,7 @@ export type EmployeeProfile = {
   confirmation_date: string | null;
   contract_expiry: string | null;
   probation_status: string | null;
+  annual_leave_entitlement: number | null;
   education: string | null;
   skills: string[];
   languages: string[];
@@ -118,6 +119,7 @@ export function EmployeePersonnelFile({
       confirmation_date: str("confirmation_date"),
       contract_expiry: str("contract_expiry"),
       probation_status: str("probation_status"),
+      annual_leave_entitlement: form.get("annual_leave_entitlement") ? Number(form.get("annual_leave_entitlement")) : null,
       education: str("education"),
       skills: csv("skills"),
       languages: csv("languages"),
@@ -308,6 +310,10 @@ export function EmployeePersonnelFile({
           <div className="grid gap-1.5">
             <Label htmlFor="contract_expiry">Contract expiry</Label>
             <Input id="contract_expiry" name="contract_expiry" type="date" defaultValue={p.contract_expiry ?? ""} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="annual_leave_entitlement">Annual leave (days/yr)</Label>
+            <Input id="annual_leave_entitlement" name="annual_leave_entitlement" type="number" min={0} defaultValue={p.annual_leave_entitlement ?? 18} />
           </div>
         </div>
 

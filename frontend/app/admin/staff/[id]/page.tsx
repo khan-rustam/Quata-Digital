@@ -31,6 +31,7 @@ import { EmployeeAssets } from "@/components/admin/employee-assets";
 import { EmployeeDisciplinary } from "@/components/admin/employee-disciplinary";
 import { EmployeeExitCard } from "@/components/admin/employee-exit";
 import { EmployeeCompensation } from "@/components/admin/employee-compensation";
+import { EmployeeLeaveBalance } from "@/components/admin/employee-leave-balance";
 
 type Detail = {
   profile: {
@@ -66,6 +67,7 @@ type Detail = {
     confirmation_date: string | null;
     contract_expiry: string | null;
     probation_status: string | null;
+    annual_leave_entitlement: number | null;
     education: string | null;
     skills: string[];
     languages: string[];
@@ -305,6 +307,11 @@ export default function StaffDetailPage() {
       {/* Personnel file (2A) */}
       <div className="mt-4">
         <EmployeePersonnelFile profile={profile} onSaved={refresh} />
+      </div>
+
+      {/* Leave balance (annual entitlement + this-year usage) */}
+      <div className="mt-4">
+        <EmployeeLeaveBalance staffId={profile.id} />
       </div>
 
       {/* Performance reviews (2G) */}

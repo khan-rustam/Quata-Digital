@@ -1189,6 +1189,44 @@ def delete_salary(
     db.commit()
 
 
+@router.get("/staff/{user_id:int}/leave-balance")
+def leave_balance(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Annual leave balance + this-year usage by type, from approved requests."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    year = datetime.now(timezone.utc).year
+    approved = (
+        db.query(LeaveRequest)
+        .filter(LeaveRequest.user_id == user_id, LeaveRequest.status == "approved")
+        .all()
+    )
+    by_type: dict[str, int] = {}
+    for lr in approved:
+        if lr.start_date and lr.start_date.year == year:
+            by_type[lr.leave_type] = by_type.get(lr.leave_type, 0) + (lr.days or 0)
+    entitlement = u.annual_leave_entitlement or 0
+    annual_used = by_type.get("annual", 0)
+    pending = (
+        db.query(func.count(LeaveRequest.id))
+        .filter(LeaveRequest.user_id == user_id, LeaveRequest.status == "pending")
+        .scalar()
+        or 0
+    )
+    return {
+        "year": year,
+        "annual_entitlement": entitlement,
+        "annual_used": annual_used,
+        "annual_remaining": entitlement - annual_used,
+        "pending": pending,
+        "by_type": [{"leave_type": k, "days": v} for k, v in sorted(by_type.items(), key=lambda x: -x[1])],
+    }
+
+
 @router.get("/staff/{user_id:int}")
 def get_staff_detail(
     user_id: int,
@@ -1253,6 +1291,7 @@ def get_staff_detail(
             "confirmation_date": u.confirmation_date,
             "contract_expiry": u.contract_expiry,
             "probation_status": u.probation_status,
+            "annual_leave_entitlement": u.annual_leave_entitlement,
             "education": u.education,
             "skills": u.skills or [],
             "languages": u.languages or [],

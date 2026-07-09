@@ -214,6 +214,7 @@ class EmployeeProfilePatch(BaseModel):
     confirmation_date: Optional[date] = None
     contract_expiry: Optional[date] = None
     probation_status: Optional[str] = Field(default=None, max_length=20)
+    annual_leave_entitlement: Optional[int] = Field(default=None, ge=0, le=365)
     # Professional
     education: Optional[str] = Field(default=None, max_length=4000)
     skills: Optional[List[str]] = None

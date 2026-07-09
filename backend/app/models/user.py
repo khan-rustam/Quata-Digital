@@ -130,6 +130,7 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     confirmation_date: Mapped[Optional["date"]] = mapped_column(Date, nullable=True)
     contract_expiry: Mapped[Optional["date"]] = mapped_column(Date, nullable=True)
     probation_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # probation|confirmed
+    annual_leave_entitlement: Mapped[int] = mapped_column(Integer, default=18)  # paid annual-leave days/year
 
     # --- Personnel file: professional ---
     education: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
