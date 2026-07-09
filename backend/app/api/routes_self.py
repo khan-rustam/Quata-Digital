@@ -8,6 +8,7 @@ from app.api.deps import get_current_user, get_current_user_lenient, log_activit
 from app.core.security import hash_password, verify_password
 from app.db.session import get_db
 from app.models import AttendanceLog, LeaveRequest, User
+from app.services import hr_metrics
 from app.schemas.common import (
     AttendanceIn,
     AttendanceOut,
@@ -88,6 +89,62 @@ def change_password(
     )
     db.commit()
     return {"ok": True}
+
+
+# ---------- Self-service workspace ----------
+
+@router.get("/me/workspace")
+def my_workspace(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Everything a signed-in employee sees about themselves: profile snapshot,
+    leave balance + their recent requests, this-month attendance, and whether
+    they're currently checked in. Read-only; no elevated permission needed."""
+    requests = (
+        db.query(LeaveRequest)
+        .filter(LeaveRequest.user_id == user.id)
+        .order_by(LeaveRequest.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    open_log = (
+        db.query(AttendanceLog)
+        .filter(
+            AttendanceLog.user_id == user.id,
+            AttendanceLog.check_in_at.isnot(None),
+            AttendanceLog.check_out_at.is_(None),
+        )
+        .order_by(AttendanceLog.check_in_at.desc())
+        .first()
+    )
+    return {
+        "profile": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "job_title": user.job_title,
+            "department": user.department.name if user.department else None,
+            "employee_number": user.employee_number,
+            "avatar_url": user.avatar_url,
+        },
+        "leave_balance": hr_metrics.leave_balance(db, user),
+        "leave_requests": [
+            {
+                "id": lr.id,
+                "leave_type": lr.leave_type,
+                "start_date": lr.start_date,
+                "end_date": lr.end_date,
+                "days": lr.days,
+                "status": lr.status,
+                "reason": lr.reason,
+            }
+            for lr in requests
+        ],
+        "attendance": hr_metrics.attendance_summary(db, user),
+        "checked_in": open_log is not None,
+        "checked_in_at": open_log.check_in_at if open_log else None,
+    }
 
 
 # ---------- Leave / Attendance (existing) ----------

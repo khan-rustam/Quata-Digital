@@ -29,6 +29,7 @@ import {
   SlidersHorizontal,
   Mail,
   LogOut,
+  CircleUser,
 } from "lucide-react";
 import { Logo } from "@/components/site/logo";
 import { useAuth } from "@/lib/auth";
@@ -38,6 +39,7 @@ export const adminNavGroups = [
   {
     title: "Overview",
     items: [
+      { href: "/admin/me", label: "My workspace", icon: CircleUser, perm: null },
       { href: "/admin/overview", label: "Dashboard", icon: LayoutDashboard, perm: null },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart3, perm: "analytics:view" },
     ],
