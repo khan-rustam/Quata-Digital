@@ -113,7 +113,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [ ] Leave: types + Employee→Manager→HR workflow, auto balance
 - [x] Employee directory — /admin/staff with search (name/email/employee no/location),
       department + status filters, and CSV export (GET /admin/staff/export.csv)
-- [ ] Performance reviews · Training records · Asset assignment
+- [x] Performance reviews · Training records · Asset assignment — per-employee
+      cards on the staff detail page (list/add/delete). migrations p6/q7/r8;
+      test_employee_records.py
 
 ---
 

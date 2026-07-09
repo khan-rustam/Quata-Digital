@@ -42,3 +42,20 @@ class TrainingRecord(Base, TimestampMixin):
     completed_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     expires_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class Asset(Base, TimestampMixin):
+    __tablename__ = "assets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    asset_type: Mapped[str] = mapped_column(String(30))  # laptop|phone|sim|vehicle|access_card|keys|uniform|other
+    name: Mapped[str] = mapped_column(String(200))
+    serial: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    condition: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)  # new|good|fair|poor
+    status: Mapped[str] = mapped_column(String(20), default="assigned")  # assigned|returned|lost|repair
+    assigned_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    returned_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

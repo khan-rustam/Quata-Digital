@@ -30,6 +30,7 @@ from app.models import (
     PartnerRequest,
     PerformanceReview,
     TrainingRecord,
+    Asset,
     Role,
     RolePermission,
     User,
@@ -842,6 +843,82 @@ def delete_training(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Training record not found")
     db.delete(t)
     log_activity(db, actor=user, action="training_delete", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+
+
+class AssetIn(BaseModel):
+    asset_type: str = Field(pattern="^(laptop|desktop|phone|sim|vehicle|access_card|keys|uniform|other)$")
+    name: str = Field(min_length=1, max_length=200)
+    serial: Optional[str] = Field(default=None, max_length=120)
+    condition: Optional[str] = Field(default=None, max_length=40)
+    status: str = Field(default="assigned", pattern="^(assigned|returned|lost|repair)$")
+    assigned_on: Optional[date] = None
+    returned_on: Optional[date] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+
+@router.get("/staff/{user_id:int}/assets")
+def list_assets(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    rows = (
+        db.query(Asset)
+        .filter(Asset.user_id == user_id)
+        .order_by(Asset.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": a.id,
+            "asset_type": a.asset_type,
+            "name": a.name,
+            "serial": a.serial,
+            "condition": a.condition,
+            "status": a.status,
+            "assigned_on": a.assigned_on,
+            "returned_on": a.returned_on,
+            "notes": a.notes,
+        }
+        for a in rows
+    ]
+
+
+@router.post("/staff/{user_id:int}/assets", status_code=201)
+def add_asset(
+    user_id: int,
+    payload: AssetIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    a = Asset(user_id=user_id, **payload.model_dump())
+    db.add(a)
+    db.flush()
+    log_activity(db, actor=user, action="asset_assign", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+    db.refresh(a)
+    return {"id": a.id}
+
+
+@router.delete("/staff/{user_id:int}/assets/{asset_id}", status_code=204)
+def delete_asset(
+    user_id: int,
+    asset_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    a = db.get(Asset, asset_id)
+    if not a or a.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Asset not found")
+    db.delete(a)
+    log_activity(db, actor=user, action="asset_remove", resource_type="user", resource_id=user_id, request=request)
     db.commit()
 
 

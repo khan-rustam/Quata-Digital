@@ -36,3 +36,28 @@ def test_training_records(client, admin_headers):
     assert client.delete(
         f"/api/v1/admin/staff/{me['id']}/training/{tid}", headers=admin_headers
     ).status_code == 204
+
+
+def test_assets(client, admin_headers):
+    me = client.get("/api/v1/auth/me", headers=admin_headers).json()
+    r = client.post(
+        f"/api/v1/admin/staff/{me['id']}/assets",
+        headers=admin_headers,
+        json={"asset_type": "laptop", "name": "Dell Latitude", "serial": "SN123", "assigned_on": "2026-01-10"},
+    )
+    assert r.status_code == 201, r.text
+    aid = r.json()["id"]
+    lst = client.get(f"/api/v1/admin/staff/{me['id']}/assets", headers=admin_headers).json()
+    assert any(x["id"] == aid and x["asset_type"] == "laptop" and x["serial"] == "SN123" for x in lst)
+
+    # Unknown asset type is rejected by the schema.
+    bad = client.post(
+        f"/api/v1/admin/staff/{me['id']}/assets",
+        headers=admin_headers,
+        json={"asset_type": "spaceship", "name": "x"},
+    )
+    assert bad.status_code == 422
+
+    assert client.delete(
+        f"/api/v1/admin/staff/{me['id']}/assets/{aid}", headers=admin_headers
+    ).status_code == 204
