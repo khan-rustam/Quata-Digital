@@ -18,6 +18,7 @@ from app.models import (
     PageView,
     PartnerRequest,
     Product,
+    User,
 )
 from app.schemas.common import (
     BlogPostOut,
@@ -176,6 +177,35 @@ def apply_to_job(
     except Exception:  # noqa: BLE001
         pass
     return {"ok": True, "id": app_row.id}
+
+
+@router.get("/verify/{code}")
+def verify_employee(code: str, db: Session = Depends(get_db)):
+    """Public employee verification (QR scan on the ID card, HRMS 2D).
+
+    Returns minimal, non-sensitive info only — no email, phone, or internal id.
+    The lookup key is the random ``verification_code``, never the employee
+    number, so IDs can't be enumerated.
+    """
+    u = (
+        db.query(User)
+        .filter(User.verification_code == code, User.is_deleted == False)  # noqa: E712
+        .first()
+    )
+    if not u or not u.employee_number:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Employee not found")
+    active = bool(u.is_active) and u.status == "active"
+    bu = u.department.business_unit.name if (u.department and u.department.business_unit) else None
+    return {
+        "verified": True,
+        "full_name": u.full_name,
+        "employee_number": u.employee_number,
+        "job_title": u.job_title,
+        "department": u.department.name if u.department else None,
+        "business_unit": bu,
+        "avatar_url": u.avatar_url,
+        "employment_status": "Active" if active else "Inactive",
+    }
 
 
 @router.get("/blog", response_model=List[BlogPostOut])

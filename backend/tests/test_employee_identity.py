@@ -41,6 +41,23 @@ def test_employee_numbers_unique_and_sequential(client, admin_headers):
     assert seqs == sorted(seqs) and seqs[-1] - seqs[0] == 2
 
 
+def test_public_employee_verification(client, admin_headers):
+    me = client.get("/api/v1/auth/me", headers=admin_headers).json()
+    detail = client.get(f"/api/v1/admin/staff/{me['id']}", headers=admin_headers).json()
+    code = detail["profile"]["verification_code"]
+    assert code
+
+    r = client.get(f"/api/v1/verify/{code}")  # public, no auth
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["verified"] is True
+    assert body["employee_number"]
+    # No PII leaks through the public verification.
+    assert "email" not in body and "phone" not in body
+
+    assert client.get("/api/v1/verify/does-not-exist").status_code == 404
+
+
 def test_generate_identity_is_idempotent(client, admin_headers):
     me = client.get("/api/v1/auth/me", headers=admin_headers).json()
     r = client.post(f"/api/v1/admin/staff/{me['id']}/identity", headers=admin_headers)

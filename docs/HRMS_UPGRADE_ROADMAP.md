@@ -82,8 +82,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 ### 2C. Smart ID card generator
 - [ ] Front/back printable card (PDF/PNG/high-res), preview, reissue/suspend history
 
-### 2D. QR employee verification page  (public, minimal PII)
-- [ ] Scan → photo, name, dept, position, business unit, employment + card status
+### 2D. QR employee verification page  (public, minimal PII) ✅ shipped
+- [x] Public /verify/{code} page + GET /api/v1/verify/{code} — photo, name, dept,
+      position, business unit, employment status, verified badge. No PII, lookup
+      by random code (not enumerable). noindex.
 
 ### 2E. NFC & access control  (HW for physical readers)
 - [ ] Access levels + role/dept/time-based/temporary/visitor/contractor
