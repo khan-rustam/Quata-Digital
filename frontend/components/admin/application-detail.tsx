@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 import { useApi, useApiAction } from "@/lib/use-api";
 import { apiUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -26,8 +27,28 @@ type AppDetail = {
   interview_at: string | null;
   interview_location: string | null;
   start_date: string | null;
+  assigned_hr_id: number | null;
+  assigned_hr_name: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type StaffLite = { id: number; full_name: string; role: string };
+type AppNote = { id: number; body: string; author_name: string; created_at: string };
+type TimelineEvent = {
+  id: number;
+  action: string;
+  actor_id: number | null;
+  details: Record<string, unknown>;
+  created_at: string;
+};
+
+const TIMELINE_LABEL: Record<string, string> = {
+  applied: "Submitted application",
+  status_change: "Status changed",
+  assign: "HR officer assigned",
+  note: "Internal note added",
+  download: "CV downloaded",
 };
 
 const variant: Record<AppDetail["status"], "default" | "warn" | "success" | "danger" | "brand"> = {
@@ -89,6 +110,46 @@ export function ApplicationDetailSlideOver({
   const [shortlistOpen, setShortlistOpen] = React.useState(false);
   const [hireOpen, setHireOpen] = React.useState(false);
   const [rejectOpen, setRejectOpen] = React.useState(false);
+  const [noteText, setNoteText] = React.useState("");
+  const [savingNote, setSavingNote] = React.useState(false);
+
+  // Collaboration data — only fetched while the panel is open for an applicant.
+  const staff = useApi<StaffLite[]>(open ? "/admin/staff" : null);
+  const notes = useApi<AppNote[]>(path ? `${path}/notes` : null);
+  const timeline = useApi<TimelineEvent[]>(path ? `${path}/timeline` : null);
+
+  async function assignHr(value: string) {
+    if (!applicationId) return;
+    try {
+      await action(`/admin/applications/${applicationId}/assignment`, {
+        method: "PATCH",
+        body: JSON.stringify({ assigned_hr_id: value ? Number(value) : null }),
+      });
+      toast.success(value ? "Assigned" : "Unassigned");
+      onChanged();
+      timeline.refresh();
+    } catch (err) {
+      toast.error("Couldn't assign", err instanceof Error ? err.message : "Try again.");
+    }
+  }
+
+  async function addNote() {
+    if (!applicationId || !noteText.trim()) return;
+    setSavingNote(true);
+    try {
+      await action(`/admin/applications/${applicationId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ body: noteText.trim() }),
+      });
+      setNoteText("");
+      notes.refresh();
+      timeline.refresh();
+    } catch (err) {
+      toast.error("Couldn't save note", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   // --- Private CV: fetch through the authenticated endpoint (Q1) ---
   async function fetchResumeBlob(): Promise<{ blob: Blob; filename: string }> {
@@ -256,6 +317,24 @@ export function ApplicationDetailSlideOver({
                     )}
                   </div>
                 )}
+
+                {/* Assigned HR officer */}
+                <div className="mt-4 border-t border-border/60 pt-3">
+                  <label htmlFor="assigned_hr" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Assigned HR officer
+                  </label>
+                  <Select
+                    id="assigned_hr"
+                    value={data.assigned_hr_id ?? ""}
+                    onChange={(e) => assignHr(e.target.value)}
+                    className="mt-1.5"
+                  >
+                    <option value="">Unassigned</option>
+                    {(staff.data ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>{s.full_name}</option>
+                    ))}
+                  </Select>
+                </div>
               </div>
 
               {/* Contact */}
@@ -321,6 +400,62 @@ export function ApplicationDetailSlideOver({
                   </div>
                   <div className="rounded-xl border border-border bg-card p-4 text-sm whitespace-pre-line text-foreground/85">
                     {data.cover_letter}
+                  </div>
+                </div>
+              )}
+
+              {/* Internal notes — HR-only, never shown to the candidate */}
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Internal notes
+                </div>
+                <div className="space-y-2">
+                  {(notes.data ?? []).length === 0 && (
+                    <div className="text-sm text-muted-foreground">No notes yet.</div>
+                  )}
+                  {(notes.data ?? []).map((n) => (
+                    <div key={n.id} className="rounded-xl border border-border bg-card p-3">
+                      <div className="text-sm whitespace-pre-line text-foreground/85">{n.body}</div>
+                      <div className="mt-1.5 text-[11px] text-muted-foreground">
+                        {n.author_name} · {new Date(n.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    rows={2}
+                    placeholder="Add an internal note (not visible to the candidate)…"
+                  />
+                  <Button onClick={addNote} disabled={savingNote || !noteText.trim()} className="shrink-0">
+                    {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Activity timeline */}
+              {(timeline.data ?? []).length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    Timeline
+                  </div>
+                  <div className="space-y-2">
+                    {(timeline.data ?? []).map((ev) => (
+                      <div key={`${ev.action}-${ev.id}-${ev.created_at}`} className="flex items-start gap-2 text-sm">
+                        <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+                        <div>
+                          <span className="text-foreground/85">{TIMELINE_LABEL[ev.action] ?? ev.action}</span>
+                          {ev.action === "status_change" && ev.details?.to ? (
+                            <span className="text-muted-foreground"> → {String(ev.details.to)}</span>
+                          ) : null}
+                          <div className="text-[11px] text-muted-foreground">
+                            {new Date(ev.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

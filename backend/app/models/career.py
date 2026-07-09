@@ -41,4 +41,34 @@ class Application(Base, TimestampMixin, SoftDeleteMixin):
     interview_location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     start_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
+    # HR officer who owns this applicant through the pipeline (nullable).
+    assigned_hr_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
     job = relationship("Job")
+    assigned_hr = relationship("User", foreign_keys=[assigned_hr_id])
+    notes = relationship(
+        "ApplicationNote",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        order_by="ApplicationNote.created_at",
+    )
+
+
+class ApplicationNote(Base, TimestampMixin):
+    """Internal HR note / comment on an applicant. Never shown to the candidate."""
+
+    __tablename__ = "application_notes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    application_id: Mapped[int] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    author_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    body: Mapped[str] = mapped_column(Text)
+
+    application = relationship("Application", back_populates="notes")
+    author = relationship("User", foreign_keys=[author_id])

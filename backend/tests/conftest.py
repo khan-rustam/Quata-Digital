@@ -87,18 +87,23 @@ def admin_token(app_instance):
     # session-scoped admin requests aren't blocked. Stamp
     # password_changed_at so the resulting JWT's `pwc` claim matches
     # what the auth layer expects to see on subsequent requests.
-    with SessionLocal() as db:
-        admin = (
-            db.query(User)
-            .filter(User.email == "admin@quatadigital.com")
-            .first()
-        )
-        if admin is not None:
-            admin.must_reset_password = False
-            admin.password_changed_at = datetime.now(timezone.utc)
-            db.commit()
-
     with TestClient(app_instance) as c:
+        # Entering the client runs the app lifespan, which creates the tables
+        # and seeds the admin. Only then can we clear the must_reset_password
+        # gate and log in. Doing the DB work *inside* this context makes the
+        # fixture self-sufficient regardless of test execution order (otherwise
+        # a suite whose first admin test sorts ahead of any plain `client` test
+        # hits "no such table: users").
+        with SessionLocal() as db:
+            admin = (
+                db.query(User)
+                .filter(User.email == "admin@quatadigital.com")
+                .first()
+            )
+            if admin is not None:
+                admin.must_reset_password = False
+                admin.password_changed_at = datetime.now(timezone.utc)
+                db.commit()
         r = c.post(
             "/api/v1/auth/login",
             json={

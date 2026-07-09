@@ -20,6 +20,7 @@ from app.db.session import get_db
 from app.models import (
     ActivityLog,
     Application,
+    ApplicationNote,
     AttendanceLog,
     LeaveRequest,
     NewsletterBroadcast,
@@ -301,9 +302,137 @@ def get_application(
         "interview_at": a.interview_at,
         "interview_location": a.interview_location,
         "start_date": a.start_date,
+        "assigned_hr_id": a.assigned_hr_id,
+        "assigned_hr_name": a.assigned_hr.full_name if a.assigned_hr else None,
         "created_at": a.created_at,
         "updated_at": a.updated_at,
     }
+
+
+class ApplicationAssignIn(BaseModel):
+    assigned_hr_id: Optional[int] = None
+
+
+@router.patch("/applications/{app_id}/assignment")
+def assign_application(
+    app_id: int,
+    payload: ApplicationAssignIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    """Assign (or clear) the HR officer who owns this applicant."""
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    if payload.assigned_hr_id is not None and not db.get(User, payload.assigned_hr_id):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown staff member")
+    a.assigned_hr_id = payload.assigned_hr_id
+    log_activity(
+        db,
+        actor=user,
+        action="assign",
+        resource_type="application",
+        resource_id=a.id,
+        request=request,
+        details={"assigned_hr_id": payload.assigned_hr_id},
+    )
+    db.commit()
+    return {"ok": True, "assigned_hr_id": a.assigned_hr_id}
+
+
+class ApplicationNoteIn(BaseModel):
+    body: str = Field(min_length=1, max_length=8000)
+
+
+@router.get("/applications/{app_id}/notes")
+def list_application_notes(
+    app_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    return [
+        {
+            "id": n.id,
+            "body": n.body,
+            "author_name": n.author.full_name if n.author else "—",
+            "created_at": n.created_at,
+        }
+        for n in a.notes
+    ]
+
+
+@router.post("/applications/{app_id}/notes", status_code=201)
+def add_application_note(
+    app_id: int,
+    payload: ApplicationNoteIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    note = ApplicationNote(application_id=a.id, author_id=user.id, body=payload.body.strip())
+    db.add(note)
+    db.flush()
+    log_activity(
+        db,
+        actor=user,
+        action="note",
+        resource_type="application",
+        resource_id=a.id,
+        request=request,
+    )
+    db.commit()
+    db.refresh(note)
+    return {
+        "id": note.id,
+        "body": note.body,
+        "author_name": user.full_name,
+        "created_at": note.created_at,
+    }
+
+
+@router.get("/applications/{app_id}/timeline")
+def application_timeline(
+    app_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    """Activity history for one applicant (status changes, notes, assignments,
+    CV downloads) plus the initial submission — most recent first."""
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    rows = (
+        db.query(ActivityLog)
+        .filter(
+            ActivityLog.resource_type.in_(["application", "resume"]),
+            ActivityLog.resource_id == str(app_id),
+        )
+        .order_by(ActivityLog.created_at.desc())
+        .limit(200)
+        .all()
+    )
+    events = [
+        {
+            "id": r.id,
+            "action": r.action,
+            "actor_id": r.actor_id,
+            "details": r.details or {},
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+    # The submission itself is logged against the job, so synthesise it here.
+    events.append(
+        {"id": 0, "action": "applied", "actor_id": None, "details": {}, "created_at": a.created_at}
+    )
+    return events
 
 
 @router.get("/applications/{app_id}/resume")

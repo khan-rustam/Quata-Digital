@@ -2,7 +2,7 @@ from .base import Base
 from .user import User, Role, Department, RolePermission, PasswordResetToken
 from .product import Product
 from .blog import BlogPost, Page
-from .career import Job, Application
+from .career import Job, Application, ApplicationNote
 from .partner import PartnerRequest
 from .messaging import Message, MessageRecipient
 from .leave import LeaveRequest
@@ -29,6 +29,7 @@ __all__ = [
     "Page",
     "Job",
     "Application",
+    "ApplicationNote",
     "PartnerRequest",
     "Message",
     "MessageRecipient",
