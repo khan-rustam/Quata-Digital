@@ -14,12 +14,16 @@ import {
   Clock,
   Shield,
   Hash,
+  IdCard,
   Loader2,
 } from "lucide-react";
 import { PageShell } from "@/components/admin/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useApi } from "@/lib/use-api";
+import { apiUrl } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/components/ui/toast";
 
 type Detail = {
   profile: {
@@ -71,6 +75,38 @@ export default function StaffDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data, loading } = useApi<Detail>(id ? `/admin/staff/${id}` : null);
+  const { token } = useAuth();
+  const toast = useToast();
+  const [cardBusy, setCardBusy] = React.useState(false);
+
+  async function downloadIdCard(format: "png" | "pdf") {
+    if (!id) return;
+    setCardBusy(true);
+    try {
+      const res = await fetch(`${apiUrl}/admin/staff/${id}/id-card?format=${format}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (format === "png") {
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `id-card.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      toast.error("Couldn't generate card", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setCardBusy(false);
+    }
+  }
 
   if (loading || !data) {
     return (
@@ -147,7 +183,21 @@ export default function StaffDetailPage() {
               </li>
             )}
           </ul>
-          <div className="mt-6 text-xs text-muted-foreground border-t border-border pt-3">
+          <div className="mt-6 border-t border-border pt-4">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Employee ID card
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => downloadIdCard("png")} disabled={cardBusy}>
+                {cardBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <IdCard className="h-3.5 w-3.5" />}
+                View card
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadIdCard("pdf")} disabled={cardBusy}>
+                <IdCard className="h-3.5 w-3.5" /> Download PDF
+              </Button>
+            </div>
+          </div>
+          <div className="mt-4 text-xs text-muted-foreground border-t border-border pt-3">
             Joined {new Date(profile.created_at).toLocaleDateString()}
           </div>
         </div>

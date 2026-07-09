@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import cast, func, String as SqlString
 from sqlalchemy.orm import Session
@@ -601,6 +601,38 @@ def generate_staff_identity(
         )
     db.commit()
     return {"employee_number": u.employee_number, "verification_code": u.verification_code}
+
+
+@router.get("/staff/{user_id}/id-card")
+def staff_id_card(
+    user_id: int,
+    format: str = Query(default="png", pattern="^(png|pdf)$"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Render a print-ready employee ID card (PNG or PDF). Ensures the employee
+    has an identity first so the card always has a number + QR."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    from app.services.identity import ensure_employee_identity
+
+    if ensure_employee_identity(db, u):
+        db.commit()
+    from app.services.id_card import render_id_card_png, render_id_card_pdf
+
+    stem = f"id-card-{u.employee_number or u.id}"
+    if format == "pdf":
+        return Response(
+            content=render_id_card_pdf(u),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{stem}.pdf"'},
+        )
+    return Response(
+        content=render_id_card_png(u),
+        media_type="image/png",
+        headers={"Content-Disposition": f'inline; filename="{stem}.png"'},
+    )
 
 
 @router.get("/staff/{user_id}")

@@ -79,8 +79,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [x] QR verification code (random token) generated alongside the number
 - [ ] Card number, encrypted NFC token, digital certificate (with 2C card)
 
-### 2C. Smart ID card generator
-- [ ] Front/back printable card (PDF/PNG/high-res), preview, reissue/suspend history
+### 2C. Smart ID card generator ✅ (front side)
+- [x] Print-ready CR80 card (PNG + PDF) via Pillow + qrcode: logo, photo/initials,
+      name, employee number, position, department, business unit, QR → verify URL,
+      issue date. GET /admin/staff/{id}/id-card?format=png|pdf; View/Download on
+      the staff detail page. test_employee_identity.py
+- [ ] Back side, reissue/suspend history, card numbers
 
 ### 2D. QR employee verification page  (public, minimal PII) ✅ shipped
 - [x] Public /verify/{code} page + GET /api/v1/verify/{code} — photo, name, dept,
