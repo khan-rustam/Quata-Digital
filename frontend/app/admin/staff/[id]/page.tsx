@@ -29,6 +29,7 @@ import { EmployeePerformance } from "@/components/admin/employee-performance";
 import { EmployeeTraining } from "@/components/admin/employee-training";
 import { EmployeeAssets } from "@/components/admin/employee-assets";
 import { EmployeeDisciplinary } from "@/components/admin/employee-disciplinary";
+import { EmployeeExitCard } from "@/components/admin/employee-exit";
 
 type Detail = {
   profile: {
@@ -43,7 +44,7 @@ type Detail = {
     verification_code: string | null;
     role: string | null;
     department: string | null;
-    status: "active" | "invited" | "suspended";
+    status: string;
     created_at: string;
     // Personnel file (2A)
     gender: string | null;
@@ -95,10 +96,11 @@ type Detail = {
   }[];
 };
 
-const statusVariant = {
-  active: "success" as const,
-  invited: "warn" as const,
-  suspended: "danger" as const,
+const statusVariant: Record<string, "success" | "warn" | "danger" | "default"> = {
+  active: "success",
+  invited: "warn",
+  suspended: "danger",
+  exited: "default",
 };
 
 export default function StaffDetailPage() {
@@ -173,7 +175,7 @@ export default function StaffDetailPage() {
             <div className="min-w-0">
               <div className="text-base font-semibold">{profile.full_name}</div>
               <div className="text-xs text-muted-foreground truncate">{profile.email}</div>
-              <Badge variant={statusVariant[profile.status]} className="mt-2 capitalize">
+              <Badge variant={statusVariant[profile.status] ?? "default"} className="mt-2 capitalize">
                 {profile.status}
               </Badge>
             </div>
@@ -322,6 +324,11 @@ export default function StaffDetailPage() {
       {/* Disciplinary (confidential) */}
       <div className="mt-4">
         <EmployeeDisciplinary staffId={profile.id} />
+      </div>
+
+      {/* Offboarding / exit */}
+      <div className="mt-4">
+        <EmployeeExitCard staffId={profile.id} onChanged={refresh} />
       </div>
 
       {/* Activity */}

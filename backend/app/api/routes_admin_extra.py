@@ -32,6 +32,7 @@ from app.models import (
     TrainingRecord,
     Asset,
     DisciplinaryAction,
+    EmployeeExit,
     Role,
     RolePermission,
     User,
@@ -993,6 +994,103 @@ def delete_disciplinary(
     db.delete(d)
     log_activity(db, actor=user, action="disciplinary_delete", resource_type="user", resource_id=user_id, request=request)
     db.commit()
+
+
+class ExitIn(BaseModel):
+    exit_type: str = Field(pattern="^(resignation|retirement|contract_end|dismissal|redundancy|death)$")
+    exit_date: Optional[date] = None
+    reason: Optional[str] = Field(default=None, max_length=4000)
+    rehire_eligible: bool = True
+    knowledge_transfer: Optional[str] = Field(default=None, max_length=4000)
+    assets_returned: bool = False
+    access_revoked: bool = False
+    exit_interview_done: bool = False
+    final_settlement_done: bool = False
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+
+def _exit_dict(ex: EmployeeExit) -> dict:
+    return {
+        "exit_type": ex.exit_type,
+        "exit_date": ex.exit_date,
+        "reason": ex.reason,
+        "rehire_eligible": ex.rehire_eligible,
+        "knowledge_transfer": ex.knowledge_transfer,
+        "assets_returned": ex.assets_returned,
+        "access_revoked": ex.access_revoked,
+        "exit_interview_done": ex.exit_interview_done,
+        "final_settlement_done": ex.final_settlement_done,
+        "notes": ex.notes,
+        "created_at": ex.created_at,
+    }
+
+
+@router.get("/staff/{user_id:int}/exit")
+def get_employee_exit(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    ex = db.query(EmployeeExit).filter(EmployeeExit.user_id == user_id).first()
+    return _exit_dict(ex) if ex else None
+
+
+@router.post("/staff/{user_id:int}/exit")
+def upsert_employee_exit(
+    user_id: int,
+    payload: ExitIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Offboard an employee: create/update their exit record and mark them
+    inactive (an alumnus). Blocks offboarding yourself."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    if user_id == user.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You can't offboard yourself")
+    _assert_can_manage_target(user, u)
+    ex = db.query(EmployeeExit).filter(EmployeeExit.user_id == user_id).first()
+    if not ex:
+        ex = EmployeeExit(user_id=user_id)
+        db.add(ex)
+    for k, v in payload.model_dump().items():
+        setattr(ex, k, v)
+    u.is_active = False
+    u.status = "exited"
+    log_activity(db, actor=user, action="offboard", resource_type="user", resource_id=user_id, request=request, details={"exit_type": payload.exit_type})
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/staff/{user_id:int}/exit", status_code=204)
+def reverse_employee_exit(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Reverse an offboarding — remove the exit record and reactivate."""
+    ex = db.query(EmployeeExit).filter(EmployeeExit.user_id == user_id).first()
+    if not ex:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No exit record")
+    u = db.get(User, user_id)
+    db.delete(ex)
+    if u:
+        u.is_active = True
+        u.status = "active"
+    log_activity(db, actor=user, action="reactivate", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+
+
+def _assert_can_manage_target(actor, target):
+    """Local shim so this module doesn't import the CRUD helper; offboarding a
+    higher-privileged account requires the same rbac gate as staff mgmt."""
+    from app.api.routes_admin_crud import _assert_can_manage_target as _impl
+    _impl(actor, target)
 
 
 @router.get("/staff/{user_id:int}")

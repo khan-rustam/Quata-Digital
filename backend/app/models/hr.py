@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import String, Integer, Text, ForeignKey, Date, DateTime
+from sqlalchemy import String, Integer, Text, ForeignKey, Date, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -76,3 +76,25 @@ class DisciplinaryAction(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="open")  # open|resolved|appealed
 
     issued_by = relationship("User", foreign_keys=[issued_by_id])
+
+
+class EmployeeExit(Base, TimestampMixin):
+    """Offboarding record — one per employee. Creating it marks the employee
+    inactive (an alumnus); deleting it reverses the offboarding."""
+
+    __tablename__ = "employee_exits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True)
+    exit_type: Mapped[str] = mapped_column(String(30))  # resignation|retirement|contract_end|dismissal|redundancy|death
+    exit_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rehire_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
+    knowledge_transfer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    assets_returned: Mapped[bool] = mapped_column(Boolean, default=False)
+    access_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    exit_interview_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    final_settlement_done: Mapped[bool] = mapped_column(Boolean, default=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])

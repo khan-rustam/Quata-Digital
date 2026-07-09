@@ -27,7 +27,7 @@ type Staff = {
   email: string;
   role: string;
   department: string | null;
-  status: "active" | "invited" | "suspended";
+  status: string;
   job_title: string | null;
   employee_number: string | null;
   employment_type: string | null;
@@ -37,10 +37,11 @@ type Staff = {
 type Dept = { id: number; slug: string; name: string };
 type Role = { id: number; slug: string; name: string };
 
-const statusVariant: Record<Staff["status"], "success" | "warn" | "danger"> = {
+const statusVariant: Record<string, "success" | "warn" | "danger" | "default"> = {
   active: "success",
   invited: "warn",
   suspended: "danger",
+  exited: "default",
 };
 
 export default function StaffPage() {
@@ -160,7 +161,7 @@ export default function StaffPage() {
       key: "status",
       header: "Status",
       cell: (r) => (
-        <Badge variant={statusVariant[r.status]} className="capitalize">{r.status}</Badge>
+        <Badge variant={statusVariant[r.status] ?? "default"} className="capitalize">{r.status}</Badge>
       ),
     },
     {
@@ -211,6 +212,7 @@ export default function StaffPage() {
           <option value="active">Active</option>
           <option value="invited">Invited</option>
           <option value="suspended">Suspended</option>
+          <option value="exited">Exited</option>
         </Select>
         <span className="text-xs text-muted-foreground">
           {filtered.length} employee{filtered.length === 1 ? "" : "s"}

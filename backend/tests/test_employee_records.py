@@ -78,3 +78,36 @@ def test_disciplinary(client, admin_headers):
     assert client.delete(
         f"/api/v1/admin/staff/{me['id']}/disciplinary/{did}", headers=admin_headers
     ).status_code == 204
+
+
+def test_offboard_and_reactivate(client, admin_headers):
+    s = client.post(
+        "/api/v1/admin/staff",
+        headers=admin_headers,
+        json={"email": "exit.staff@example.com", "full_name": "Exit Staff", "role_slug": "staff"},
+    ).json()
+    r = client.post(
+        f"/api/v1/admin/staff/{s['id']}/exit",
+        headers=admin_headers,
+        json={"exit_type": "resignation", "exit_date": "2026-06-30", "rehire_eligible": True, "assets_returned": True},
+    )
+    assert r.status_code == 200, r.text
+
+    prof = client.get(f"/api/v1/admin/staff/{s['id']}", headers=admin_headers).json()["profile"]
+    assert prof["status"] == "exited"
+    ex = client.get(f"/api/v1/admin/staff/{s['id']}/exit", headers=admin_headers).json()
+    assert ex["exit_type"] == "resignation" and ex["assets_returned"] is True
+
+    assert client.delete(f"/api/v1/admin/staff/{s['id']}/exit", headers=admin_headers).status_code == 204
+    prof = client.get(f"/api/v1/admin/staff/{s['id']}", headers=admin_headers).json()["profile"]
+    assert prof["status"] == "active"
+
+
+def test_cannot_offboard_self(client, admin_headers):
+    me = client.get("/api/v1/auth/me", headers=admin_headers).json()
+    r = client.post(
+        f"/api/v1/admin/staff/{me['id']}/exit",
+        headers=admin_headers,
+        json={"exit_type": "resignation"},
+    )
+    assert r.status_code == 400
