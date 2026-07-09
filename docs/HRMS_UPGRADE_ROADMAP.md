@@ -72,10 +72,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [ ] Personal / employment / professional / company-records / documents sections
 - [ ] Promotions, transfers, disciplinary, rewards, assets, access rights history
 
-### 2B. Employee ID system
-- [ ] Auto employee number (QDE-YYYY-NNNNNN / QDE-<DEPT>-NNNNN) — unique, immutable
-- [ ] Card number, QR verification code, encrypted NFC token, digital certificate,
-      verification URL
+### 2B. Employee ID system ✅ shipped
+- [x] Auto employee number (QDE-YYYY-NNNNNN) — unique, immutable, assigned on hire
+      + seed backfill + on-demand generate endpoint. migration m3r4s5t6u7v8;
+      shown in staff list + detail. test_employee_identity.py
+- [x] QR verification code (random token) generated alongside the number
+- [ ] Card number, encrypted NFC token, digital certificate (with 2C card)
 
 ### 2C. Smart ID card generator
 - [ ] Front/back printable card (PDF/PNG/high-res), preview, reissue/suspend history

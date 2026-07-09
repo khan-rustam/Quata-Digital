@@ -337,6 +337,7 @@ def admin_list_staff(
             department=u.department.name if u.department else None,
             job_title=u.job_title,
             status=u.status,
+            employee_number=u.employee_number,
         )
         for u in rows
     ]

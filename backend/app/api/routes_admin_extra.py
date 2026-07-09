@@ -578,6 +578,31 @@ def delete_application_attachment(
 
 # -------- Staff detail --------
 
+@router.post("/staff/{user_id}/identity", status_code=201)
+def generate_staff_identity(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Assign a permanent employee number + verification code to a staff member
+    who doesn't have one yet (e.g. hired before this feature). Never overwrites
+    an existing number."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    from app.services.identity import ensure_employee_identity
+
+    changed = ensure_employee_identity(db, u)
+    if changed:
+        log_activity(
+            db, actor=user, action="assign_identity", resource_type="user",
+            resource_id=u.id, request=request, details={"employee_number": u.employee_number},
+        )
+    db.commit()
+    return {"employee_number": u.employee_number, "verification_code": u.verification_code}
+
+
 @router.get("/staff/{user_id}")
 def get_staff_detail(
     user_id: int,
@@ -617,6 +642,8 @@ def get_staff_detail(
             "avatar_url": u.avatar_url,
             "job_title": u.job_title,
             "biometric_id": u.biometric_id,
+            "employee_number": u.employee_number,
+            "verification_code": u.verification_code,
             "role": u.role.slug if u.role else None,
             "department": u.department.name if u.department else None,
             "status": u.status,

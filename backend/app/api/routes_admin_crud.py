@@ -491,6 +491,9 @@ def create_staff(
     )
     db.add(u)
     db.flush()
+    # Auto-assign a permanent employee number + verification code on hire (2B).
+    from app.services.identity import ensure_employee_identity
+    ensure_employee_identity(db, u)
     log_activity(
         db,
         actor=user,
@@ -498,7 +501,7 @@ def create_staff(
         resource_type="user",
         resource_id=u.id,
         request=request,
-        details={"role": role.slug, "generated_password": payload.password is None},
+        details={"role": role.slug, "generated_password": payload.password is None, "employee_number": u.employee_number},
     )
     db.commit()
     db.refresh(u)
@@ -510,6 +513,7 @@ def create_staff(
         department=u.department.name if u.department else None,
         job_title=u.job_title,
         status=u.status,
+        employee_number=u.employee_number,
     )
 
 
@@ -555,6 +559,7 @@ def update_staff(
         department=u.department.name if u.department else None,
         job_title=u.job_title,
         status=u.status,
+        employee_number=u.employee_number,
     )
 
 

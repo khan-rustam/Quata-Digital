@@ -984,4 +984,9 @@ def run_seed(db: Session) -> None:
     # devices, attendance logs or fake staff. The platform launches clean —
     # leadership will add real records as they come in.
 
+    # Backfill employee identity (HRMS 2B) for every real user.
+    from app.services.identity import ensure_employee_identity
+    for u in db.query(User).filter(User.is_deleted == False).order_by(User.id).all():  # noqa: E712
+        ensure_employee_identity(db, u)
+
     db.commit()

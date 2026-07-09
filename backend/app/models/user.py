@@ -99,6 +99,15 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     biometric_id: Mapped[Optional[str]] = mapped_column(String(80), nullable=True, index=True)
 
+    # --- Employee identity (HRMS 2B) ---
+    # Auto-generated, unique, immutable once set (QDE-YYYY-NNNNNN). The
+    # verification_code backs the public QR verification URL (2D) — a random
+    # token, never the employee number itself.
+    employee_number: Mapped[Optional[str]] = mapped_column(String(20), unique=True, nullable=True)
+    verification_code: Mapped[Optional[str]] = mapped_column(
+        String(32), unique=True, nullable=True, index=True
+    )
+
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
     department_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("departments.id", use_alter=True, name="fk_user_dept"), nullable=True

@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Clock,
   Shield,
+  Hash,
   Loader2,
 } from "lucide-react";
 import { PageShell } from "@/components/admin/page-shell";
@@ -29,6 +30,8 @@ type Detail = {
     avatar_url: string | null;
     job_title: string | null;
     biometric_id: string | null;
+    employee_number: string | null;
+    verification_code: string | null;
     role: string | null;
     department: string | null;
     status: "active" | "invited" | "suspended";
@@ -132,6 +135,12 @@ export default function StaffDetailPage() {
               <Shield className="h-3.5 w-3.5 text-primary" />
               <span className="capitalize">{profile.role?.replace("_", " ") ?? "—"}</span>
             </li>
+            {profile.employee_number && (
+              <li className="flex items-center gap-2 text-foreground/85">
+                <Hash className="h-3.5 w-3.5 text-primary" />
+                <code className="text-xs font-medium">{profile.employee_number}</code>
+              </li>
+            )}
             {profile.biometric_id && (
               <li className="flex items-center gap-2 text-muted-foreground">
                 <code className="text-[10px]">bio: {profile.biometric_id}</code>

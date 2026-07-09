@@ -145,6 +145,7 @@ class StaffOut(BaseModel):
     department: Optional[str] = None
     job_title: Optional[str] = None
     status: str
+    employee_number: Optional[str] = None
 
     class Config:
         from_attributes = True

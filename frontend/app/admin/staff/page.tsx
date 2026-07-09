@@ -26,6 +26,7 @@ type Staff = {
   department: string | null;
   status: "active" | "invited" | "suspended";
   job_title: string | null;
+  employee_number: string | null;
 };
 
 type Dept = { id: number; slug: string; name: string };
@@ -118,6 +119,11 @@ export default function StaffPage() {
           </div>
         </Link>
       ),
+    },
+    {
+      key: "empno",
+      header: "Employee no.",
+      cell: (r) => r.employee_number ? <code className="text-xs">{r.employee_number}</code> : <span className="text-muted-foreground">—</span>,
     },
     { key: "role", header: "Role", cell: (r) => <Badge variant="brand">{r.role.replace("_", " ")}</Badge> },
     { key: "title", header: "Title", cell: (r) => r.job_title ?? "—" },
