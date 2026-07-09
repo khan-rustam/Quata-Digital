@@ -3,6 +3,7 @@ from .user import User, Role, Department, BusinessUnit, RolePermission, Password
 from .product import Product
 from .blog import BlogPost, Page
 from .career import Job, Application, ApplicationNote, ApplicationAttachment
+from .hr import PerformanceReview
 from .partner import PartnerRequest
 from .messaging import Message, MessageRecipient
 from .leave import LeaveRequest
@@ -32,6 +33,7 @@ __all__ = [
     "Application",
     "ApplicationNote",
     "ApplicationAttachment",
+    "PerformanceReview",
     "PartnerRequest",
     "Message",
     "MessageRecipient",

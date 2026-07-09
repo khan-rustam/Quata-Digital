@@ -25,6 +25,7 @@ import { apiUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
 import { EmployeePersonnelFile } from "@/components/admin/employee-profile";
+import { EmployeePerformance } from "@/components/admin/employee-performance";
 
 type Detail = {
   profile: {
@@ -298,6 +299,11 @@ export default function StaffDetailPage() {
       {/* Personnel file (2A) */}
       <div className="mt-4">
         <EmployeePersonnelFile profile={profile} onSaved={refresh} />
+      </div>
+
+      {/* Performance reviews (2G) */}
+      <div className="mt-4">
+        <EmployeePerformance staffId={profile.id} />
       </div>
 
       {/* Activity */}

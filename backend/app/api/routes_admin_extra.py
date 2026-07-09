@@ -28,6 +28,7 @@ from app.models import (
     NewsletterBroadcast,
     NewsletterSubscriber,
     PartnerRequest,
+    PerformanceReview,
     Role,
     RolePermission,
     User,
@@ -683,6 +684,90 @@ def staff_id_card(
         media_type="image/png",
         headers={"Content-Disposition": f'inline; filename="{stem}.png"'},
     )
+
+
+class ReviewIn(BaseModel):
+    period: str = Field(min_length=1, max_length=40)
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    strengths: Optional[str] = Field(default=None, max_length=4000)
+    improvements: Optional[str] = Field(default=None, max_length=4000)
+    goals: Optional[str] = Field(default=None, max_length=4000)
+    reviewer_id: Optional[int] = None
+    status: str = Field(default="submitted", pattern="^(draft|submitted)$")
+
+
+@router.get("/staff/{user_id:int}/reviews")
+def list_performance_reviews(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    rows = (
+        db.query(PerformanceReview)
+        .filter(PerformanceReview.user_id == user_id)
+        .order_by(PerformanceReview.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "period": r.period,
+            "rating": r.rating,
+            "strengths": r.strengths,
+            "improvements": r.improvements,
+            "goals": r.goals,
+            "status": r.status,
+            "reviewer_name": r.reviewer.full_name if r.reviewer else None,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/staff/{user_id:int}/reviews", status_code=201)
+def add_performance_review(
+    user_id: int,
+    payload: ReviewIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    r = PerformanceReview(
+        user_id=user_id,
+        reviewer_id=payload.reviewer_id or user.id,
+        period=payload.period,
+        rating=payload.rating,
+        strengths=payload.strengths,
+        improvements=payload.improvements,
+        goals=payload.goals,
+        status=payload.status,
+    )
+    db.add(r)
+    db.flush()
+    log_activity(db, actor=user, action="review", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+    db.refresh(r)
+    return {"id": r.id}
+
+
+@router.delete("/staff/{user_id:int}/reviews/{review_id}", status_code=204)
+def delete_performance_review(
+    user_id: int,
+    review_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    r = db.get(PerformanceReview, review_id)
+    if not r or r.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Review not found")
+    db.delete(r)
+    log_activity(db, actor=user, action="review_delete", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
 
 
 @router.get("/staff/{user_id:int}")
