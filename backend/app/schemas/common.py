@@ -146,6 +146,8 @@ class StaffOut(BaseModel):
     job_title: Optional[str] = None
     status: str
     employee_number: Optional[str] = None
+    employment_type: Optional[str] = None
+    work_location: Optional[str] = None
 
     class Config:
         from_attributes = True

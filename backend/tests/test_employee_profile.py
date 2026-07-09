@@ -43,6 +43,17 @@ def test_update_and_read_personnel_file(client, admin_headers):
     assert p["emergency_contacts"][0]["name"] == "Jane"
 
 
+def test_staff_directory_csv_export(client, admin_headers):
+    r = client.get("/api/v1/admin/staff/export.csv", headers=admin_headers)
+    assert r.status_code == 200
+    assert "text/csv" in r.headers["content-type"]
+    lines = r.text.splitlines()
+    assert lines[0].startswith("employee_number,full_name,email,role,department")
+    assert any("admin@quatadigital.com" in ln for ln in lines[1:])
+    # Auth required.
+    assert client.get("/api/v1/admin/staff/export.csv").status_code == 401
+
+
 def test_cannot_be_own_manager(client, admin_headers):
     me = client.get("/api/v1/auth/me", headers=admin_headers).json()
     r = client.patch(

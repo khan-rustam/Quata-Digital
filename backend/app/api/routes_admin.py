@@ -559,9 +559,44 @@ def admin_list_staff(
             job_title=u.job_title,
             status=u.status,
             employee_number=u.employee_number,
+            employment_type=u.employment_type,
+            work_location=u.work_location,
         )
         for u in rows
     ]
+
+
+@router.get("/staff/export.csv")
+def export_staff_csv(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Employee directory export (CSV)."""
+    rows = db.query(User).filter(User.is_deleted == False).order_by(User.full_name).all()  # noqa: E712
+    buf = StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(
+        ["employee_number", "full_name", "email", "role", "department",
+         "job_title", "employment_type", "work_location", "status"]
+    )
+    for u in rows:
+        writer.writerow([
+            u.employee_number or "",
+            u.full_name,
+            u.email,
+            u.role.slug if u.role else "",
+            u.department.name if u.department else "",
+            u.job_title or "",
+            u.employment_type or "",
+            u.work_location or "",
+            u.status,
+        ])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=employees.csv"},
+    )
 
 
 @router.get("/departments", response_model=List[DepartmentOut])

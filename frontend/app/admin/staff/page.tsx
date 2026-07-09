@@ -16,7 +16,10 @@ import { Select } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { SearchInput, useDebouncedValue } from "@/components/admin/search-input";
 import { useApi, useApiAction } from "@/lib/use-api";
+import { apiUrl } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
+import { Download } from "lucide-react";
 
 type Staff = {
   id: number;
@@ -27,6 +30,8 @@ type Staff = {
   status: "active" | "invited" | "suspended";
   job_title: string | null;
   employee_number: string | null;
+  employment_type: string | null;
+  work_location: string | null;
 };
 
 type Dept = { id: number; slug: string; name: string };
@@ -45,22 +50,45 @@ export default function StaffPage() {
   const action = useApiAction();
   const toast = useToast();
 
+  const { token } = useAuth();
   const [search, setSearch] = React.useState("");
   const debounced = useDebouncedValue(search);
+  const [deptFilter, setDeptFilter] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("");
 
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Staff | null>(null);
   const [deleting, setDeleting] = React.useState<Staff | null>(null);
 
   const filtered = React.useMemo(() => {
-    const list = staff.data ?? [];
-    if (!debounced.trim()) return list;
-    const q = debounced.toLowerCase();
-    return list.filter((s) =>
-      [s.full_name, s.email, s.role, s.department ?? "", s.job_title ?? ""]
-        .join(" ").toLowerCase().includes(q)
-    );
-  }, [staff.data, debounced]);
+    const q = debounced.trim().toLowerCase();
+    return (staff.data ?? []).filter((s) => {
+      if (deptFilter && (s.department ?? "") !== deptFilter) return false;
+      if (statusFilter && s.status !== statusFilter) return false;
+      if (!q) return true;
+      return [s.full_name, s.email, s.role, s.department ?? "", s.job_title ?? "", s.employee_number ?? "", s.work_location ?? ""]
+        .join(" ").toLowerCase().includes(q);
+    });
+  }, [staff.data, debounced, deptFilter, statusFilter]);
+
+  async function onExport() {
+    try {
+      const res = await fetch(`${apiUrl}/admin/staff/export.csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "employees.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Export failed", err instanceof Error ? err.message : "Try again.");
+    }
+  }
 
   async function onSubmit(form: FormData) {
     const dept = String(form.get("department_slug") || "");
@@ -171,6 +199,26 @@ export default function StaffPage() {
         </>
       }
     >
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="w-auto min-w-44">
+          <option value="">All departments</option>
+          {(departments.data ?? []).map((d) => (
+            <option key={d.id} value={d.name}>{d.name}</option>
+          ))}
+        </Select>
+        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-auto min-w-36">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="invited">Invited</option>
+          <option value="suspended">Suspended</option>
+        </Select>
+        <span className="text-xs text-muted-foreground">
+          {filtered.length} employee{filtered.length === 1 ? "" : "s"}
+        </span>
+        <Button variant="outline" size="sm" onClick={onExport} className="ml-auto">
+          <Download className="h-4 w-4" /> Export CSV
+        </Button>
+      </div>
       {staff.loading ? (
         <TableSkeleton rows={6} cols={6} />
       ) : (

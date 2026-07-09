@@ -635,7 +635,7 @@ def staff_id_card(
     )
 
 
-@router.get("/staff/{user_id}")
+@router.get("/staff/{user_id:int}")
 def get_staff_detail(
     user_id: int,
     db: Session = Depends(get_db),

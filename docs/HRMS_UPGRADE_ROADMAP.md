@@ -107,7 +107,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 ### 2G. Attendance / Leave / Performance / Training / Assets / Directory upgrades
 - [ ] Attendance: NFC/QR/biometric/manual/GPS/WiFi, breaks, overtime, reports
 - [ ] Leave: types + Employee→Manager→HR workflow, auto balance
-- [ ] Performance reviews · Training records · Asset assignment · Employee directory
+- [x] Employee directory — /admin/staff with search (name/email/employee no/location),
+      department + status filters, and CSV export (GET /admin/staff/export.csv)
+- [ ] Performance reviews · Training records · Asset assignment
 
 ---
 
