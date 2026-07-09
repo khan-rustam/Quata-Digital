@@ -18,7 +18,7 @@ import { ApplicationDetailSlideOver } from "@/components/admin/application-detai
 import { useApi, useApiAction } from "@/lib/use-api";
 import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
-import { stageLabel, stageVariant } from "@/lib/applicant-stages";
+import { stageLabel, stageVariant, ALL_STAGES } from "@/lib/applicant-stages";
 
 type Job = {
   id: number;
@@ -265,7 +265,15 @@ function JobsManager() {
 }
 
 function ApplicantsManager({ initialApplicant }: { initialApplicant: number | null }) {
-  const apps = useApi<Application[]>("/admin/applications");
+  // Talent pool: search + stage filter over ALL applicants (incl. rejected /
+  // archived — nothing is hard-deleted). Backed by /admin/applications/v2.
+  const [q, setQ] = React.useState("");
+  const [stage, setStage] = React.useState("");
+  const params = new URLSearchParams();
+  if (q.trim()) params.set("q", q.trim());
+  if (stage) params.set("status", stage);
+  const qs = params.toString();
+  const apps = useApi<Application[]>(`/admin/applications/v2${qs ? `?${qs}` : ""}`);
   // Deep link from the "new applicant" email opens that candidate's panel on
   // mount — the CV (view/download) and hiring dialogs live there.
   const [openDetail, setOpenDetail] = React.useState(initialApplicant != null);
@@ -313,10 +321,27 @@ function ApplicantsManager({ initialApplicant }: { initialApplicant: number | nu
 
   return (
     <>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name or email…"
+          className="max-w-xs"
+        />
+        <Select value={stage} onChange={(e) => setStage(e.target.value)} className="w-auto min-w-44">
+          <option value="">All stages</option>
+          {ALL_STAGES.map((s) => (
+            <option key={s} value={s}>{stageLabel(s)}</option>
+          ))}
+        </Select>
+        <span className="ml-auto text-xs text-muted-foreground">
+          Talent pool — includes rejected &amp; archived
+        </span>
+      </div>
       {apps.loading ? (
         <TableSkeleton rows={5} cols={5} />
       ) : (
-        <DataTable columns={cols} rows={apps.data ?? []} loading={false} empty="No applications yet." />
+        <DataTable columns={cols} rows={apps.data ?? []} loading={false} empty="No matching applicants." />
       )}
       <ApplicationDetailSlideOver
         open={openDetail}

@@ -49,6 +49,22 @@ export const STAGE_VARIANT: Record<string, StageVariant> = {
   archived: "default",
 };
 
+// Ordered pipeline, for filter dropdowns and (later) funnel charts.
+export const ALL_STAGES: ApplicantStage[] = [
+  "new",
+  "hr_review",
+  "shortlisted",
+  "interview_scheduled",
+  "interviewed",
+  "assessment",
+  "reference_check",
+  "offer",
+  "offer_accepted",
+  "hired",
+  "rejected",
+  "archived",
+];
+
 export function stageLabel(status: string): string {
   return STAGE_LABEL[status] ?? status;
 }

@@ -34,7 +34,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
       keep their email dialogs). Backward-compatible; no migration (string status).
 - [x] Per-stage status + timestamp + assigned HR + notes + comments + logs (1A timeline)
 - [ ] Attachments on applicants (offer letters, assessments, reference checks)
-- [ ] Keep rejected applicants searchable (never hard-delete) — talent pool base
+- [x] Keep rejected applicants searchable (never hard-delete) — talent pool base
 
 ### 1C. Applicant profile (complete digital profile)
 - [ ] Structured profile: personal, contact, education, employment history,
@@ -43,8 +43,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [ ] Download Profile PDF
 
 ### 1D. Talent pool / database
-- [ ] Search/filter all applicants (incl. rejected) by skills, education,
-      experience, languages, certs, role, score, department match, status
+- [~] Search/filter all applicants (incl. rejected/archived) — name/email + stage
+      done (Applicants tab, /admin/applications/v2). Richer filters (skills,
+      education, certs, AI score, dept match) land with 1C profile + 1E AI.
 - [ ] When a vacancy opens, surface matching past applicants first
 
 ### 1E. AI talent intelligence (AI)
