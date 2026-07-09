@@ -1279,6 +1279,74 @@ def leave_balance(
     }
 
 
+@router.get("/staff/{user_id:int}/attendance-summary")
+def attendance_summary(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """This-month attendance rollup: status counts, days logged, hours worked,
+    average check-in time, and the most recent entries."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    logs = (
+        db.query(AttendanceLog)
+        .filter(AttendanceLog.user_id == user_id)
+        .order_by(AttendanceLog.check_in_at.desc().nulls_last(), AttendanceLog.created_at.desc())
+        .limit(100)
+        .all()
+    )
+    counts = {"present": 0, "late": 0, "absent": 0, "on_leave": 0}
+    worked_seconds = 0
+    days_logged = 0
+    checkin_minutes: list[int] = []
+    recent = []
+    for a in logs:
+        eff = a.check_in_at or a.created_at
+        # SQLite returns naive datetimes; treat any naive value as UTC so it
+        # compares against the tz-aware month boundary.
+        if eff is not None and eff.tzinfo is None:
+            eff = eff.replace(tzinfo=timezone.utc)
+        if eff and eff >= month_start:
+            counts[a.status] = counts.get(a.status, 0) + 1
+            if a.check_in_at:
+                days_logged += 1
+                checkin_minutes.append(a.check_in_at.hour * 60 + a.check_in_at.minute)
+                if a.check_out_at:
+                    worked_seconds += max(0, (a.check_out_at - a.check_in_at).total_seconds())
+        if len(recent) < 8:
+            hours = None
+            if a.check_in_at and a.check_out_at:
+                hours = round(max(0, (a.check_out_at - a.check_in_at).total_seconds()) / 3600, 1)
+            recent.append(
+                {
+                    "date": (eff.date().isoformat() if eff else None),
+                    "check_in": a.check_in_at,
+                    "check_out": a.check_out_at,
+                    "status": a.status,
+                    "hours": hours,
+                }
+            )
+    avg_check_in = None
+    if checkin_minutes:
+        avg = round(sum(checkin_minutes) / len(checkin_minutes))
+        avg_check_in = f"{avg // 60:02d}:{avg % 60:02d}"
+    return {
+        "month": now.strftime("%Y-%m"),
+        "present": counts.get("present", 0),
+        "late": counts.get("late", 0),
+        "absent": counts.get("absent", 0),
+        "on_leave": counts.get("on_leave", 0),
+        "days_logged": days_logged,
+        "worked_hours": round(worked_seconds / 3600, 1),
+        "avg_check_in": avg_check_in,
+        "recent": recent,
+    }
+
+
 @router.get("/staff/{user_id:int}")
 def get_staff_detail(
     user_id: int,

@@ -32,6 +32,7 @@ import { EmployeeDisciplinary } from "@/components/admin/employee-disciplinary";
 import { EmployeeExitCard } from "@/components/admin/employee-exit";
 import { EmployeeCompensation } from "@/components/admin/employee-compensation";
 import { EmployeeLeaveBalance } from "@/components/admin/employee-leave-balance";
+import { EmployeeAttendance } from "@/components/admin/employee-attendance";
 
 type Detail = {
   profile: {
@@ -312,6 +313,11 @@ export default function StaffDetailPage() {
       {/* Leave balance (annual entitlement + this-year usage) */}
       <div className="mt-4">
         <EmployeeLeaveBalance staffId={profile.id} />
+      </div>
+
+      {/* Attendance (this-month rollup) */}
+      <div className="mt-4">
+        <EmployeeAttendance staffId={profile.id} />
       </div>
 
       {/* Performance reviews (2G) */}
