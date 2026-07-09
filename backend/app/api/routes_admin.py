@@ -18,6 +18,7 @@ from app.models import (
     BusinessUnit,
     ContactMessage,
     Department,
+    EmployeeExit,
     Device,
     Job,
     LeaveRequest,
@@ -597,6 +598,33 @@ def export_staff_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=employees.csv"},
     )
+
+
+@router.get("/alumni")
+def list_alumni(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Former employees — anyone with an exit record — with rehire eligibility."""
+    rows = (
+        db.query(User, EmployeeExit)
+        .join(EmployeeExit, EmployeeExit.user_id == User.id)
+        .order_by(EmployeeExit.exit_date.desc().nulls_last(), User.full_name)
+        .all()
+    )
+    return [
+        {
+            "id": u.id,
+            "full_name": u.full_name,
+            "employee_number": u.employee_number,
+            "department": u.department.name if u.department else None,
+            "job_title": u.job_title,
+            "exit_type": ex.exit_type,
+            "exit_date": ex.exit_date,
+            "rehire_eligible": ex.rehire_eligible,
+        }
+        for (u, ex) in rows
+    ]
 
 
 @router.get("/departments", response_model=List[DepartmentOut])

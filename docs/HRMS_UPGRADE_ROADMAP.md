@@ -126,9 +126,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
       "Contracts expiring" panel, from 2A contract_expiry). Versions/renewals pending.
 - [~] Probation management — on-probation + overdue alerts done (dashboard panel,
       from 2A probation_status/confirmation_date). Evaluations/auto-confirm pending.
-- [ ] Disciplinary workflow (confidential, audit trail)
-- [ ] Exit management (asset return, access/NFC revocation, clearance, interview)
-- [ ] Alumni database (searchable former staff, rehire eligibility)
+- [x] Disciplinary — confidential per-employee records (warning→investigation→
+      resolution), audit-logged. migration s9x0y1z2a3b4
+- [x] Exit management — offboarding record (type/date/reason/rehire eligibility/
+      knowledge transfer + checklist: assets/access/exit interview/settlement);
+      marks the employee 'exited'/inactive; reversible. migration t0y1z2a3b4c5
+- [x] Alumni database — /admin/alumni: searchable former staff with rehire
+      eligibility (GET /admin/alumni). History never deleted.
 - [x] HR analytics dashboard — /admin/hr-dashboard + GET /admin/hr-analytics:
       KPI tiles + headcount-by-department/business-unit + recruitment-funnel +
       workforce distributions (gender, age, tenure, employment type) — all

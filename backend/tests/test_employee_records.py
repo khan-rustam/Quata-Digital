@@ -111,3 +111,20 @@ def test_cannot_offboard_self(client, admin_headers):
         json={"exit_type": "resignation"},
     )
     assert r.status_code == 400
+
+
+def test_alumni_list(client, admin_headers):
+    s = client.post(
+        "/api/v1/admin/staff",
+        headers=admin_headers,
+        json={"email": "alum.staff@example.com", "full_name": "Alum Staff", "role_slug": "staff"},
+    ).json()
+    client.post(
+        f"/api/v1/admin/staff/{s['id']}/exit",
+        headers=admin_headers,
+        json={"exit_type": "retirement", "rehire_eligible": False},
+    )
+    alumni = client.get("/api/v1/admin/alumni", headers=admin_headers).json()
+    row = next((a for a in alumni if a["id"] == s["id"]), None)
+    assert row is not None
+    assert row["exit_type"] == "retirement" and row["rehire_eligible"] is False
