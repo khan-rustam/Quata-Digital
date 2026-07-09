@@ -61,3 +61,20 @@ def test_assets(client, admin_headers):
     assert client.delete(
         f"/api/v1/admin/staff/{me['id']}/assets/{aid}", headers=admin_headers
     ).status_code == 204
+
+
+def test_disciplinary(client, admin_headers):
+    me = client.get("/api/v1/auth/me", headers=admin_headers).json()
+    r = client.post(
+        f"/api/v1/admin/staff/{me['id']}/disciplinary",
+        headers=admin_headers,
+        json={"action_type": "written_warning", "summary": "Repeated lateness", "action_date": "2026-03-01"},
+    )
+    assert r.status_code == 201, r.text
+    did = r.json()["id"]
+    lst = client.get(f"/api/v1/admin/staff/{me['id']}/disciplinary", headers=admin_headers).json()
+    row = next(x for x in lst if x["id"] == did)
+    assert row["action_type"] == "written_warning" and row["issued_by"]
+    assert client.delete(
+        f"/api/v1/admin/staff/{me['id']}/disciplinary/{did}", headers=admin_headers
+    ).status_code == 204

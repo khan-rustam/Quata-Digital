@@ -59,3 +59,20 @@ class Asset(Base, TimestampMixin):
     assigned_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     returned_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class DisciplinaryAction(Base, TimestampMixin):
+    """Confidential disciplinary record (warning → investigation → resolution)."""
+
+    __tablename__ = "disciplinary_actions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    issued_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    action_type: Mapped[str] = mapped_column(String(30))  # verbal_warning|written_warning|suspension|investigation|final_warning|other
+    action_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    summary: Mapped[str] = mapped_column(Text)
+    outcome: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open|resolved|appealed
+
+    issued_by = relationship("User", foreign_keys=[issued_by_id])

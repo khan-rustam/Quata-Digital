@@ -31,6 +31,7 @@ from app.models import (
     PerformanceReview,
     TrainingRecord,
     Asset,
+    DisciplinaryAction,
     Role,
     RolePermission,
     User,
@@ -919,6 +920,78 @@ def delete_asset(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Asset not found")
     db.delete(a)
     log_activity(db, actor=user, action="asset_remove", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+
+
+class DisciplinaryIn(BaseModel):
+    action_type: str = Field(pattern="^(verbal_warning|written_warning|suspension|investigation|final_warning|other)$")
+    action_date: Optional[date] = None
+    summary: str = Field(min_length=1, max_length=4000)
+    outcome: Optional[str] = Field(default=None, max_length=4000)
+    status: str = Field(default="open", pattern="^(open|resolved|appealed)$")
+
+
+@router.get("/staff/{user_id:int}/disciplinary")
+def list_disciplinary(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    rows = (
+        db.query(DisciplinaryAction)
+        .filter(DisciplinaryAction.user_id == user_id)
+        .order_by(DisciplinaryAction.action_date.desc().nulls_last(), DisciplinaryAction.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": d.id,
+            "action_type": d.action_type,
+            "action_date": d.action_date,
+            "summary": d.summary,
+            "outcome": d.outcome,
+            "status": d.status,
+            "issued_by": d.issued_by.full_name if d.issued_by else None,
+            "created_at": d.created_at,
+        }
+        for d in rows
+    ]
+
+
+@router.post("/staff/{user_id:int}/disciplinary", status_code=201)
+def add_disciplinary(
+    user_id: int,
+    payload: DisciplinaryIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    d = DisciplinaryAction(user_id=user_id, issued_by_id=user.id, **payload.model_dump())
+    db.add(d)
+    db.flush()
+    log_activity(db, actor=user, action="disciplinary", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+    db.refresh(d)
+    return {"id": d.id}
+
+
+@router.delete("/staff/{user_id:int}/disciplinary/{action_id}", status_code=204)
+def delete_disciplinary(
+    user_id: int,
+    action_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    d = db.get(DisciplinaryAction, action_id)
+    if not d or d.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
+    db.delete(d)
+    log_activity(db, actor=user, action="disciplinary_delete", resource_type="user", resource_id=user_id, request=request)
     db.commit()
 
 

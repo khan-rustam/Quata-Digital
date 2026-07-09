@@ -28,6 +28,7 @@ import { EmployeePersonnelFile } from "@/components/admin/employee-profile";
 import { EmployeePerformance } from "@/components/admin/employee-performance";
 import { EmployeeTraining } from "@/components/admin/employee-training";
 import { EmployeeAssets } from "@/components/admin/employee-assets";
+import { EmployeeDisciplinary } from "@/components/admin/employee-disciplinary";
 
 type Detail = {
   profile: {
@@ -316,6 +317,11 @@ export default function StaffDetailPage() {
       {/* Assigned assets (2G) */}
       <div className="mt-4">
         <EmployeeAssets staffId={profile.id} />
+      </div>
+
+      {/* Disciplinary (confidential) */}
+      <div className="mt-4">
+        <EmployeeDisciplinary staffId={profile.id} />
       </div>
 
       {/* Activity */}
