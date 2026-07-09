@@ -15,6 +15,7 @@ from app.models import (
     Application,
     AttendanceLog,
     BlogPost,
+    BusinessUnit,
     ContactMessage,
     Department,
     Device,
@@ -129,6 +130,126 @@ def overview(
         ],
         attendance_today={"present": present, "absent": absent, "on_leave": on_leave},
     )
+
+
+_FUNNEL_STAGES = [
+    ("new", "New"),
+    ("hr_review", "HR review"),
+    ("shortlisted", "Shortlisted"),
+    ("interview_scheduled", "Interview scheduled"),
+    ("interviewed", "Interview completed"),
+    ("assessment", "Assessment"),
+    ("reference_check", "Reference check"),
+    ("offer", "Offer"),
+    ("offer_accepted", "Offer accepted"),
+    ("hired", "Hired"),
+    ("rejected", "Rejected"),
+    ("archived", "Archived"),
+]
+
+
+@router.get("/hr-analytics")
+def hr_analytics(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage", "analytics:view")),
+):
+    """Executive HR dashboard aggregates, computed over real data only
+    (employees, jobs, applicants, departments, business units, leave)."""
+    today = datetime.now(timezone.utc).date()
+    since_30d = datetime.now(timezone.utc) - timedelta(days=30)
+
+    users_q = db.query(User).filter(User.is_deleted == False)  # noqa: E712
+    total_employees = users_q.count()
+    active_employees = users_q.filter(User.is_active == True, User.status == "active").count()  # noqa: E712
+    invited = users_q.filter(User.status == "invited").count()
+    suspended = users_q.filter(User.status == "suspended").count()
+    new_hires_30d = users_q.filter(User.created_at >= since_30d).count()
+
+    open_vacancies = (
+        db.query(func.count(Job.id))
+        .filter(Job.is_published == True, Job.is_deleted == False)  # noqa: E712
+        .scalar()
+        or 0
+    )
+    applicants = db.query(func.count(Application.id)).scalar() or 0
+    on_leave_today = (
+        db.query(func.count(LeaveRequest.id))
+        .filter(
+            LeaveRequest.status == "approved",
+            LeaveRequest.start_date <= today,
+            LeaveRequest.end_date >= today,
+        )
+        .scalar()
+        or 0
+    )
+    pending_leave = (
+        db.query(func.count(LeaveRequest.id)).filter(LeaveRequest.status == "pending").scalar() or 0
+    )
+    business_units_count = (
+        db.query(func.count(BusinessUnit.id)).filter(BusinessUnit.is_deleted == False).scalar() or 0  # noqa: E712
+    )
+
+    departments = (
+        db.query(Department).filter(Department.is_deleted == False).all()  # noqa: E712
+    )
+    dept_counts = dict(
+        db.query(User.department_id, func.count(User.id))
+        .filter(User.is_deleted == False)  # noqa: E712
+        .group_by(User.department_id)
+        .all()
+    )
+    headcount_by_department = sorted(
+        [
+            {
+                "name": d.name,
+                "count": dept_counts.get(d.id, 0),
+                "max": d.max_headcount,
+                "business_unit": d.business_unit.name if d.business_unit else None,
+            }
+            for d in departments
+        ],
+        key=lambda r: r["count"],
+        reverse=True,
+    )
+    bu_map: dict[str, int] = {}
+    for d in departments:
+        name = d.business_unit.name if d.business_unit else "Unassigned"
+        bu_map[name] = bu_map.get(name, 0) + dept_counts.get(d.id, 0)
+    headcount_by_business_unit = sorted(
+        [{"name": k, "count": v} for k, v in bu_map.items()],
+        key=lambda r: r["count"],
+        reverse=True,
+    )
+
+    stage_counts = dict(
+        db.query(Application.status, func.count(Application.id))
+        .group_by(Application.status)
+        .all()
+    )
+    recruitment_funnel = [
+        {"stage": s, "label": label, "count": stage_counts.get(s, 0)}
+        for s, label in _FUNNEL_STAGES
+        if stage_counts.get(s, 0) > 0
+    ]
+
+    return {
+        "totals": {
+            "employees": total_employees,
+            "active_employees": active_employees,
+            "invited": invited,
+            "suspended": suspended,
+            "new_hires_30d": new_hires_30d,
+            "open_vacancies": open_vacancies,
+            "applicants": applicants,
+            "on_leave_today": on_leave_today,
+            "pending_leave": pending_leave,
+            "business_units": business_units_count,
+            "departments": len(departments),
+        },
+        "headcount_by_department": headcount_by_department,
+        "headcount_by_business_unit": headcount_by_business_unit,
+        "recruitment_funnel": recruitment_funnel,
+    }
 
 
 # ---------- Partners ----------

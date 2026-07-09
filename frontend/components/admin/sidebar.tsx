@@ -17,6 +17,7 @@ import {
   Cpu,
   Building,
   Building2,
+  LineChart,
   Shield,
   Layers,
   Image as ImageIcon,
@@ -58,6 +59,7 @@ export const adminNavGroups = [
   {
     title: "Staff",
     items: [
+      { href: "/admin/hr-dashboard", label: "HR dashboard", icon: LineChart, perm: "staff:manage" },
       { href: "/admin/staff", label: "Employees", icon: Users, perm: "staff:manage" },
       { href: "/admin/business-units", label: "Business units", icon: Building2, perm: "staff:manage" },
       { href: "/admin/departments", label: "Departments", icon: Building, perm: "staff:manage" },

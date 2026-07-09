@@ -1,0 +1,41 @@
+"""HRMS Phase 3: executive HR analytics dashboard aggregates."""
+
+
+def test_hr_analytics_shape(client, admin_headers):
+    r = client.get("/api/v1/admin/hr-analytics", headers=admin_headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    totals = body["totals"]
+    for key in (
+        "employees", "active_employees", "open_vacancies", "applicants",
+        "on_leave_today", "pending_leave", "business_units", "departments",
+        "new_hires_30d",
+    ):
+        assert key in totals, key
+        assert isinstance(totals[key], int)
+
+    # Seeded data: at least the founder admin + the 5 seeded business units.
+    assert totals["employees"] >= 1
+    assert totals["business_units"] >= 5
+
+    assert isinstance(body["headcount_by_department"], list)
+    assert isinstance(body["headcount_by_business_unit"], list)
+    assert isinstance(body["recruitment_funnel"], list)
+
+
+def test_hr_analytics_funnel_counts_real_applicants(client, admin_headers):
+    # Create one applicant, then it should appear in the "new" funnel bucket.
+    up = client.post(
+        "/api/v1/uploads/public",
+        files={"file": ("cv.pdf", b"CV", "application/pdf")},
+        data={"folder": "resumes"},
+    )
+    job_id = client.get("/api/v1/jobs").json()[0]["id"]
+    client.post(
+        f"/api/v1/jobs/{job_id}/apply",
+        json={"full_name": "Funnel Test", "email": "funnel.analytics@example.com", "resume_url": up.json()["url"]},
+    )
+    body = client.get("/api/v1/admin/hr-analytics", headers=admin_headers).json()
+    new_bucket = next((f for f in body["recruitment_funnel"] if f["stage"] == "new"), None)
+    assert new_bucket is not None and new_bucket["count"] >= 1
