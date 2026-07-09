@@ -252,6 +252,69 @@ def hr_analytics(
     }
 
 
+@router.get("/hr-alerts")
+def hr_alerts(
+    db: Session = Depends(get_db),
+    within_days: int = Query(default=60, ge=1, le=365),
+    user: User = Depends(require_permission("staff:manage", "analytics:view")),
+):
+    """Employees needing HR attention: contracts expiring (or expired) within
+    ``within_days``, and staff still on probation (flagged overdue once their
+    confirmation date has passed). Computed from the 2A personnel fields."""
+    today = datetime.now(timezone.utc).date()
+    employees = (
+        db.query(User)
+        .filter(User.is_deleted == False, User.is_active == True)  # noqa: E712
+        .all()
+    )
+
+    contracts_expiring = []
+    for u in employees:
+        if u.contract_expiry:
+            days_left = (u.contract_expiry - today).days
+            if days_left <= within_days:
+                contracts_expiring.append(
+                    {
+                        "id": u.id,
+                        "full_name": u.full_name,
+                        "employee_number": u.employee_number,
+                        "department": u.department.name if u.department else None,
+                        "contract_expiry": u.contract_expiry,
+                        "days_left": days_left,
+                        "expired": days_left < 0,
+                    }
+                )
+    contracts_expiring.sort(key=lambda r: r["days_left"])
+
+    on_probation = []
+    for u in employees:
+        if u.probation_status == "probation":
+            overdue = bool(u.confirmation_date and u.confirmation_date < today)
+            on_probation.append(
+                {
+                    "id": u.id,
+                    "full_name": u.full_name,
+                    "employee_number": u.employee_number,
+                    "department": u.department.name if u.department else None,
+                    "confirmation_date": u.confirmation_date,
+                    "overdue": overdue,
+                }
+            )
+    on_probation.sort(key=lambda r: (not r["overdue"], r["full_name"]))
+
+    return {
+        "within_days": within_days,
+        "counts": {
+            "contracts_expiring": len(contracts_expiring),
+            "contracts_expired": sum(1 for c in contracts_expiring if c["expired"]),
+            "on_probation": len(on_probation),
+            "probation_overdue": sum(1 for p in on_probation if p["overdue"]),
+        },
+        "contracts_expiring": contracts_expiring,
+        "on_probation": on_probation,
+    }
+
+
 # ---------- Partners ----------
 
 @router.get("/partners")

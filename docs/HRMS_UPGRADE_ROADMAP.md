@@ -114,8 +114,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 ## PHASE 3 — HR Ops & Intelligence  (Prompt 3)
 
 - [ ] Payroll preparation (structure, allowances, deductions; link to QuataPay later)
-- [ ] Contract management (types, expiry alerts, versions)
-- [ ] Probation management (evaluations, confirmation, reminders)
+- [~] Contract management — expiry alerts done (GET /admin/hr-alerts + dashboard
+      "Contracts expiring" panel, from 2A contract_expiry). Versions/renewals pending.
+- [~] Probation management — on-probation + overdue alerts done (dashboard panel,
+      from 2A probation_status/confirmation_date). Evaluations/auto-confirm pending.
 - [ ] Disciplinary workflow (confidential, audit trail)
 - [ ] Exit management (asset return, access/NFC revocation, clearance, interview)
 - [ ] Alumni database (searchable former staff, rehire eligibility)

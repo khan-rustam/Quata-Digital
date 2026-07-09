@@ -1,4 +1,23 @@
 """HRMS Phase 3: executive HR analytics dashboard aggregates."""
+from datetime import date, timedelta
+
+
+def test_hr_alerts_contracts_and_probation(client, admin_headers):
+    s = client.post(
+        "/api/v1/admin/staff",
+        headers=admin_headers,
+        json={"email": "alert.staff@example.com", "full_name": "Alert Staff", "role_slug": "staff"},
+    ).json()
+    soon = (date.today() + timedelta(days=10)).isoformat()
+    client.patch(
+        f"/api/v1/admin/staff/{s['id']}/profile",
+        headers=admin_headers,
+        json={"contract_expiry": soon, "probation_status": "probation"},
+    )
+    body = client.get("/api/v1/admin/hr-alerts", headers=admin_headers).json()
+    assert any(c["id"] == s["id"] for c in body["contracts_expiring"])
+    assert any(p["id"] == s["id"] for p in body["on_probation"])
+    assert body["counts"]["on_probation"] >= 1
 
 
 def test_hr_analytics_shape(client, admin_headers):

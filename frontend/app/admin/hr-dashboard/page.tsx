@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Users, UserCheck, Briefcase, FileText, CalendarOff, Clock, Building2, TrendingUp } from "lucide-react";
+import Link from "next/link";
+import { Users, UserCheck, Briefcase, FileText, CalendarOff, Clock, Building2, TrendingUp, FileClock, UserCog } from "lucide-react";
 import { PageShell } from "@/components/admin/page-shell";
 import { StatCard } from "@/components/admin/stat-card";
+import { Badge } from "@/components/ui/badge";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/lib/use-api";
 
@@ -27,6 +29,14 @@ type HrAnalytics = {
   headcount_by_department: Bar[];
   headcount_by_business_unit: Bar[];
   recruitment_funnel: FunnelRow[];
+};
+
+type ContractRow = { id: number; full_name: string; employee_number: string | null; department: string | null; contract_expiry: string; days_left: number; expired: boolean };
+type ProbationRow = { id: number; full_name: string; employee_number: string | null; department: string | null; confirmation_date: string | null; overdue: boolean };
+type HrAlerts = {
+  counts: { contracts_expiring: number; contracts_expired: number; on_probation: number; probation_overdue: number };
+  contracts_expiring: ContractRow[];
+  on_probation: ProbationRow[];
 };
 
 /**
@@ -77,6 +87,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 
 export default function HrDashboardPage() {
   const { data, loading } = useApi<HrAnalytics>("/admin/hr-analytics");
+  const alerts = useApi<HrAlerts>("/admin/hr-alerts");
 
   return (
     <PageShell
@@ -100,6 +111,52 @@ export default function HrDashboardPage() {
             <StatCard label="Pending approvals" value={data.totals.pending_leave} icon={Clock} accent="amber" />
             <StatCard label="Business units" value={data.totals.business_units} delta={`${data.totals.departments} departments`} icon={Building2} accent="sky" />
           </div>
+
+          {alerts.data && (alerts.data.counts.contracts_expiring > 0 || alerts.data.counts.on_probation > 0) && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Panel title="Contracts expiring soon">
+                <div className="space-y-2">
+                  {alerts.data.contracts_expiring.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">None in the window.</div>
+                  ) : (
+                    alerts.data.contracts_expiring.map((c) => (
+                      <Link key={c.id} href={`/admin/staff/${c.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-surface-soft px-3 py-2 hover:bg-card transition">
+                        <FileClock className={`h-4 w-4 shrink-0 ${c.expired ? "text-rose-600" : "text-amber-600"}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{c.full_name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">{c.department ?? "—"} · {new Date(`${c.contract_expiry}T00:00:00`).toLocaleDateString()}</div>
+                        </div>
+                        <Badge variant={c.expired ? "danger" : "warn"}>
+                          {c.expired ? "Expired" : `${c.days_left}d left`}
+                        </Badge>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </Panel>
+              <Panel title="On probation">
+                <div className="space-y-2">
+                  {alerts.data.on_probation.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No one on probation.</div>
+                  ) : (
+                    alerts.data.on_probation.map((pr) => (
+                      <Link key={pr.id} href={`/admin/staff/${pr.id}`} className="flex items-center gap-3 rounded-xl border border-border bg-surface-soft px-3 py-2 hover:bg-card transition">
+                        <UserCog className={`h-4 w-4 shrink-0 ${pr.overdue ? "text-rose-600" : "text-primary"}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{pr.full_name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {pr.department ?? "—"}
+                            {pr.confirmation_date ? ` · confirm by ${new Date(`${pr.confirmation_date}T00:00:00`).toLocaleDateString()}` : ""}
+                          </div>
+                        </div>
+                        {pr.overdue ? <Badge variant="danger">Overdue</Badge> : <Badge variant="warn">Probation</Badge>}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </Panel>
+            </div>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Panel title="Headcount by department">
