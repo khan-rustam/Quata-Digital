@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarClock, CalendarCheck, Download, Eye, Loader2, Mail, Phone } from "lucide-react";
+import { CalendarClock, CalendarCheck, Download, Eye, Loader2, Mail, Paperclip, Phone, Trash2 } from "lucide-react";
 import { SlideOver, SlideOverContent } from "@/components/admin/slide-over";
 import { FormDialog } from "@/components/admin/form-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,14 @@ type AppDetail = {
 
 type StaffLite = { id: number; full_name: string; role: string };
 type AppNote = { id: number; body: string; author_name: string; created_at: string };
+type AppAttachment = {
+  id: number;
+  filename: string;
+  label: string | null;
+  size: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+};
 type TimelineEvent = {
   id: number;
   action: string;
@@ -109,7 +117,61 @@ export function ApplicationDetailSlideOver({
   // Collaboration data — only fetched while the panel is open for an applicant.
   const staff = useApi<StaffLite[]>(open ? "/admin/staff" : null);
   const notes = useApi<AppNote[]>(path ? `${path}/notes` : null);
+  const attachments = useApi<AppAttachment[]>(path ? `${path}/attachments` : null);
   const timeline = useApi<TimelineEvent[]>(path ? `${path}/timeline` : null);
+  const [uploadingAtt, setUploadingAtt] = React.useState(false);
+
+  async function uploadAttachment(file: File) {
+    if (!applicationId) return;
+    setUploadingAtt(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${apiUrl}/admin/applications/${applicationId}/attachments`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: fd,
+      });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      attachments.refresh();
+      timeline.refresh();
+    } catch (err) {
+      toast.error("Couldn't upload", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setUploadingAtt(false);
+    }
+  }
+
+  async function downloadAttachment(att: AppAttachment) {
+    if (!applicationId) return;
+    try {
+      const res = await fetch(
+        `${apiUrl}/admin/applications/${applicationId}/attachments/${att.id}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+      );
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = att.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Couldn't download", err instanceof Error ? err.message : "Try again.");
+    }
+  }
+
+  async function deleteAttachment(att: AppAttachment) {
+    if (!applicationId) return;
+    try {
+      await action(`/admin/applications/${applicationId}/attachments/${att.id}`, { method: "DELETE" });
+      attachments.refresh();
+    } catch (err) {
+      toast.error("Couldn't remove", err instanceof Error ? err.message : "Try again.");
+    }
+  }
 
   async function assignHr(value: string) {
     if (!applicationId) return;
@@ -447,6 +509,57 @@ export function ApplicationDetailSlideOver({
                     {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
                   </Button>
                 </div>
+              </div>
+
+              {/* Attachments — private HR documents (offer letters, assessments, …) */}
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Documents
+                </div>
+                <div className="space-y-2">
+                  {(attachments.data ?? []).length === 0 && (
+                    <div className="text-sm text-muted-foreground">No documents attached.</div>
+                  )}
+                  {(attachments.data ?? []).map((att) => (
+                    <div key={att.id} className="flex items-center gap-2 rounded-xl border border-border bg-card p-3">
+                      <Paperclip className="h-4 w-4 text-primary shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(att)}
+                          className="text-sm font-medium truncate hover:text-primary block max-w-full text-left"
+                        >
+                          {att.filename}
+                        </button>
+                        <div className="text-[11px] text-muted-foreground">
+                          {att.uploaded_by ?? "—"} · {new Date(att.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteAttachment(att)}
+                        className="text-muted-foreground hover:text-rose-700 shrink-0"
+                        aria-label="Remove document"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <label className="mt-2 inline-flex items-center gap-2 rounded-xl border border-dashed border-border bg-card px-4 py-2.5 text-sm cursor-pointer hover:bg-surface-soft transition">
+                  {uploadingAtt ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Paperclip className="h-4 w-4 text-primary" />}
+                  {uploadingAtt ? "Uploading…" : "Attach document"}
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={uploadingAtt}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadAttachment(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
               </div>
 
               {/* Activity timeline */}

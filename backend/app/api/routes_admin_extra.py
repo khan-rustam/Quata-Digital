@@ -9,7 +9,7 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import cast, func, String as SqlString
@@ -20,6 +20,7 @@ from app.db.session import get_db
 from app.models import (
     ActivityLog,
     Application,
+    ApplicationAttachment,
     ApplicationNote,
     AttendanceLog,
     LeaveRequest,
@@ -467,6 +468,112 @@ def download_application_resume(
     )
     db.commit()
     return FileResponse(path, filename=f"resume-{a.id}{path.suffix.lower()}")
+
+
+# -------- Applicant attachments (private HR documents) --------
+
+@router.get("/applications/{app_id}/attachments")
+def list_application_attachments(
+    app_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    return [
+        {
+            "id": att.id,
+            "filename": att.filename,
+            "label": att.label,
+            "size": att.size,
+            "content_type": att.content_type,
+            "uploaded_by": att.uploaded_by.full_name if att.uploaded_by else None,
+            "created_at": att.created_at,
+        }
+        for att in a.attachments
+    ]
+
+
+@router.post("/applications/{app_id}/attachments", status_code=201)
+def upload_application_attachment(
+    app_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    label: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    """Attach a private HR document (offer letter, assessment, reference check)
+    to an applicant. Stored under the private ``applicant-docs`` folder and
+    only retrievable via the download endpoint below."""
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    from app.services.uploads import save_upload
+
+    info = save_upload(file, folder="applicant-docs")
+    att = ApplicationAttachment(
+        application_id=a.id,
+        uploaded_by_id=user.id,
+        filename=file.filename or info["filename"],
+        url=info["url"],
+        content_type=info.get("content_type"),
+        size=info.get("size"),
+        label=(label or "").strip() or None,
+    )
+    db.add(att)
+    db.flush()
+    log_activity(
+        db, actor=user, action="attach", resource_type="application",
+        resource_id=a.id, request=request, details={"filename": att.filename},
+    )
+    db.commit()
+    db.refresh(att)
+    return {"id": att.id, "filename": att.filename, "label": att.label}
+
+
+@router.get("/applications/{app_id}/attachments/{att_id}")
+def download_application_attachment(
+    app_id: int,
+    att_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    att = db.get(ApplicationAttachment, att_id)
+    if not att or att.application_id != app_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
+    from app.services.uploads import resolve_local_upload_path
+
+    path = resolve_local_upload_path(att.url)
+    if path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not available")
+    log_activity(
+        db, actor=user, action="download", resource_type="application",
+        resource_id=app_id, request=request, details={"attachment_id": att_id},
+    )
+    db.commit()
+    return FileResponse(path, filename=att.filename)
+
+
+@router.delete("/applications/{app_id}/attachments/{att_id}", status_code=204)
+def delete_application_attachment(
+    app_id: int,
+    att_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    att = db.get(ApplicationAttachment, att_id)
+    if not att or att.application_id != app_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
+    db.delete(att)
+    log_activity(
+        db, actor=user, action="detach", resource_type="application",
+        resource_id=app_id, request=request, details={"attachment_id": att_id},
+    )
+    db.commit()
 
 
 # -------- Staff detail --------

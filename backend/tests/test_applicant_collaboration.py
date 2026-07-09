@@ -78,6 +78,36 @@ def test_notes_and_timeline(client, admin_headers):
     assert "applied" in actions
 
 
+def test_applicant_attachments(client, admin_headers):
+    app_id = _make_application(client, admin_headers, "attach.collab@example.com")
+    r = client.post(
+        f"/api/v1/admin/applications/{app_id}/attachments",
+        headers=admin_headers,
+        files={"file": ("offer.pdf", b"OFFER LETTER", "application/pdf")},
+        data={"label": "Offer letter"},
+    )
+    assert r.status_code == 201, r.text
+    att_id = r.json()["id"]
+
+    lst = client.get(
+        f"/api/v1/admin/applications/{app_id}/attachments", headers=admin_headers
+    ).json()
+    assert any(a["id"] == att_id for a in lst)
+
+    # Authorised download returns the bytes; anonymous is rejected.
+    dl = client.get(
+        f"/api/v1/admin/applications/{app_id}/attachments/{att_id}", headers=admin_headers
+    )
+    assert dl.status_code == 200 and dl.content == b"OFFER LETTER"
+    assert client.get(
+        f"/api/v1/admin/applications/{app_id}/attachments/{att_id}"
+    ).status_code == 401
+
+    assert client.delete(
+        f"/api/v1/admin/applications/{app_id}/attachments/{att_id}", headers=admin_headers
+    ).status_code == 204
+
+
 def test_assign_unknown_staff_rejected(client, admin_headers):
     app_id = _make_application(client, admin_headers, "badassign.collab@example.com")
     r = client.patch(

@@ -54,6 +54,12 @@ class Application(Base, TimestampMixin, SoftDeleteMixin):
         cascade="all, delete-orphan",
         order_by="ApplicationNote.created_at",
     )
+    attachments = relationship(
+        "ApplicationAttachment",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        order_by="ApplicationAttachment.created_at",
+    )
 
 
 class ApplicationNote(Base, TimestampMixin):
@@ -72,3 +78,27 @@ class ApplicationNote(Base, TimestampMixin):
 
     application = relationship("Application", back_populates="notes")
     author = relationship("User", foreign_keys=[author_id])
+
+
+class ApplicationAttachment(Base, TimestampMixin):
+    """A private document attached to an applicant (offer letter, assessment,
+    reference check, signed forms). Served only through the authenticated admin
+    endpoint — never from the public /uploads mount."""
+
+    __tablename__ = "application_attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    application_id: Mapped[int] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    uploaded_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    filename: Mapped[str] = mapped_column(String(255))
+    url: Mapped[str] = mapped_column(String(500))
+    content_type: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    size: Mapped[Optional[int]] = mapped_column(nullable=True)
+    label: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
+    application = relationship("Application", back_populates="attachments")
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])

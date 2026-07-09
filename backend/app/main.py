@@ -144,15 +144,18 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
-# Applicant CVs are private (boss Q1): resumes land under
-# ``/uploads/<yyyy>/<mm>/resumes/...`` but must NOT be downloadable from the
-# public static mount. This guard runs before the mount and 404s any public
-# hit on a resume path; the only way to read a CV is the authenticated
-# ``GET /admin/applications/{id}/resume`` endpoint (careers:manage).
+# Applicant CVs + HR documents are private (boss Q1 / HRMS): they land under
+# ``/uploads/<yyyy>/<mm>/{resumes,applicant-docs}/...`` but must NOT be
+# downloadable from the public static mount. This guard runs before the mount
+# and 404s any public hit on those paths; the only way to read them is the
+# authenticated admin endpoints (careers:manage).
+_PRIVATE_UPLOAD_SEGMENTS = ("/resumes/", "/applicant-docs/")
+
+
 @app.middleware("http")
-async def block_public_resume_access(request, call_next):
+async def block_public_private_uploads(request, call_next):
     path = request.url.path
-    if path.startswith("/uploads/") and "/resumes/" in path:
+    if path.startswith("/uploads/") and any(seg in path for seg in _PRIVATE_UPLOAD_SEGMENTS):
         return JSONResponse({"detail": "Not found"}, status_code=404)
     return await call_next(request)
 

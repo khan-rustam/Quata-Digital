@@ -33,7 +33,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
       Hired / Rejected / Archived ("Move to stage" selector; shortlist/hire/reject
       keep their email dialogs). Backward-compatible; no migration (string status).
 - [x] Per-stage status + timestamp + assigned HR + notes + comments + logs (1A timeline)
-- [ ] Attachments on applicants (offer letters, assessments, reference checks)
+- [x] Attachments on applicants (offer letters, assessments, reference checks) —
+      private (authed download, blocked from public mount); migration l2q3r4s5t6u7
 - [x] Keep rejected applicants searchable (never hard-delete) — talent pool base
 
 ### 1C. Applicant profile (complete digital profile)
