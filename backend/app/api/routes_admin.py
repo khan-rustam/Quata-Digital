@@ -187,6 +187,19 @@ def hr_analytics(
     pending_leave = (
         db.query(func.count(LeaveRequest.id)).filter(LeaveRequest.status == "pending").scalar() or 0
     )
+    present_today = (
+        db.query(func.count(AttendanceLog.id))
+        .filter(func.date(AttendanceLog.check_in_at) == today)
+        .scalar()
+        or 0
+    )
+    late_today = (
+        db.query(func.count(AttendanceLog.id))
+        .filter(func.date(AttendanceLog.check_in_at) == today, AttendanceLog.status == "late")
+        .scalar()
+        or 0
+    )
+    attendance_rate = round(present_today / active_employees * 100) if active_employees else 0
     business_units_count = (
         db.query(func.count(BusinessUnit.id)).filter(BusinessUnit.is_deleted == False).scalar() or 0  # noqa: E712
     )
@@ -278,6 +291,9 @@ def hr_analytics(
             "applicants": applicants,
             "on_leave_today": on_leave_today,
             "pending_leave": pending_leave,
+            "present_today": present_today,
+            "late_today": late_today,
+            "attendance_rate": attendance_rate,
             "business_units": business_units_count,
             "departments": len(departments),
         },

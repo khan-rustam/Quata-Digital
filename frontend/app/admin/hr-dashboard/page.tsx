@@ -22,6 +22,9 @@ type Totals = {
   applicants: number;
   on_leave_today: number;
   pending_leave: number;
+  present_today: number;
+  late_today: number;
+  attendance_rate: number;
   business_units: number;
   departments: number;
 };
@@ -158,6 +161,8 @@ export default function HrDashboardPage() {
             <StatCard label="New hires (30d)" value={data.totals.new_hires_30d} icon={TrendingUp} accent="primary" />
             <StatCard label="On leave today" value={data.totals.on_leave_today} icon={CalendarOff} accent="rose" />
             <StatCard label="Pending approvals" value={data.totals.pending_leave} icon={Clock} accent="amber" />
+            <StatCard label="Present today" value={data.totals.present_today} delta={`${data.totals.late_today} late`} icon={UserCheck} accent="primary" />
+            <StatCard label="Attendance rate" value={`${data.totals.attendance_rate}%`} delta="of active staff, today" icon={TrendingUp} accent="sky" />
             <StatCard label="Business units" value={data.totals.business_units} delta={`${data.totals.departments} departments`} icon={Building2} accent="sky" />
           </div>
 

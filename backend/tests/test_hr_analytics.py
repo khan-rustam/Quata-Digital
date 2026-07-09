@@ -29,10 +29,13 @@ def test_hr_analytics_shape(client, admin_headers):
     for key in (
         "employees", "active_employees", "open_vacancies", "applicants",
         "on_leave_today", "pending_leave", "business_units", "departments",
-        "new_hires_30d",
+        "new_hires_30d", "present_today", "late_today", "attendance_rate",
     ):
         assert key in totals, key
         assert isinstance(totals[key], int)
+
+    # Attendance rate is a percentage of active staff present today.
+    assert 0 <= totals["attendance_rate"] <= 100
 
     # Seeded data: at least the founder admin + the 5 seeded business units.
     assert totals["employees"] >= 1
