@@ -68,9 +68,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 
 ## PHASE 2 — Employee & Identity  (Prompt 2)
 
-### 2A. Complete employee personnel file
-- [ ] Personal / employment / professional / company-records / documents sections
-- [ ] Promotions, transfers, disciplinary, rewards, assets, access rights history
+### 2A. Complete employee personnel file ✅ (core sections)
+- [x] Personal (gender, DOB, nationality, ID, marital, blood group, personal email,
+      address, emergency contacts), Employment (type, grade, work location, reporting
+      manager, hire/confirmation/contract dates, probation), Professional (skills,
+      languages, certifications, education, previous employment, portfolio). Editable
+      dialog on the staff detail page. migration n4s5t6u7v8w9; PATCH
+      /admin/staff/{id}/profile; test_employee_profile.py
+- [ ] Company-records history (promotions/transfers/disciplinary/rewards/assets) —
+      separate modules (Phase 2G / Phase 3)
 
 ### 2B. Employee ID system ✅ shipped
 - [x] Auto employee number (QDE-YYYY-NNNNNN) — unique, immutable, assigned on hire

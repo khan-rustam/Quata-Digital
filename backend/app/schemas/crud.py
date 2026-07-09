@@ -192,6 +192,40 @@ class StaffPatch(BaseModel):
     status: Optional[str] = Field(default=None, pattern="^(active|invited|suspended)$")
 
 
+class EmployeeProfilePatch(BaseModel):
+    """Personnel-file fields (HRMS 2A). All optional; the edit form sends the
+    full set, so a null clears the field."""
+    # Personal
+    gender: Optional[str] = Field(default=None, max_length=20)
+    date_of_birth: Optional[date] = None
+    nationality: Optional[str] = Field(default=None, max_length=80)
+    national_id: Optional[str] = Field(default=None, max_length=60)
+    marital_status: Optional[str] = Field(default=None, max_length=20)
+    blood_group: Optional[str] = Field(default=None, max_length=8)
+    personal_email: Optional[str] = Field(default=None, max_length=255)
+    address: Optional[str] = Field(default=None, max_length=500)
+    emergency_contacts: Optional[List[Dict[str, str]]] = None
+    # Employment
+    employment_type: Optional[str] = Field(default=None, max_length=40)
+    grade: Optional[str] = Field(default=None, max_length=40)
+    work_location: Optional[str] = Field(default=None, max_length=120)
+    manager_id: Optional[int] = None
+    date_hired: Optional[date] = None
+    confirmation_date: Optional[date] = None
+    contract_expiry: Optional[date] = None
+    probation_status: Optional[str] = Field(default=None, max_length=20)
+    # Professional
+    education: Optional[str] = Field(default=None, max_length=4000)
+    skills: Optional[List[str]] = None
+    languages: Optional[List[str]] = None
+    certifications: Optional[List[str]] = None
+    previous_employment: Optional[str] = Field(default=None, max_length=4000)
+    portfolio_url: Optional[str] = Field(default=None, max_length=500)
+    # Commonly edited core fields
+    phone: Optional[str] = Field(default=None, max_length=40)
+    job_title: Optional[str] = Field(default=None, max_length=160)
+
+
 # ---------- Devices ----------
 
 class DeviceIn(BaseModel):

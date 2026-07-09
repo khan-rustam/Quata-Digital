@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import ForeignKey, String, Boolean, JSON, Integer, DateTime, Text
+from sqlalchemy import ForeignKey, String, Boolean, JSON, Integer, DateTime, Text, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, SoftDeleteMixin
@@ -108,6 +108,37 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
         String(32), unique=True, nullable=True, index=True
     )
 
+    # --- Personnel file: personal (HRMS 2A) ---
+    gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    date_of_birth: Mapped[Optional["date"]] = mapped_column(Date, nullable=True)
+    nationality: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    national_id: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)  # ID / passport
+    marital_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    blood_group: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+    personal_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    emergency_contacts: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # [{name,relationship,phone}]
+
+    # --- Personnel file: employment ---
+    employment_type: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    grade: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    work_location: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    manager_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", use_alter=True, name="fk_user_manager"), nullable=True
+    )
+    date_hired: Mapped[Optional["date"]] = mapped_column(Date, nullable=True)
+    confirmation_date: Mapped[Optional["date"]] = mapped_column(Date, nullable=True)
+    contract_expiry: Mapped[Optional["date"]] = mapped_column(Date, nullable=True)
+    probation_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # probation|confirmed
+
+    # --- Personnel file: professional ---
+    education: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    skills: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    languages: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    certifications: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    previous_employment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    portfolio_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
     department_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("departments.id", use_alter=True, name="fk_user_dept"), nullable=True
@@ -145,6 +176,10 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     role: Mapped[Role] = relationship("Role")
     department: Mapped[Optional[Department]] = relationship(
         "Department", back_populates="members", foreign_keys=[department_id]
+    )
+    # Reporting officer (self-referential adjacency list).
+    manager: Mapped[Optional["User"]] = relationship(
+        "User", remote_side="User.id", foreign_keys=[manager_id]
     )
 
     extra: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

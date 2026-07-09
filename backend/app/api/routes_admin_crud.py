@@ -44,6 +44,7 @@ from app.schemas.crud import (
     BusinessUnitPatch,
     DepartmentIn,
     DepartmentPatch,
+    EmployeeProfilePatch,
     DeviceIn,
     DevicePatch,
     DeviceWithToken,
@@ -561,6 +562,38 @@ def update_staff(
         status=u.status,
         employee_number=u.employee_number,
     )
+
+
+@router.patch("/staff/{user_id}/profile", status_code=200)
+def update_staff_profile(
+    user_id: int,
+    payload: EmployeeProfilePatch,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Update an employee's personnel file (personal/employment/professional).
+
+    The edit form sends the full field set, so ``exclude_unset`` still applies
+    every value — a null clears the field. Immutable identity (employee number,
+    email) is not editable here.
+    """
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    _assert_can_manage_target(user, u)
+    data = payload.model_dump(exclude_unset=True)
+    mgr = data.get("manager_id")
+    if mgr is not None:
+        if mgr == user_id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "An employee can't be their own manager")
+        if not db.get(User, mgr):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown manager")
+    for k, v in data.items():
+        setattr(u, k, v)
+    log_activity(db, actor=user, action="update_profile", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+    return {"ok": True}
 
 
 @router.delete("/staff/{user_id}", status_code=204)

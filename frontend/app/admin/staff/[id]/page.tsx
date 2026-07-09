@@ -24,6 +24,7 @@ import { useApi } from "@/lib/use-api";
 import { apiUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
+import { EmployeePersonnelFile } from "@/components/admin/employee-profile";
 
 type Detail = {
   profile: {
@@ -40,6 +41,31 @@ type Detail = {
     department: string | null;
     status: "active" | "invited" | "suspended";
     created_at: string;
+    // Personnel file (2A)
+    gender: string | null;
+    date_of_birth: string | null;
+    nationality: string | null;
+    national_id: string | null;
+    marital_status: string | null;
+    blood_group: string | null;
+    personal_email: string | null;
+    address: string | null;
+    emergency_contacts: { name?: string; relationship?: string; phone?: string }[];
+    employment_type: string | null;
+    grade: string | null;
+    work_location: string | null;
+    manager_id: number | null;
+    manager_name: string | null;
+    date_hired: string | null;
+    confirmation_date: string | null;
+    contract_expiry: string | null;
+    probation_status: string | null;
+    education: string | null;
+    skills: string[];
+    languages: string[];
+    certifications: string[];
+    previous_employment: string | null;
+    portfolio_url: string | null;
   };
   leave: {
     id: number;
@@ -74,7 +100,7 @@ const statusVariant = {
 export default function StaffDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { data, loading } = useApi<Detail>(id ? `/admin/staff/${id}` : null);
+  const { data, loading, refresh } = useApi<Detail>(id ? `/admin/staff/${id}` : null);
   const { token } = useAuth();
   const toast = useToast();
   const [cardBusy, setCardBusy] = React.useState(false);
@@ -267,6 +293,11 @@ export default function StaffDetailPage() {
             </ul>
           )}
         </div>
+      </div>
+
+      {/* Personnel file (2A) */}
+      <div className="mt-4">
+        <EmployeePersonnelFile profile={profile} onSaved={refresh} />
       </div>
 
       {/* Activity */}
