@@ -347,7 +347,12 @@ def admin_list_departments(
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("staff:manage")),
 ):
-    deps = db.query(Department).order_by(Department.name).all()
+    deps = (
+        db.query(Department)
+        .filter(Department.is_deleted == False)  # noqa: E712
+        .order_by(Department.name)
+        .all()
+    )
     counts = dict(
         db.query(User.department_id, func.count(User.id))
         .group_by(User.department_id)
@@ -358,8 +363,18 @@ def admin_list_departments(
             id=d.id,
             slug=d.slug,
             name=d.name,
+            description=d.description,
             head_name=d.head.full_name if d.head else None,
+            head_id=d.head_id,
+            assistant_head_id=d.assistant_head_id,
             staff_count=counts.get(d.id, 0),
+            business_unit_id=d.business_unit_id,
+            business_unit_name=d.business_unit.name if d.business_unit else None,
+            objectives=d.objectives,
+            kpis=d.kpis,
+            budget=d.budget,
+            max_headcount=d.max_headcount,
+            office_location=d.office_location,
         )
         for d in deps
     ]

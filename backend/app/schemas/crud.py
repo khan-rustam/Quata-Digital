@@ -125,11 +125,34 @@ class ApplicationStatusIn(BaseModel):
 
 # ---------- Departments ----------
 
+class BusinessUnitIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=500)
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class BusinessUnitPatch(BaseModel):
+    slug: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
 class DepartmentIn(BaseModel):
     slug: str
     name: str
     description: Optional[str] = None
     head_id: Optional[int] = None
+    assistant_head_id: Optional[int] = None
+    business_unit_id: Optional[int] = None
+    objectives: Optional[str] = None
+    kpis: Optional[str] = None
+    budget: Optional[int] = None
+    max_headcount: Optional[int] = None
+    office_location: Optional[str] = Field(default=None, max_length=200)
 
 
 class DepartmentPatch(BaseModel):
@@ -137,6 +160,13 @@ class DepartmentPatch(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     head_id: Optional[int] = None
+    assistant_head_id: Optional[int] = None
+    business_unit_id: Optional[int] = None
+    objectives: Optional[str] = None
+    kpis: Optional[str] = None
+    budget: Optional[int] = None
+    max_headcount: Optional[int] = None
+    office_location: Optional[str] = None
 
 
 # ---------- Staff ----------

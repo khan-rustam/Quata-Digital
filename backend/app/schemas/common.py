@@ -154,8 +154,31 @@ class DepartmentOut(BaseModel):
     id: int
     slug: str
     name: str
+    description: Optional[str] = None
     head_name: Optional[str] = None
     staff_count: int = 0
+    business_unit_id: Optional[int] = None
+    business_unit_name: Optional[str] = None
+    assistant_head_id: Optional[int] = None
+    head_id: Optional[int] = None
+    objectives: Optional[str] = None
+    kpis: Optional[str] = None
+    budget: Optional[int] = None
+    max_headcount: Optional[int] = None
+    office_location: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BusinessUnitOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    sort_order: int = 0
+    department_count: int = 0
 
     class Config:
         from_attributes = True

@@ -16,6 +16,7 @@ from app.db.session import get_db
 from app.models import (
     Application,
     BlogPost,
+    BusinessUnit,
     Department,
     Device,
     Job,
@@ -27,6 +28,7 @@ from app.models import (
 from app.schemas.common import (
     ApplicationOut,
     BlogPostOut,
+    BusinessUnitOut,
     DepartmentOut,
     DeviceOut,
     JobOut,
@@ -38,6 +40,8 @@ from app.schemas.crud import (
     ApplicationStatusIn,
     BlogIn,
     BlogPatch,
+    BusinessUnitIn,
+    BusinessUnitPatch,
     DepartmentIn,
     DepartmentPatch,
     DeviceIn,
@@ -575,6 +579,28 @@ def delete_staff(
 
 # -------------------- Departments --------------------
 
+def _dept_out(db: Session, d: Department) -> DepartmentOut:
+    from sqlalchemy import func
+    count = db.query(func.count(User.id)).filter(User.department_id == d.id).scalar() or 0
+    return DepartmentOut(
+        id=d.id,
+        slug=d.slug,
+        name=d.name,
+        description=d.description,
+        head_name=d.head.full_name if d.head else None,
+        head_id=d.head_id,
+        assistant_head_id=d.assistant_head_id,
+        staff_count=count,
+        business_unit_id=d.business_unit_id,
+        business_unit_name=d.business_unit.name if d.business_unit else None,
+        objectives=d.objectives,
+        kpis=d.kpis,
+        budget=d.budget,
+        max_headcount=d.max_headcount,
+        office_location=d.office_location,
+    )
+
+
 @router.post("/departments", response_model=DepartmentOut, status_code=201)
 def create_dept(
     payload: DepartmentIn,
@@ -590,13 +616,7 @@ def create_dept(
     log_activity(db, actor=user, action="create", resource_type="department", resource_id=d.id, request=request)
     db.commit()
     db.refresh(d)
-    return DepartmentOut(
-        id=d.id,
-        slug=d.slug,
-        name=d.name,
-        head_name=d.head.full_name if d.head else None,
-        staff_count=0,
-    )
+    return _dept_out(db, d)
 
 
 @router.put("/departments/{dept_id}", response_model=DepartmentOut)
@@ -615,15 +635,7 @@ def update_dept(
     log_activity(db, actor=user, action="update", resource_type="department", resource_id=dept_id, request=request)
     db.commit()
     db.refresh(d)
-    from sqlalchemy import func
-    count = db.query(func.count(User.id)).filter(User.department_id == d.id).scalar() or 0
-    return DepartmentOut(
-        id=d.id,
-        slug=d.slug,
-        name=d.name,
-        head_name=d.head.full_name if d.head else None,
-        staff_count=count,
-    )
+    return _dept_out(db, d)
 
 
 @router.delete("/departments/{dept_id}", status_code=204)
@@ -640,6 +652,98 @@ def delete_dept(
     d.is_deleted = True
     d.deleted_at = datetime.now(timezone.utc)
     log_activity(db, actor=user, action="delete", resource_type="department", resource_id=dept_id, request=request)
+    db.commit()
+
+
+# -------------------- Business Units --------------------
+
+def _bu_out(db: Session, bu: BusinessUnit) -> BusinessUnitOut:
+    from sqlalchemy import func
+    count = (
+        db.query(func.count(Department.id))
+        .filter(Department.business_unit_id == bu.id, Department.is_deleted == False)  # noqa: E712
+        .scalar()
+        or 0
+    )
+    return BusinessUnitOut(
+        id=bu.id,
+        slug=bu.slug,
+        name=bu.name,
+        description=bu.description,
+        is_active=bu.is_active,
+        sort_order=bu.sort_order,
+        department_count=count,
+    )
+
+
+@router.get("/business-units", response_model=List[BusinessUnitOut])
+def list_business_units(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    rows = (
+        db.query(BusinessUnit)
+        .filter(BusinessUnit.is_deleted == False)  # noqa: E712
+        .order_by(BusinessUnit.sort_order, BusinessUnit.name)
+        .all()
+    )
+    return [_bu_out(db, bu) for bu in rows]
+
+
+@router.post("/business-units", response_model=BusinessUnitOut, status_code=201)
+def create_business_unit(
+    payload: BusinessUnitIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if db.query(BusinessUnit).filter(BusinessUnit.slug == payload.slug).first():
+        raise HTTPException(status.HTTP_409_CONFLICT, "Slug already exists")
+    bu = BusinessUnit(**payload.model_dump())
+    db.add(bu)
+    db.flush()
+    log_activity(db, actor=user, action="create", resource_type="business_unit", resource_id=bu.id, request=request)
+    db.commit()
+    db.refresh(bu)
+    return _bu_out(db, bu)
+
+
+@router.put("/business-units/{bu_id}", response_model=BusinessUnitOut)
+def update_business_unit(
+    bu_id: int,
+    payload: BusinessUnitPatch,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    bu = db.get(BusinessUnit, bu_id)
+    if not bu:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Business unit not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(bu, k, v)
+    log_activity(db, actor=user, action="update", resource_type="business_unit", resource_id=bu_id, request=request)
+    db.commit()
+    db.refresh(bu)
+    return _bu_out(db, bu)
+
+
+@router.delete("/business-units/{bu_id}", status_code=204)
+def delete_business_unit(
+    bu_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    bu = db.get(BusinessUnit, bu_id)
+    if not bu:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Business unit not found")
+    # Detach departments; never hard-delete history.
+    db.query(Department).filter(Department.business_unit_id == bu_id).update(
+        {Department.business_unit_id: None}
+    )
+    bu.is_deleted = True
+    bu.deleted_at = datetime.now(timezone.utc)
+    log_activity(db, actor=user, action="delete", resource_type="business_unit", resource_id=bu_id, request=request)
     db.commit()
 
 

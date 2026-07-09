@@ -3,10 +3,27 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import ForeignKey, String, Boolean, JSON, Integer, DateTime
+from sqlalchemy import ForeignKey, String, Boolean, JSON, Integer, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, SoftDeleteMixin
+
+
+class BusinessUnit(Base, TimestampMixin, SoftDeleteMixin):
+    """A QUATA business unit (e.g. Corporate Services, QuataPay, QuataTrade).
+
+    Distinct from products — the company hierarchy is
+    Company → Business Unit → Department → Team → Position. Unlimited units.
+    """
+
+    __tablename__ = "business_units"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Department(Base, TimestampMixin, SoftDeleteMixin):
@@ -20,9 +37,26 @@ class Department(Base, TimestampMixin, SoftDeleteMixin):
         ForeignKey("users.id", use_alter=True, name="fk_dept_head"), nullable=True
     )
 
+    # Enterprise department structure (HRMS 1F). All nullable / additive.
+    business_unit_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("business_units.id", ondelete="SET NULL"), nullable=True
+    )
+    assistant_head_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", use_alter=True, name="fk_dept_assistant_head"), nullable=True
+    )
+    objectives: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    kpis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    budget: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # annual, in XAF
+    max_headcount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    office_location: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
     head: Mapped[Optional["User"]] = relationship(
         "User", foreign_keys=[head_id], post_update=True
     )
+    assistant_head: Mapped[Optional["User"]] = relationship(
+        "User", foreign_keys=[assistant_head_id], post_update=True
+    )
+    business_unit: Mapped[Optional["BusinessUnit"]] = relationship("BusinessUnit")
     members: Mapped[List["User"]] = relationship(
         "User", back_populates="department", foreign_keys="User.department_id"
     )

@@ -54,11 +54,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [ ] Strengths/weaknesses, recommended role+dept, interview Qs, training recs
 - [ ] "Move Applicant" (internal fit) vs Reject
 
-### 1F. Organization architecture
-- [ ] Business Units (distinct from products): Corporate, QuataPay, QuataTrade, …
-- [ ] Enterprise departments (Executive, HR, Finance, Legal, Operations, Tech, …)
-      with head/assistant/teams/objectives/KPIs/budget/headcount/capacity
-- [ ] Hierarchy: Company → Business Unit → Department → Team → Position
+### 1F. Organization architecture ✅ (org chart pending)
+- [x] Business Units (distinct from products): admin page + CRUD + seed
+      (Corporate Services, QuataPay, QuataTrade, QuataFood, Abaqwa)
+- [x] Enterprise departments: business unit, head, assistant head, objectives,
+      KPIs, budget, max headcount (capacity), office location. migration
+      k1p2q3r4s5t6; test_business_units.py
+- [~] Hierarchy Company → Business Unit → Department done; Team → Position pending
 - [ ] Dynamic org chart (drag & drop, reporting lines, auto-updates)
 
 ---

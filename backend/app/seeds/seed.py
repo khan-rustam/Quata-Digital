@@ -20,6 +20,7 @@ from app.core.security import hash_password
 from app.models import (
     AttendanceLog,
     BlogPost,
+    BusinessUnit,
     Department,
     Device,
     Job,
@@ -841,6 +842,25 @@ def upsert_role(db: Session, payload: dict) -> Role:
     return role
 
 
+BUSINESS_UNITS = [
+    ("corporate-services", "Corporate Services", "Shared enterprise functions (HR, Finance, Legal, Ops, Tech)."),
+    ("quatapay", "QuataPay", "Payments business unit."),
+    ("quatatrade", "QuataTrade", "Commerce / marketplace business unit."),
+    ("quatafood", "QuataFood", "Food ordering & delivery business unit."),
+    ("abaqwa", "Abaqwa", "Abaqwa business unit."),
+]
+
+
+def upsert_business_unit(db: Session, slug: str, name: str, description: str, sort_order: int) -> BusinessUnit:
+    bu = db.query(BusinessUnit).filter(BusinessUnit.slug == slug).first()
+    if not bu:
+        bu = BusinessUnit(slug=slug, name=name, description=description, sort_order=sort_order)
+        db.add(bu)
+        db.flush()
+    bu.name = name
+    return bu
+
+
 def upsert_department(db: Session, slug: str, name: str) -> Department:
     d = db.query(Department).filter(Department.slug == slug).first()
     if not d:
@@ -895,6 +915,11 @@ def run_seed(db: Session) -> None:
     # Roles
     for r in ROLES:
         upsert_role(db, r)
+
+    # Business units (HRMS 1F)
+    for i, (slug, name, desc) in enumerate(BUSINESS_UNITS):
+        upsert_business_unit(db, slug, name, desc, i)
+    db.flush()
 
     # Departments
     for slug, name in DEPARTMENTS:

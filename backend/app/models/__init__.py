@@ -1,5 +1,5 @@
 from .base import Base
-from .user import User, Role, Department, RolePermission, PasswordResetToken
+from .user import User, Role, Department, BusinessUnit, RolePermission, PasswordResetToken
 from .product import Product
 from .blog import BlogPost, Page
 from .career import Job, Application, ApplicationNote
@@ -22,6 +22,7 @@ __all__ = [
     "User",
     "Role",
     "Department",
+    "BusinessUnit",
     "RolePermission",
     "PasswordResetToken",
     "Product",
