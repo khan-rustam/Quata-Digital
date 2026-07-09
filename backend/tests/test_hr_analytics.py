@@ -41,6 +41,11 @@ def test_hr_analytics_shape(client, admin_headers):
     assert isinstance(body["headcount_by_department"], list)
     assert isinstance(body["headcount_by_business_unit"], list)
     assert isinstance(body["recruitment_funnel"], list)
+    for key in ("gender_distribution", "age_distribution", "tenure_distribution", "employment_type_distribution"):
+        assert key in body and isinstance(body[key], list), key
+    # Every employee lands in exactly one age + tenure bucket.
+    assert sum(b["count"] for b in body["age_distribution"]) == totals["employees"]
+    assert sum(b["count"] for b in body["tenure_distribution"]) == totals["employees"]
 
 
 def test_hr_analytics_funnel_counts_real_applicants(client, admin_headers):

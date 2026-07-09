@@ -121,11 +121,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
 - [ ] Disciplinary workflow (confidential, audit trail)
 - [ ] Exit management (asset return, access/NFC revocation, clearance, interview)
 - [ ] Alumni database (searchable former staff, rehire eligibility)
-- [~] HR analytics dashboard ✅ v1 — /admin/hr-dashboard + GET /admin/hr-analytics:
-      KPI tiles (employees, active, vacancies, applicants, new hires 30d, on leave,
-      pending approvals, BUs/depts) + headcount-by-department, recruitment-funnel,
-      headcount-by-business-unit bars (single-hue magnitude, dependency-free).
-      Real data only. Turnover/gender/age/trends need more employee fields (2A).
+- [x] HR analytics dashboard — /admin/hr-dashboard + GET /admin/hr-analytics:
+      KPI tiles + headcount-by-department/business-unit + recruitment-funnel +
+      workforce distributions (gender, age, tenure, employment type) — all
+      single-hue magnitude bars, dependency-free, real data. Plus HR-alerts panel
+      (contracts/probation). Trends over time still pending (needs history).
 - [ ] AI HR assistant (AI): summaries, recommendations, forecasts, reports
 - [ ] Performance & succession planning · Workforce planning
 - [ ] Reports & exports (PDF/Excel/CSV) everywhere

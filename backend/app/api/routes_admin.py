@@ -232,6 +232,39 @@ def hr_analytics(
         if stage_counts.get(s, 0) > 0
     ]
 
+    # --- Workforce distributions (from 2A personnel fields) ---
+    employees = users_q.all()
+
+    gender_counts: dict[str, int] = {}
+    type_counts: dict[str, int] = {}
+    age_buckets = {"Under 25": 0, "25–34": 0, "35–44": 0, "45–54": 0, "55+": 0, "Unknown": 0}
+    tenure_buckets = {"< 1 year": 0, "1–3 years": 0, "3–5 years": 0, "5+ years": 0, "Unknown": 0}
+    for u in employees:
+        g = u.gender or "Unspecified"
+        gender_counts[g] = gender_counts.get(g, 0) + 1
+        t = u.employment_type or "Unspecified"
+        type_counts[t] = type_counts.get(t, 0) + 1
+        if u.date_of_birth:
+            age = today.year - u.date_of_birth.year - (
+                (today.month, today.day) < (u.date_of_birth.month, u.date_of_birth.day)
+            )
+            key = (
+                "Under 25" if age < 25 else "25–34" if age < 35 else "35–44"
+                if age < 45 else "45–54" if age < 55 else "55+"
+            )
+            age_buckets[key] += 1
+        else:
+            age_buckets["Unknown"] += 1
+        if u.date_hired:
+            yrs = (today - u.date_hired).days / 365.25
+            key = "< 1 year" if yrs < 1 else "1–3 years" if yrs < 3 else "3–5 years" if yrs < 5 else "5+ years"
+            tenure_buckets[key] += 1
+        else:
+            tenure_buckets["Unknown"] += 1
+
+    def _sorted_counts(d: dict[str, int]) -> list[dict]:
+        return [{"name": k, "count": v} for k, v in sorted(d.items(), key=lambda x: -x[1]) if v > 0]
+
     return {
         "totals": {
             "employees": total_employees,
@@ -249,6 +282,10 @@ def hr_analytics(
         "headcount_by_department": headcount_by_department,
         "headcount_by_business_unit": headcount_by_business_unit,
         "recruitment_funnel": recruitment_funnel,
+        "gender_distribution": _sorted_counts(gender_counts),
+        "age_distribution": [{"name": k, "count": v} for k, v in age_buckets.items() if v > 0],
+        "tenure_distribution": [{"name": k, "count": v} for k, v in tenure_buckets.items() if v > 0],
+        "employment_type_distribution": _sorted_counts(type_counts),
     }
 
 

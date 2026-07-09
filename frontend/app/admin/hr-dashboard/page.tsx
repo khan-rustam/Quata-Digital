@@ -24,11 +24,16 @@ type Totals = {
 };
 type Bar = { name: string; count: number; max?: number | null; business_unit?: string | null };
 type FunnelRow = { stage: string; label: string; count: number };
+type Dist = { name: string; count: number };
 type HrAnalytics = {
   totals: Totals;
   headcount_by_department: Bar[];
   headcount_by_business_unit: Bar[];
   recruitment_funnel: FunnelRow[];
+  gender_distribution: Dist[];
+  age_distribution: Dist[];
+  tenure_distribution: Dist[];
+  employment_type_distribution: Dist[];
 };
 
 type ContractRow = { id: number; full_name: string; employee_number: string | null; department: string | null; contract_expiry: string; days_left: number; expired: boolean };
@@ -183,6 +188,24 @@ export default function HrDashboardPage() {
               emptyLabel="No business units yet."
             />
           </Panel>
+
+          <div>
+            <h2 className="text-sm font-semibold text-foreground/90 mb-3">Workforce distribution</h2>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Panel title="Gender">
+                <BarList rows={data.gender_distribution.map((d) => ({ label: d.name, value: d.count }))} emptyLabel="No data." />
+              </Panel>
+              <Panel title="Age">
+                <BarList rows={data.age_distribution.map((d) => ({ label: d.name, value: d.count }))} emptyLabel="No data." />
+              </Panel>
+              <Panel title="Tenure">
+                <BarList rows={data.tenure_distribution.map((d) => ({ label: d.name, value: d.count }))} emptyLabel="No data." />
+              </Panel>
+              <Panel title="Employment type">
+                <BarList rows={data.employment_type_distribution.map((d) => ({ label: d.name, value: d.count }))} emptyLabel="No data." />
+              </Panel>
+            </div>
+          </div>
         </div>
       )}
     </PageShell>
