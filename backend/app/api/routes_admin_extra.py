@@ -29,6 +29,7 @@ from app.models import (
     NewsletterSubscriber,
     PartnerRequest,
     PerformanceReview,
+    TrainingRecord,
     Role,
     RolePermission,
     User,
@@ -767,6 +768,80 @@ def delete_performance_review(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Review not found")
     db.delete(r)
     log_activity(db, actor=user, action="review_delete", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+
+
+class TrainingIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    provider: Optional[str] = Field(default=None, max_length=160)
+    training_type: Optional[str] = Field(default=None, pattern="^(internal|external|compliance)$")
+    status: str = Field(default="completed", pattern="^(planned|in_progress|completed)$")
+    completed_on: Optional[date] = None
+    expires_on: Optional[date] = None
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+
+@router.get("/staff/{user_id:int}/training")
+def list_training(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    rows = (
+        db.query(TrainingRecord)
+        .filter(TrainingRecord.user_id == user_id)
+        .order_by(TrainingRecord.completed_on.desc().nulls_last(), TrainingRecord.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "provider": t.provider,
+            "training_type": t.training_type,
+            "status": t.status,
+            "completed_on": t.completed_on,
+            "expires_on": t.expires_on,
+            "notes": t.notes,
+        }
+        for t in rows
+    ]
+
+
+@router.post("/staff/{user_id:int}/training", status_code=201)
+def add_training(
+    user_id: int,
+    payload: TrainingIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    if not db.get(User, user_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    t = TrainingRecord(user_id=user_id, **payload.model_dump())
+    db.add(t)
+    db.flush()
+    log_activity(db, actor=user, action="training", resource_type="user", resource_id=user_id, request=request)
+    db.commit()
+    db.refresh(t)
+    return {"id": t.id}
+
+
+@router.delete("/staff/{user_id:int}/training/{record_id}", status_code=204)
+def delete_training(
+    user_id: int,
+    record_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    t = db.get(TrainingRecord, record_id)
+    if not t or t.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Training record not found")
+    db.delete(t)
+    log_activity(db, actor=user, action="training_delete", resource_type="user", resource_id=user_id, request=request)
     db.commit()
 
 

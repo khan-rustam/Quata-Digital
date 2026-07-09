@@ -20,3 +20,19 @@ def test_performance_reviews(client, admin_headers):
     assert client.delete(
         f"/api/v1/admin/staff/{me['id']}/reviews/{rid}", headers=admin_headers
     ).status_code == 204
+
+
+def test_training_records(client, admin_headers):
+    me = client.get("/api/v1/auth/me", headers=admin_headers).json()
+    r = client.post(
+        f"/api/v1/admin/staff/{me['id']}/training",
+        headers=admin_headers,
+        json={"title": "AML basics", "training_type": "compliance", "status": "completed", "completed_on": "2026-02-01"},
+    )
+    assert r.status_code == 201, r.text
+    tid = r.json()["id"]
+    lst = client.get(f"/api/v1/admin/staff/{me['id']}/training", headers=admin_headers).json()
+    assert any(x["id"] == tid and x["title"] == "AML basics" for x in lst)
+    assert client.delete(
+        f"/api/v1/admin/staff/{me['id']}/training/{tid}", headers=admin_headers
+    ).status_code == 204

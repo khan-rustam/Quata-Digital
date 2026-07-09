@@ -28,3 +28,17 @@ class PerformanceReview(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="submitted")  # draft|submitted
 
     reviewer = relationship("User", foreign_keys=[reviewer_id])
+
+
+class TrainingRecord(Base, TimestampMixin):
+    __tablename__ = "training_records"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    provider: Mapped[Optional[str]] = mapped_column(String(160), nullable=True)
+    training_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # internal|external|compliance
+    status: Mapped[str] = mapped_column(String(20), default="completed")  # planned|in_progress|completed
+    completed_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    expires_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

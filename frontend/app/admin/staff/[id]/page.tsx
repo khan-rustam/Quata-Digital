@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
 import { EmployeePersonnelFile } from "@/components/admin/employee-profile";
 import { EmployeePerformance } from "@/components/admin/employee-performance";
+import { EmployeeTraining } from "@/components/admin/employee-training";
 
 type Detail = {
   profile: {
@@ -304,6 +305,11 @@ export default function StaffDetailPage() {
       {/* Performance reviews (2G) */}
       <div className="mt-4">
         <EmployeePerformance staffId={profile.id} />
+      </div>
+
+      {/* Training records (2G) */}
+      <div className="mt-4">
+        <EmployeeTraining staffId={profile.id} />
       </div>
 
       {/* Activity */}
