@@ -117,6 +117,12 @@ class Settings(BaseSettings):
     DEVICE_HMAC_TIMESTAMP_HEADER: str = "X-Device-Timestamp"
     DEVICE_HMAC_SKEW_SECONDS: int = 300
 
+    # ---------- AI (OpenAI — talent intelligence, HRMS 1E) ----------
+    # Empty key => AI features are disabled (endpoints return "not configured").
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_BASE_URL: Optional[str] = None  # override for Azure / compatible gateways
+
     # ---------- Observability ----------
     SENTRY_DSN: Optional[str] = None
     SENTRY_ENV: Optional[str] = None
@@ -177,6 +183,11 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() in {"production", "prod"}
+
+    @property
+    def ai_enabled(self) -> bool:
+        """AI features (CV analysis) are available only with an OpenAI key."""
+        return bool(self.OPENAI_API_KEY.strip())
 
     def role_requires_2fa(self, role_slug: str) -> bool:
         """Whether a role must enrol in 2FA before any admin action.

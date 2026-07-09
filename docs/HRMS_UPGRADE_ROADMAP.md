@@ -7,9 +7,9 @@ tested slice that **extends** existing modules (no rebuilds, no removed features
 backward-compatible, same UI language).
 
 **Standing decisions (from the boss, 2026-07-09):**
-- **AI is structure-first, off until a key is provided.** Build the fields, UI
-  and "Move applicant instead of reject" flow; gate all real LLM calls behind an
-  Anthropic API key + a feature flag. Provider = Claude when enabled.
+- **AI provider = OpenAI** (boss decision 2026-07-09). Gated behind
+  `OPENAI_API_KEY` + a feature flag (`settings.ai_enabled`); the openai client is
+  imported lazily so the app boots without a key. Default model `gpt-4o-mini`.
 - **Identity/access is software-only for now.** Generate ID cards (PDF/PNG), QR
   verification, and encrypted tokens in software; physical NFC readers / door
   controllers integrate later via a clean API.
@@ -49,11 +49,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
       education, certs, AI score, dept match) land with 1C profile + 1E AI.
 - [ ] When a vacancy opens, surface matching past applicants first
 
-### 1E. AI talent intelligence (AI)
-- [ ] CV parse → education/experience/skills/languages/certs (extract)
-- [ ] Overall hiring score + per-role/department match %
-- [ ] Strengths/weaknesses, recommended role+dept, interview Qs, training recs
-- [ ] "Move Applicant" (internal fit) vs Reject
+### 1E. AI talent intelligence ✅ shipped (OpenAI)
+- [x] CV parse (pypdf) → skills/soft-skills/languages/certs/education/experience
+- [x] Overall hiring score + per-role-family match % (7 QUATA families)
+- [x] Strengths/weaknesses, recommended role+dept, 5 interview Qs, training recs,
+      hiring recommendation, summary. On-demand "Analyse CV" on the applicant
+      panel (careers:manage). POST /admin/applications/{id}/analyze; app/services/
+      ai_cv.py; migration o5t6u7v8w9x0; test_ai_cv.py (mocked). Needs OPENAI_API_KEY.
+- [~] "Move applicant" — recommendation surfaced (recommended role/dept +
+      hiring rec); one-click re-assign to another vacancy still to wire.
 
 ### 1F. Organization architecture ✅ (org chart pending)
 - [x] Business Units (distinct from products): admin page + CRUD + seed

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarClock, CalendarCheck, Download, Eye, Loader2, Mail, Paperclip, Phone, Trash2 } from "lucide-react";
+import { CalendarClock, CalendarCheck, Download, Eye, Loader2, Mail, Paperclip, Phone, Sparkles, Trash2 } from "lucide-react";
 import { SlideOver, SlideOverContent } from "@/components/admin/slide-over";
 import { FormDialog } from "@/components/admin/form-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +30,34 @@ type AppDetail = {
   start_date: string | null;
   assigned_hr_id: number | null;
   assigned_hr_name: string | null;
+  ai_available: boolean;
+  ai_score: number | null;
+  ai_analysis: AiAnalysis | null;
+  ai_analyzed_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 type StaffLite = { id: number; full_name: string; role: string };
+type AiAnalysis = {
+  overall_score: number;
+  role_matches?: { role: string; score: number }[];
+  recommended_role?: string;
+  recommended_department?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  skills?: string[];
+  languages?: string[];
+  certifications?: string[];
+  years_experience?: number;
+  education_summary?: string;
+  interview_questions?: string[];
+  training_recommendations?: string[];
+  hiring_recommendation?: string;
+  summary?: string;
+  model?: string;
+};
+
 type AppNote = { id: number; body: string; author_name: string; created_at: string };
 type AppAttachment = {
   id: number;
@@ -102,7 +125,7 @@ export function ApplicationDetailSlideOver({
   onChanged: () => void;
 }) {
   const path = open && applicationId ? `/admin/applications/${applicationId}` : null;
-  const { data, loading } = useApi<AppDetail>(path);
+  const { data, loading, refresh } = useApi<AppDetail>(path);
   const action = useApiAction();
   const toast = useToast();
   const { token } = useAuth();
@@ -113,6 +136,21 @@ export function ApplicationDetailSlideOver({
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [noteText, setNoteText] = React.useState("");
   const [savingNote, setSavingNote] = React.useState(false);
+  const [analyzing, setAnalyzing] = React.useState(false);
+
+  async function analyzeCv() {
+    if (!applicationId) return;
+    setAnalyzing(true);
+    try {
+      await action(`/admin/applications/${applicationId}/analyze`, { method: "POST" });
+      toast.success("CV analysed");
+      refresh();
+    } catch (err) {
+      toast.error("Analysis failed", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   // Collaboration data — only fetched while the panel is open for an applicant.
   const staff = useApi<StaffLite[]>(open ? "/admin/staff" : null);
@@ -467,6 +505,90 @@ export function ApplicationDetailSlideOver({
                   <div className="text-sm text-muted-foreground">No CV attached.</div>
                 )}
               </div>
+
+              {/* AI talent analysis (1E) */}
+              {(data.has_resume || data.ai_analysis) && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI talent analysis</div>
+                    {data.ai_available && data.has_resume && (
+                      <button
+                        type="button"
+                        onClick={analyzeCv}
+                        disabled={analyzing}
+                        className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-surface-soft transition disabled:opacity-60"
+                      >
+                        {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> : <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                        {analyzing ? "Analysing…" : data.ai_analysis ? "Re-analyse" : "Analyse CV"}
+                      </button>
+                    )}
+                  </div>
+                  {!data.ai_available && !data.ai_analysis ? (
+                    <div className="rounded-xl border border-dashed border-border p-3 text-sm text-muted-foreground">
+                      AI analysis isn&apos;t configured. Set <code className="text-xs">OPENAI_API_KEY</code> on the server to score CVs, match roles and generate interview questions.
+                    </div>
+                  ) : data.ai_analysis ? (
+                    <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="text-center shrink-0">
+                          <div className="text-3xl font-semibold tracking-tight text-primary">{data.ai_analysis.overall_score}%</div>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Overall match</div>
+                        </div>
+                        <div className="min-w-0">
+                          {data.ai_analysis.hiring_recommendation && <Badge variant="brand">{data.ai_analysis.hiring_recommendation}</Badge>}
+                          {data.ai_analysis.recommended_role && (
+                            <div className="mt-1 text-sm">Best fit: <span className="font-medium">{data.ai_analysis.recommended_role}</span>{data.ai_analysis.recommended_department ? <span className="text-muted-foreground"> · {data.ai_analysis.recommended_department}</span> : null}</div>
+                          )}
+                        </div>
+                      </div>
+                      {data.ai_analysis.summary && <p className="text-sm text-foreground/85">{data.ai_analysis.summary}</p>}
+
+                      {(data.ai_analysis.role_matches ?? []).length > 0 && (
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Role match</div>
+                          <div className="space-y-1.5">
+                            {(data.ai_analysis.role_matches ?? []).slice().sort((a, b) => b.score - a.score).map((rm) => (
+                              <div key={rm.role} className="flex items-center gap-2">
+                                <div className="w-32 shrink-0 truncate text-xs">{rm.role}</div>
+                                <div className="h-3 flex-1 overflow-hidden rounded bg-surface-soft"><div className="h-full rounded bg-primary" style={{ width: `${Math.max(0, Math.min(100, rm.score))}%` }} /></div>
+                                <div className="w-9 text-right text-xs tabular-nums">{rm.score}%</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {(data.ai_analysis.strengths ?? []).length > 0 && (
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wider text-emerald-700 mb-1">Strengths</div>
+                            <ul className="list-disc space-y-0.5 pl-4 text-sm text-foreground/85">{(data.ai_analysis.strengths ?? []).map((s, i) => <li key={i}>{s}</li>)}</ul>
+                          </div>
+                        )}
+                        {(data.ai_analysis.weaknesses ?? []).length > 0 && (
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wider text-amber-700 mb-1">Gaps</div>
+                            <ul className="list-disc space-y-0.5 pl-4 text-sm text-foreground/85">{(data.ai_analysis.weaknesses ?? []).map((s, i) => <li key={i}>{s}</li>)}</ul>
+                          </div>
+                        )}
+                      </div>
+
+                      {(data.ai_analysis.interview_questions ?? []).length > 0 && (
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Suggested interview questions</div>
+                          <ol className="list-decimal space-y-0.5 pl-4 text-sm text-foreground/85">{(data.ai_analysis.interview_questions ?? []).map((q, i) => <li key={i}>{q}</li>)}</ol>
+                        </div>
+                      )}
+
+                      {data.ai_analyzed_at && (
+                        <div className="text-[10px] text-muted-foreground">
+                          Analysed {new Date(data.ai_analyzed_at).toLocaleString()}{data.ai_analysis.model ? ` · ${data.ai_analysis.model}` : ""}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               {/* Cover letter */}
               {data.cover_letter && (

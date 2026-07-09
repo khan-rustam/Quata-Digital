@@ -16,6 +16,7 @@ from sqlalchemy import cast, func, String as SqlString
 from sqlalchemy.orm import Session
 
 from app.api.deps import log_activity, require_permission
+from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
     ActivityLog,
@@ -305,6 +306,10 @@ def get_application(
         "start_date": a.start_date,
         "assigned_hr_id": a.assigned_hr_id,
         "assigned_hr_name": a.assigned_hr.full_name if a.assigned_hr else None,
+        "ai_available": settings.ai_enabled,
+        "ai_score": a.ai_score,
+        "ai_analysis": a.ai_analysis,
+        "ai_analyzed_at": a.ai_analyzed_at,
         "created_at": a.created_at,
         "updated_at": a.updated_at,
     }
@@ -468,6 +473,51 @@ def download_application_resume(
     )
     db.commit()
     return FileResponse(path, filename=f"resume-{a.id}{path.suffix.lower()}")
+
+
+# -------- AI CV analysis (HRMS 1E) --------
+
+@router.post("/applications/{app_id}/analyze")
+def analyze_application_cv(
+    app_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("careers:manage")),
+):
+    """Run the applicant's CV through the AI talent-intelligence engine and
+    store the result. Requires OPENAI_API_KEY on the server."""
+    from app.services.ai_cv import ai_enabled, extract_cv_text, analyze_cv, AiUnavailable
+    from app.services.uploads import resolve_local_upload_path
+
+    a = db.get(Application, app_id)
+    if not a:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+    if not ai_enabled():
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "AI analysis is not configured. Set OPENAI_API_KEY on the server to enable it.",
+        )
+    path = resolve_local_upload_path(a.resume_url)
+    if path is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No readable CV on file to analyse.")
+
+    text = extract_cv_text(path)
+    try:
+        analysis = analyze_cv(text, a.job.title if a.job else "the role")
+    except AiUnavailable as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc))
+
+    a.ai_score = analysis.get("overall_score")
+    a.ai_analysis = analysis
+    a.ai_analyzed_at = datetime.now(timezone.utc)
+    log_activity(
+        db, actor=user, action="ai_analyze", resource_type="application",
+        resource_id=a.id, request=request, details={"score": a.ai_score},
+    )
+    db.commit()
+    return {"ai_score": a.ai_score, "ai_analysis": a.ai_analysis, "ai_analyzed_at": a.ai_analyzed_at}
 
 
 # -------- Applicant attachments (private HR documents) --------

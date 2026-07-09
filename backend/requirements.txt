@@ -44,3 +44,9 @@ sentry-sdk>=2.18.0
 # to a managed Postgres without an extra `pip install` step at deploy
 # time. SQLite path still works for local dev when DATABASE_URL is unset.
 psycopg[binary]>=3.2.3
+
+# AI talent-intelligence engine (HRMS 1E). Only used when OPENAI_API_KEY is
+# set — the openai client is imported lazily so the app boots without a key.
+# pypdf extracts text from PDF CVs before analysis.
+openai>=1.40.0
+pypdf>=4.2.0

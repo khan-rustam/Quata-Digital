@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, JSON, Text, ForeignKey, DateTime, Date
+from sqlalchemy import String, Boolean, JSON, Text, ForeignKey, DateTime, Date, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, SoftDeleteMixin
@@ -45,6 +45,11 @@ class Application(Base, TimestampMixin, SoftDeleteMixin):
     assigned_hr_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+    # AI talent-intelligence results (HRMS 1E). Populated on demand from the CV.
+    ai_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    ai_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    ai_analyzed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     job = relationship("Job")
     assigned_hr = relationship("User", foreign_keys=[assigned_hr_id])
