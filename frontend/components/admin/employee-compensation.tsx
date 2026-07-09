@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trash2, Wallet, Lock } from "lucide-react";
+import { Plus, Trash2, Wallet, Lock, FileDown } from "lucide-react";
 import { FormDialog } from "@/components/admin/form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useApi, useApiAction } from "@/lib/use-api";
+import { apiUrl } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
 
 type Salary = {
@@ -45,7 +47,32 @@ export function EmployeeCompensation({ staffId }: { staffId: number }) {
   const salary = useApi<Salary[]>(`/admin/staff/${staffId}/salary`);
   const action = useApiAction();
   const toast = useToast();
+  const { token } = useAuth();
   const [open, setOpen] = React.useState(false);
+  const [payslipBusy, setPayslipBusy] = React.useState<number | null>(null);
+
+  async function downloadPayslip(recordId: number) {
+    setPayslipBusy(recordId);
+    try {
+      const res = await fetch(`${apiUrl}/admin/staff/${staffId}/salary/${recordId}/payslip.pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `payslip-${recordId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Couldn't generate payslip", err instanceof Error ? err.message : "Try again.");
+    } finally {
+      setPayslipBusy(null);
+    }
+  }
 
   async function onSubmit(form: FormData) {
     const num = (k: string) => Number(form.get(k) || 0);
@@ -116,9 +143,19 @@ export function EmployeeCompensation({ staffId }: { staffId: number }) {
                     {s.payment_method ? ` · via ${s.payment_method}` : ""}
                   </div>
                 </div>
-                <button type="button" onClick={() => del(s.id)} className="text-muted-foreground hover:text-rose-700" aria-label="Delete record">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => downloadPayslip(s.id)}
+                    disabled={payslipBusy === s.id}
+                  >
+                    <FileDown className="h-3.5 w-3.5" /> {payslipBusy === s.id ? "…" : "Payslip"}
+                  </Button>
+                  <button type="button" onClick={() => del(s.id)} className="p-1.5 text-muted-foreground hover:text-rose-700" aria-label="Delete record">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
                 <span>Basic: <span className="text-foreground/85">{s.basic_salary.toLocaleString()}</span></span>

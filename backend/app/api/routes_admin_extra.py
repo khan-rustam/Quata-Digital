@@ -1242,6 +1242,34 @@ def delete_salary(
     db.commit()
 
 
+@router.get("/staff/{user_id:int}/salary/{record_id}/payslip.pdf")
+def download_payslip(
+    user_id: int,
+    record_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("rbac:manage")),
+):
+    """Render a print-ready payslip PDF for one salary record."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+    s = db.get(SalaryRecord, record_id)
+    if not s or s.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Record not found")
+    from app.services.payslip import render_payslip_pdf
+
+    log_activity(db, actor=user, action="payslip", resource_type="user", resource_id=user_id, request=request, details={"record_id": record_id})
+    db.commit()
+    period = s.effective_date.strftime("%Y-%m") if s.effective_date else "current"
+    stem = f"payslip-{u.employee_number or u.id}-{period}"
+    return Response(
+        content=render_payslip_pdf(u, s),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{stem}.pdf"'},
+    )
+
+
 @router.get("/staff/{user_id:int}/leave-balance")
 def leave_balance(
     user_id: int,
