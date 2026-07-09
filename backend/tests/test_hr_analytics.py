@@ -77,3 +77,29 @@ def test_notifications(client, admin_headers):
     body = client.get("/api/v1/admin/notifications", headers=admin_headers).json()
     assert "items" in body and "total" in body and "by_severity" in body
     assert any(it["type"] == "contract" and str(s["id"]) in it["link"] for it in body["items"])
+
+
+def test_org_chart(client, admin_headers):
+    me = client.get("/api/v1/auth/me", headers=admin_headers).json()
+    s = client.post(
+        "/api/v1/admin/staff",
+        headers=admin_headers,
+        json={"email": "org.report@example.com", "full_name": "Org Report", "role_slug": "staff"},
+    ).json()
+    client.patch(f"/api/v1/admin/staff/{s['id']}/profile", headers=admin_headers, json={"manager_id": me["id"]})
+
+    body = client.get("/api/v1/admin/org-chart", headers=admin_headers).json()
+    assert body["total"] >= 1 and isinstance(body["tree"], list)
+
+    def find(nodes, uid):
+        for n in nodes:
+            if n["id"] == uid:
+                return n
+            hit = find(n["reports"], uid)
+            if hit:
+                return hit
+        return None
+
+    admin_node = find(body["tree"], me["id"])
+    assert admin_node is not None
+    assert any(r["id"] == s["id"] for r in admin_node["reports"])

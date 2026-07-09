@@ -66,7 +66,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(AI)` needs key · `(H
       KPIs, budget, max headcount (capacity), office location. migration
       k1p2q3r4s5t6; test_business_units.py
 - [~] Hierarchy Company → Business Unit → Department done; Team → Position pending
-- [ ] Dynamic org chart (drag & drop, reporting lines, auto-updates)
+- [x] Org chart — /admin/org-chart + GET /admin/org-chart: collapsible reporting
+      tree built from manager_id (cycle-guarded), grouped by dept/business unit,
+      links to each employee. Auto-updates from the profiles. (Drag-drop reassign
+      is a future polish — manager is edited on the profile today.)
 
 ---
 

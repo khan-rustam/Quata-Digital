@@ -454,6 +454,45 @@ def notifications(
     return {"total": len(items), "by_severity": by_sev, "items": items}
 
 
+@router.get("/org-chart")
+def org_chart(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("staff:manage")),
+):
+    """Reporting hierarchy tree built from ``manager_id``. Roots are active
+    employees with no (valid) manager. Cycle-guarded."""
+    users = db.query(User).filter(User.is_deleted == False, User.is_active == True).all()  # noqa: E712
+    nodes: dict[int, dict] = {}
+    children: dict[int, list[int]] = {}
+    for u in users:
+        nodes[u.id] = {
+            "id": u.id,
+            "full_name": u.full_name,
+            "job_title": u.job_title,
+            "employee_number": u.employee_number,
+            "department": u.department.name if u.department else None,
+            "business_unit": u.department.business_unit.name if (u.department and u.department.business_unit) else None,
+            "avatar_url": u.avatar_url,
+        }
+    for u in users:
+        mid = u.manager_id
+        if mid and mid in nodes and mid != u.id:
+            children.setdefault(mid, []).append(u.id)
+
+    def build(uid: int, seen: frozenset) -> dict:
+        n = dict(nodes[uid])
+        kids = sorted(children.get(uid, []), key=lambda i: nodes[i]["full_name"])
+        n["reports"] = [build(cid, seen | {uid}) for cid in kids if cid not in seen]
+        return n
+
+    roots = [
+        u.id for u in users
+        if not (u.manager_id and u.manager_id in nodes and u.manager_id != u.id)
+    ]
+    tree = [build(rid, frozenset()) for rid in sorted(roots, key=lambda i: nodes[i]["full_name"])]
+    return {"total": len(users), "tree": tree}
+
+
 # ---------- Partners ----------
 
 @router.get("/partners")
