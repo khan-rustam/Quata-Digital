@@ -43,6 +43,20 @@
   --radius-2xl: 28px;
 }
 
+/* Brand palette is sampled from the QD logo artwork (see `brand/mark.png`).
+ *
+ * The mark's *dominant* teal is #0090a8, but that only scores 3.78:1 against
+ * white — below the 4.5:1 AA floor — so it must never carry white text. The
+ * logo's deep teal #006078 (7.13:1, AAA) is the token used for buttons, links
+ * and focus rings; the brighter #0090a8 / #00d8f0 are reserved for decorative
+ * gradients and washes where no text sits on top.
+ *
+ *   #003048  deepest    13.85:1 on white
+ *   #006078  brand       7.13:1 on white   <- text/UI safe
+ *   #0090a8  core teal   3.78:1 on white   <- decorative / large-graphic only
+ *   #00d8f0  highlight   1.74:1 on white   <- decorative only
+ *   #e8b14a  gold        already matched the logo's gold; unchanged
+ */
 :root {
   --background: #ffffff;
   --foreground: #0f1216;
@@ -52,7 +66,7 @@
   --card-foreground: #0f1216;
   --popover: #ffffff;
   --popover-foreground: #0f1216;
-  --primary: #0e5b4a;
+  --primary: #006078;
   --primary-foreground: #ffffff;
   --secondary: #f3f4ee;
   --secondary-foreground: #0f1216;
@@ -64,11 +78,11 @@
   --destructive-foreground: #ffffff;
   --border: #e7e7e2;
   --input: #e7e7e2;
-  --ring: #0e5b4a;
+  --ring: #006078;
 
-  --brand: #0e5b4a;
+  --brand: #006078;
   --brand-foreground: #ffffff;
-  --brand-soft: #e7f1ed;
+  --brand-soft: #e3f2f6;
   --ink: #0f1216;
 }
 
@@ -162,21 +176,26 @@
       0 24px 48px -16px rgba(15, 18, 22, 0.16);
   }
 
+  /* Decorative fill — carries white icons (see how-it-works), so the centre
+   * stop stays at #0090a8 (3.78:1) which clears the 3:1 bar for graphics. */
   .gradient-brand {
-    background-image: linear-gradient(135deg, #0e5b4a 0%, #1c8a6e 50%, #34d3a7 100%);
+    background-image: linear-gradient(135deg, #006078 0%, #0090a8 50%, #00d8f0 100%);
   }
   .gradient-warm {
     background-image: linear-gradient(135deg, #f5a524 0%, #e8b14a 100%);
   }
+  /* This one paints hero *text*, so it runs deep->core teal and stops before
+   * the bright highlight: every stop clears 3:1 for large text. (The previous
+   * green ramp ended on #34d3a7 at 1.91:1, which failed.) */
   .text-gradient-brand {
-    background: linear-gradient(135deg, #0e5b4a 0%, #1c8a6e 60%, #34d3a7 100%);
+    background: linear-gradient(135deg, #003048 0%, #006078 55%, #0090a8 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
   .dot-grid {
-    background-image: radial-gradient(rgba(14, 91, 74, 0.10) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(0, 96, 120, 0.10) 1px, transparent 1px);
     background-size: 22px 22px;
   }
 

@@ -23,7 +23,7 @@ export const orgJsonLd = {
   legalName: "QUATA Digital Enterprise",
   foundingDate: "2025-05",
   url: SITE,
-  logo: `${SITE}/logo.png`,
+  logo: `${SITE}/brand/lockup.png`,
   description:
     "QUATA Digital is building Africa's connected digital ecosystem — payments, business operations and commerce on one rail.",
   founder: { "@type": "Person", name: "Clovis Neba", jobTitle: "Founder & CEO" },

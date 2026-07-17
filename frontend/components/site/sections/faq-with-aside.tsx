@@ -51,7 +51,7 @@ export function FaqWithAside({
           aria-hidden
           className="absolute -top-20 -right-20 h-44 w-44 rounded-full opacity-20 blur-2xl"
           style={{
-            background: "radial-gradient(closest-side, rgba(14,91,74,0.6), transparent)",
+            background: "radial-gradient(closest-side, rgba(0,144,168,0.6), transparent)",
           }}
         />
         <div className="relative flex items-center gap-3">

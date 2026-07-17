@@ -57,7 +57,7 @@ export function NewsletterSignup({
     >
       <div
         className="absolute -top-32 -right-32 h-72 w-72 rounded-full opacity-30 blur-3xl"
-        style={{ background: "radial-gradient(closest-side, rgba(14,91,74,0.5), transparent)" }}
+        style={{ background: "radial-gradient(closest-side, rgba(0,144,168,0.5), transparent)" }}
       />
       <div className="grid md:grid-cols-2 gap-6 items-center relative">
         <div>

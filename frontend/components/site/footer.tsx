@@ -167,7 +167,7 @@ export async function Footer() {
               <span
                 className="font-bold"
                 style={{
-                  background: "linear-gradient(135deg,#34d3a7,#7be0c0)",
+                  background: "linear-gradient(135deg,#00d8f0,#7be8f5)",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   color: "transparent",

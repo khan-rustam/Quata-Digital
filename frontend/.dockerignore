@@ -27,6 +27,11 @@ Thumbs.db
 desktop.ini
 *.swp
 
+# Brand masters. `scripts/generate-favicons.mjs` renders these into app/ and
+# public/ and its output is committed, so the ~7 MB of originals are only
+# needed when a logo actually changes — never during a build.
+brand/
+
 # Docs / VCS
 .git/
 .gitignore

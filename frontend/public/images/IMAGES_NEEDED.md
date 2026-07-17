@@ -35,5 +35,21 @@ a new slot, create/extend a component and add it to the registry in
 
 ## Logos
 
-Brand/product logos still live as real files under `public/ecosystem/logos/` and
-`public/logo.png` — those are unchanged.
+Product logos still live as real files under `public/ecosystem/logos/`.
+
+The **QUATA Digital** brand marks are generated, not hand-placed. The masters
+live in `frontend/brand/` (outside `public/`, so the multi-megabyte originals
+are never served) and `scripts/generate-favicons.mjs` renders every derivative
+from them:
+
+- `brand/mark.png` — the QD monogram → favicon, app icons, maskable PWA icons
+- `brand/header-lockup.png` → `public/brand/lockup.png`, used by the navbar,
+  footer and both OG variants
+- `brand/og/{home,blog,careers}.png` → `public/brand/og/*.jpg`, the OG card
+  backgrounds. These are backgrounds **only** — `lib/og-template.tsx` draws the
+  real lockup and real type over them, so no logo or text is ever baked in
+- `brand/social/` — deck/ad/social artwork. Nothing renders it; never served
+
+Re-run `node scripts/generate-favicons.mjs` after changing a master. Don't edit
+anything under `public/brand/` by hand; it will be overwritten. See
+`docs/BRAND_IMAGE_PROMPTS.md` for generating new background artwork.

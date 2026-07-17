@@ -22,7 +22,7 @@ export function Hero() {
         className="absolute -bottom-40 -left-32 -z-10 h-[520px] w-[520px] rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, rgba(14,91,74,0.45), transparent)",
+            "radial-gradient(closest-side, rgba(0,144,168,0.45), transparent)",
         }}
       />
 
