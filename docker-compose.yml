@@ -50,6 +50,33 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
+  # QUATA notification worker (@QuataAlertsBot): retry sweeps, infrastructure
+  # monitoring and the daily business summary. Alerts are delivered
+  # in-process by the backend the moment an event is published, so this is
+  # the reliability net, not the delivery path.
+  #
+  # With no TELEGRAM_BOT_TOKEN set (the dev default) nothing is sent —
+  # events are recorded in notification_events and visible at
+  # /admin/alerts, which is exactly what you want locally.
+  notification-worker:
+    build: ./backend
+    command: ["python", "-m", "app.scripts.notification_worker", "--interval", "60"]
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+psycopg://quata:quata@db:5432/quata
+      SECRET_KEY: change-me-in-production-please-make-this-very-long-and-random
+      # The worker never creates schema or seeds — the backend owns that,
+      # and two processes racing on create_all is a good way to deadlock.
+      AUTO_CREATE_TABLES: "false"
+      SEED_ON_STARTUP: "false"
+      EMAIL_BACKEND: console
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
   frontend:
     build: ./frontend
     environment:

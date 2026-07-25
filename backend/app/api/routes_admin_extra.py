@@ -1662,7 +1662,39 @@ def retention_preview(
             "would_delete": pageview_count,
             "cutoff": cutoff_pv.isoformat(),
         },
+        "notification_events": {
+            "retention_days": _settings.NOTIFICATION_LOG_RETENTION_DAYS,
+            "would_delete": _notification_prune_count(db),
+            "cutoff": (
+                datetime.now(timezone.utc)
+                - timedelta(days=_settings.NOTIFICATION_LOG_RETENTION_DAYS)
+            ).isoformat(),
+        },
     }
+
+
+def _notification_prune_count(db: Session) -> int:
+    """Telegram delivery records past their retention window.
+
+    Tolerates a missing table so the retention screen still renders on a
+    deployment that hasn't run the notification migration yet.
+    """
+    from app.core.config import settings as _settings
+    from app.models import NotificationEvent
+
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        days=_settings.NOTIFICATION_LOG_RETENTION_DAYS
+    )
+    try:
+        return (
+            db.query(func.count(NotificationEvent.id))
+            .filter(NotificationEvent.created_at < cutoff)
+            .scalar()
+            or 0
+        )
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        return 0
 
 
 # NOTE: retention_prune is destructive (hard-deletes activity logs, page
@@ -1731,6 +1763,14 @@ def retention_prune(
     else:
         deleted_versions = 0
 
+    # Telegram delivery records age out on their own schedule
+    # (NOTIFICATION_LOG_RETENTION_DAYS, default 180 — longer than the
+    # activity log, because financial and security alerts are the ones
+    # you're most likely to be asked about months later).
+    from app.services.notifications import dispatch as _notify_dispatch
+
+    deleted_notifications = _notify_dispatch.prune_log()
+
     log_activity(
         db,
         actor=user,
@@ -1742,6 +1782,7 @@ def retention_prune(
             "page_views": deleted_pv,
             "media_assets_purged": deleted_media,
             "orphan_page_versions": deleted_versions,
+            "notification_events": deleted_notifications,
         },
     )
     db.commit()
@@ -1751,6 +1792,7 @@ def retention_prune(
             "page_views": deleted_pv,
             "media_assets_purged": deleted_media,
             "orphan_page_versions": deleted_versions,
+            "notification_events": deleted_notifications,
         }
     }
 

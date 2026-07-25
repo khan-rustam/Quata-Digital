@@ -16,6 +16,7 @@ from app.api.routes_auth import router as auth_router
 from app.api.routes_devices import router as devices_router
 from app.api.routes_public import router as public_router
 from app.api.routes_media import router as media_router
+from app.api.routes_notifications import router as notifications_router
 from app.api.routes_pages import router as pages_router
 from app.api.routes_security import router as security_router
 from app.api.routes_self import router as self_router
@@ -96,9 +97,36 @@ async def lifespan(app: FastAPI):
     except Exception:  # noqa: BLE001
         # Don't crash boot if the tables aren't ready yet — Alembic will catch up.
         pass
+    # QUATA Notification Service — seed the toggle catalogue + bootstrap
+    # Telegram recipients, then announce the restart to @QuataAlertsBot.
+    # Wrapped so a notification problem can never stop the API booting.
+    try:
+        from app.services.notifications.recipients import seed_bootstrap_recipients
+        from app.services.notifications.settings_store import seed_defaults
+
+        with SessionLocal() as db:
+            seed_defaults(db)
+            seed_bootstrap_recipients(db)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from app.services.notifications import monitor
+
+        monitor.report_startup()
+    except Exception:  # noqa: BLE001
+        pass
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
     _startup_time = time.monotonic()
     yield
+    # Clean shutdown (deploy, restart, systemd stop) → ❌ SERVER OFFLINE.
+    # An *unclean* stop never reaches here; the notification worker's API
+    # watchdog is what catches those.
+    try:
+        from app.services.notifications import monitor
+
+        monitor.report_shutdown()
+    except Exception:  # noqa: BLE001 — never delay or fail a shutdown
+        pass
 
 
 # Disable the interactive API explorers in production — they enumerate
@@ -158,6 +186,30 @@ async def block_public_private_uploads(request, call_next):
     if path.startswith("/uploads/") and any(seg in path for seg in _PRIVATE_UPLOAD_SEGMENTS):
         return JSONResponse({"detail": "Not found"}, status_code=404)
     return await call_next(request)
+
+
+# Unhandled exceptions become ❌ SYSTEM ALERT notifications. Registered
+# after the uploads guard so it sits *outside* it and sees everything.
+# `HTTPException` never reaches here — Starlette's exception middleware
+# converts those to responses further in — so this only fires on genuine
+# unexpected failures. The exception is always re-raised: alerting observes,
+# it never changes the response.
+@app.middleware("http")
+async def report_unhandled_errors(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        try:
+            from app.services.notifications import monitor
+
+            monitor.report_application_error(
+                path=request.url.path,
+                method=request.method,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        raise
 
 
 # Static uploads — local-disk on the same VPS, no S3 needed.
@@ -237,6 +289,7 @@ app.include_router(uploads_router, prefix=settings.API_PREFIX)
 app.include_router(devices_router, prefix=settings.API_PREFIX)
 app.include_router(site_settings_router, prefix=settings.API_PREFIX)
 app.include_router(media_router, prefix=settings.API_PREFIX)
+app.include_router(notifications_router, prefix=settings.API_PREFIX)
 app.include_router(pages_router, prefix=settings.API_PREFIX)
 app.include_router(admin_crud_router, prefix=settings.API_PREFIX)
 app.include_router(admin_extra_router, prefix=settings.API_PREFIX)

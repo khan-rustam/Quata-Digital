@@ -42,6 +42,20 @@ def send_broadcast_email(
     except Exception as exc:  # noqa: BLE001
         err = f"{type(exc).__name__}: {str(exc)[:200]}"
 
+    if not ok:
+        # ❌ SYSTEM ALERT for a broken send path. Deduped to one alert per
+        # hour inside `report_job_failure`, so a 5,000-recipient broadcast
+        # against a dead SMTP host reports once, not 5,000 times.
+        try:
+            from app.services.notifications import monitor
+
+            monitor.report_job_failure(
+                job="newsletter broadcast email",
+                error=err or "The email backend rejected the message.",
+            )
+        except Exception:  # noqa: BLE001 — never let alerting break the job
+            pass
+
     if broadcast_id is not None:
         try:
             with SessionLocal() as db:

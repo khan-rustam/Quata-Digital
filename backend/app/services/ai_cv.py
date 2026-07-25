@@ -67,14 +67,19 @@ def analyze_cv(cv_text: str, job_title: str) -> dict:
     Raises ``AiUnavailable`` when the key/package is missing, or a RuntimeError
     on an API/parse failure (the caller turns these into a clean HTTP error).
     """
+    from app.services.notifications import ai_events
+
     if not ai_enabled():
+        ai_events.unavailable("AI is not configured (no OPENAI_API_KEY).")
         raise AiUnavailable("AI is not configured (no OPENAI_API_KEY).")
     if not cv_text.strip():
+        # A blank CV is the applicant's file, not an AI outage — no alert.
         raise AiUnavailable("Could not read any text from the CV (is it a scanned image?).")
 
     try:
         from openai import OpenAI
     except ImportError as exc:  # pragma: no cover
+        ai_events.unavailable("The openai package is not installed.")
         raise AiUnavailable("The openai package is not installed.") from exc
 
     client = OpenAI(
@@ -114,7 +119,14 @@ def analyze_cv(cv_text: str, job_title: str) -> dict:
         data = json.loads(resp.choices[0].message.content or "{}")
     except Exception as exc:  # noqa: BLE001
         log.exception("OpenAI CV analysis failed")
+        ai_events.api_error(
+            error=f"{type(exc).__name__}: {exc}",
+            model=settings.OPENAI_MODEL,
+            operation="cv_analysis",
+        )
         raise RuntimeError(f"AI analysis failed: {exc}") from exc
+    else:
+        ai_events.request_succeeded(model=settings.OPENAI_MODEL, operation="cv_analysis")
 
     # Light normalisation so the frontend can rely on shapes.
     try:

@@ -186,7 +186,57 @@ Old rows are pruned automatically: 90 days for activity, 180 days for page views
 14-day time series for visits / partner requests / job applications. Only
 visitors who accept the cookie banner are counted.
 
-### 6.7 My settings
+### 6.7 Alert centre (Telegram)
+
+`/admin/alerts` — the control room for **@QuataAlertsBot**, which reports
+everything important across QuataPay, QuataFood, Abaqwa, QuataTrade, QUATA AI
+and this website into Telegram. Needs the `settings:manage` permission.
+
+**First-time setup, in order:**
+
+1. Paste the bot token under **Site settings → Integrations → Telegram bot
+   token**. Use the token for the existing @QuataAlertsBot — never create a
+   new bot.
+2. Come back to **Alert centre → Delivery** and click **Test connection**.
+   Green means Telegram recognises the token.
+3. Add who receives alerts under **Recipients**. Message @QuataAlertsBot from
+   your Telegram account first (or add it to your ops group and post once),
+   then ask engineering to run `python -m app.scripts.telegram_chats` — it
+   prints the chat ids to paste in.
+4. Click **Send test notification**. If it lands in Telegram, you're live.
+
+**The four tabs:**
+
+- **Delivery** — the master on/off switch, the minimum priority to send, the
+  large-transaction threshold, the daily-summary time, and the alert
+  thresholds for CPU / memory / disk. Also the two test buttons and a
+  preview of the daily report.
+- **Platforms & events** — turn a whole product off (say QuataFood is in
+  maintenance and you don't want its noise), or turn off a category of event
+  across every product. Security and infrastructure are flagged — think twice
+  before switching those off.
+- **Recipients** — who is authorised. Each one can be limited to a minimum
+  priority, specific platforms, or specific categories. Give the CEO's chat
+  🔴 CRITICAL only and the ops group everything. **Pause** stops alerts
+  without losing the configuration; **delete** removes access entirely.
+- **Logs** — every notification ever sent, with search and filters. Click any
+  row to see the exact message, who received it, and any error. Failed ones
+  have a **Retry** button.
+
+**Things worth knowing:**
+
+- Turning notifications off does **not** stop events being recorded. They're
+  all in Logs, marked `suppressed` with the reason. Nothing is lost.
+- If an alert didn't arrive, open Logs and find it — the row says exactly
+  why (platform off, category off, priority too low, no matching recipient,
+  or a Telegram error).
+- Alerts never contain passwords, OTPs, PINs, API keys or tokens. Account
+  numbers are shown masked (`12••••••••••3456`). This is enforced in code,
+  not by convention.
+- A **missing daily summary** is itself a signal — it means the notification
+  worker is down. Tell engineering.
+
+### 6.8 My settings
 
 `/admin/settings`. Update your profile (name, phone, avatar, job title), change your password, and enrol or disable 2FA. Notification preferences also live here.
 
@@ -199,7 +249,11 @@ visitors who accept the cookie banner are counted.
 - [ ] Keep recovery codes in a password manager, never in plain text.
 - [ ] Sign out from public/shared computers.
 - [ ] Don't share admin links — each staff member gets their own account.
-- [ ] Suspend departing staff the same day.
+- [ ] Suspend departing staff the same day — and remove their Telegram chat
+      from **Alert centre → Recipients** at the same time.
+- [ ] Read the 🚨 SECURITY ALERT messages. Repeated failed logins or a login
+      from a new country against an account that shouldn't be travelling is
+      how a breach announces itself.
 - [ ] If you suspect a breach, message the engineering on-call and change your password immediately.
 
 ---

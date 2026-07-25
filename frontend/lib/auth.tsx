@@ -99,6 +99,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signOut = React.useCallback(() => {
+    // Tell the backend first so the sign-out is audited and reaches
+    // @QuataAlertsBot. Fire-and-forget: local state is cleared immediately
+    // either way, so a dead network can never trap someone in a session.
+    const current = localStorage.getItem(TOKEN_KEY);
+    if (current) {
+      api("/auth/logout", { method: "POST", token: current, skipAuthRedirect: true }).catch(
+        () => {
+          /* signing out must always succeed locally */
+        },
+      );
+    }
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
     setToken(null);

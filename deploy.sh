@@ -34,6 +34,8 @@ fi
 ok()    { echo -e "${C_GREEN}${C_BOLD}✔${C_RESET} $*"; }
 fail()  { echo -e "${C_RED}${C_BOLD}✘${C_RESET} $*"; }
 info()  { echo -e "${C_CYAN}➜${C_RESET} $*"; }
+# Something worth noticing that is NOT fatal — the deploy continues.
+warn()  { echo -e "${C_GOLD}${C_BOLD}!${C_RESET} $*"; }
 step()  {
   echo
   echo -e "${C_PURPLE}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
@@ -138,6 +140,31 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "backend" ]]; then
     fail "backend status: $STATUS"
     journalctl -u quata-digital-backend -n 30 --no-pager
     exit 1
+  fi
+
+  # Notification worker — retry sweeps, infrastructure monitoring and the
+  # daily business summary for @QuataAlertsBot. It shares the backend's
+  # venv and code, so it must restart on the same deploy or it keeps
+  # running the old build.
+  #
+  # Treated as non-fatal: alerts are delivered in-process by the API the
+  # moment an event is published, so a worker that won't start degrades
+  # reliability but must never abort a deploy that is otherwise healthy.
+  if systemctl list-unit-files quata-notification-worker.service &>/dev/null &&
+     systemctl is-enabled quata-notification-worker &>/dev/null; then
+    info "restart notification worker"
+    systemctl restart quata-notification-worker || true
+    sleep 2
+    WORKER_STATUS=$(systemctl is-active quata-notification-worker || true)
+    if [[ "$WORKER_STATUS" == "active" ]]; then
+      ok "quata-notification-worker.service: ${C_GREEN}active${C_RESET}"
+    else
+      warn "notification worker status: $WORKER_STATUS (alerts still send in-process;"
+      warn "  retries, monitoring and the daily summary are paused until it's up)"
+      journalctl -u quata-notification-worker -n 20 --no-pager || true
+    fi
+  else
+    warn "quata-notification-worker not installed — see infra/systemd/ and docs/NOTIFICATIONS.md"
   fi
 fi
 

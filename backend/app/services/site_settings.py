@@ -64,6 +64,20 @@ DEFAULT_SETTINGS: list[dict] = [
         "sort_order": 11,
     },
     {
+        "key": "integrations.telegram_bot_token",
+        "group": "integrations",
+        "label": "Telegram bot token (@QuataAlertsBot)",
+        "description": (
+            "Token from @BotFather for the EXISTING @QuataAlertsBot. This is the only "
+            "credential the QUATA Notification Service uses to reach Telegram — every "
+            "platform publishes through it. Falls back to TELEGRAM_BOT_TOKEN in the env. "
+            "Manage recipients and event toggles under Alert centre."
+        ),
+        "field_type": "password",
+        "is_secret": True,
+        "sort_order": 15,
+    },
+    {
         "key": "integrations.sentry_dsn",
         "group": "integrations",
         "label": "Sentry DSN",

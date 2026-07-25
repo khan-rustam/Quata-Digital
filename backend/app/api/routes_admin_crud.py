@@ -63,6 +63,7 @@ from app.services.email import (
     notify_applicant_shortlisted,
     notify_leave_decided,
 )
+from app.services.notifications import local_events as notify
 
 log = logging.getLogger("quata.careers")
 
@@ -506,6 +507,7 @@ def create_staff(
     )
     db.commit()
     db.refresh(u)
+    notify.user_registered(u, request)
     return StaffOut(
         id=u.id,
         full_name=u.full_name,
@@ -530,6 +532,11 @@ def update_staff(
     if not u:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     _assert_can_manage_target(user, u)
+    # Snapshot before mutation so the notification can report an actual
+    # transition (activated / deactivated / reactivated) rather than just
+    # "something changed".
+    was_active = bool(u.is_active)
+    previous_status = u.status
     data = payload.model_dump(exclude_unset=True)
     if "role_slug" in data:
         role = db.query(Role).filter(Role.slug == data.pop("role_slug")).first()
@@ -552,6 +559,16 @@ def update_staff(
     log_activity(db, actor=user, action="update", resource_type="user", resource_id=user_id, request=request)
     db.commit()
     db.refresh(u)
+    if was_active and not u.is_active:
+        notify.user_lifecycle("user.deactivated", u, request, previous_status=previous_status)
+    elif not was_active and u.is_active:
+        notify.user_lifecycle("user.reactivated", u, request, previous_status=previous_status)
+    elif previous_status != u.status and u.status == "active":
+        notify.user_lifecycle("user.activated", u, request, previous_status=previous_status)
+    else:
+        notify.user_lifecycle(
+            "user.profile_updated", u, request, updated_fields=", ".join(data.keys()) or "role/department"
+        )
     return StaffOut(
         id=u.id,
         full_name=u.full_name,
@@ -613,6 +630,7 @@ def delete_staff(
     u.status = "suspended"
     log_activity(db, actor=user, action="suspend", resource_type="user", resource_id=user_id, request=request)
     db.commit()
+    notify.user_lifecycle("user.deactivated", u, request, action="Suspended by administrator")
 
 
 # -------------------- Departments --------------------

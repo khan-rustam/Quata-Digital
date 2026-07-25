@@ -9,6 +9,7 @@ today. Source of truth — if the box dies, you rebuild from here.
 |---|---|---|
 | [caddy/Caddyfile](caddy/Caddyfile) | Reverse proxy, TLS termination, www→apex redirect, WS upgrade | `/etc/caddy/Caddyfile` |
 | [systemd/quata-digital-backend.service](systemd/quata-digital-backend.service) | uvicorn unit, 2 workers, MemoryMax, hardening flags | `/etc/systemd/system/` |
+| [systemd/quata-notification-worker.service](systemd/quata-notification-worker.service) | @QuataAlertsBot retry sweeps, infra monitoring, daily summary | `/etc/systemd/system/` |
 | [pm2/ecosystem.config.js](pm2/ecosystem.config.js) | next-server cluster, max-old-space-size cap | `/home/Quata-Digital/frontend/ecosystem.config.js` (or load from infra/ directly) |
 | [cron/backup-postgres.sh](cron/backup-postgres.sh) | Nightly `pg_dump` → off-VPS S3 with retention prune | `/usr/local/sbin/quata-backup` |
 | [cron/retention-prune.cron](cron/retention-prune.cron) | Template for daily activity-log retention prune | crontab |
@@ -25,12 +26,19 @@ sudo cp infra/systemd/quata-digital-backend.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now quata-digital-backend
 
-# 3. Frontend (PM2)
+# 3. Notification worker (@QuataAlertsBot). Optional but recommended —
+#    without it alerts still send, but nothing retries after an outage,
+#    infrastructure isn't monitored and the daily summary never fires.
+sudo cp infra/systemd/quata-notification-worker.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now quata-notification-worker
+
+# 4. Frontend (PM2)
 pm2 start infra/pm2/ecosystem.config.js
 pm2 save
 pm2 startup     # one-time
 
-# 4. Nightly backup
+# 5. Nightly backup (reports its outcome to @QuataAlertsBot)
 sudo install -m 0750 infra/cron/backup-postgres.sh /usr/local/sbin/quata-backup
 sudo crontab -e
 # add:
@@ -76,4 +84,18 @@ AWS_SECRET_ACCESS_KEY=<secret>
 BACKUP_S3_BUCKET=quata-backups
 BACKUP_S3_ENDPOINT_URL=https://<account>.r2.cloudflarestorage.com
 BACKUP_RETENTION_DAYS=30
+
+# Telegram alerting (@QuataAlertsBot) — see docs/NOTIFICATIONS.md.
+# The token may live here or in Site settings → Integrations (which wins).
+TELEGRAM_BOT_TOKEN=<from @BotFather, existing bot>
+TELEGRAM_DEFAULT_CHAT_IDS=-100<ops group id>
+TELEGRAM_ADMIN_USER_IDS=<admin private chat ids, comma-separated>
+NOTIFY_INGEST_KEYS=["quatapay:<key>","quatafood:<key>","abaqwa:<key>","quatatrade:<key>","quata_ai:<key>"]
+NOTIFY_REQUIRE_SIGNATURE=true
+# Lets the worker catch an API crash the app can't report itself. Must
+# point at the API host, not the website.
+NOTIFY_HEALTHCHECK_URL=https://api.quatadigital.com/health/ready
 ```
+
+> The notification worker reads this same file, so the API and the worker
+> always agree on the database, the bot token and the thresholds.

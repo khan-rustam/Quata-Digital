@@ -9,6 +9,7 @@ from app.core.security import hash_password, verify_password
 from app.db.session import get_db
 from app.models import AttendanceLog, LeaveRequest, User
 from app.services import hr_metrics
+from app.services.notifications import local_events as notify
 from app.schemas.common import (
     AttendanceIn,
     AttendanceOut,
@@ -54,6 +55,9 @@ def update_profile(
     )
     db.commit()
     db.refresh(user)
+    notify.user_lifecycle(
+        "user.profile_updated", user, request, updated_fields=", ".join(data.keys())
+    )
     return {
         "id": user.id,
         "email": user.email,
@@ -88,6 +92,7 @@ def change_password(
         request=request,
     )
     db.commit()
+    notify.password_changed(user, request, via="admin console")
     return {"ok": True}
 
 

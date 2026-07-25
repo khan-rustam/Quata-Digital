@@ -35,6 +35,7 @@ from app.services.email import (
     notify_contact_received,
     notify_partner_received,
 )
+from app.services.notifications import local_events as notify
 
 router = APIRouter(tags=["public"])
 
@@ -84,6 +85,7 @@ def submit_partner(
         notify_partner_received(partner_type, payload.payload)
     except Exception:  # noqa: BLE001 — best-effort
         pass
+    notify.partner_submitted(partner_type, payload.payload, request, request_id=pr.id)
     return pr
 
 
@@ -176,6 +178,14 @@ def apply_to_job(
         )
     except Exception:  # noqa: BLE001
         pass
+    notify.career_application(
+        job_title=job.title,
+        full_name=payload.full_name,
+        email=payload.email,
+        phone=payload.phone,
+        application_id=app_row.id,
+        request=request,
+    )
     return {"ok": True, "id": app_row.id}
 
 
@@ -249,6 +259,7 @@ def submit_contact(payload: ContactIn, request: Request, db: Session = Depends(g
         notify_contact_received(payload.model_dump())
     except Exception:  # noqa: BLE001
         pass
+    notify.contact_submitted(payload.model_dump(), request, message_id=msg.id)
     return {"ok": True, "id": msg.id}
 
 
@@ -453,6 +464,9 @@ def newsletter_subscribe(
         details={"source": sub.source},
     )
     db.commit()
+    notify.newsletter_subscribed(
+        email=sub.email, source=sub.source, subscriber_id=sub.id, request=request
+    )
     return {"ok": True, "id": sub.id, "status": "subscribed"}
 
 

@@ -27,6 +27,7 @@ from app.models import (
     Product,
     User,
 )
+from app.services.notifications import local_events as notify
 from app.services.security_extras import (
     decrypt_totp_secret,
     encrypt_totp_secret,
@@ -94,6 +95,9 @@ def verify_totp_enrol(
     user.totp_recovery_codes = [hash_recovery_code(c) for c in raw_codes]
     log_activity(db, actor=user, action="2fa_enabled", resource_type="user", resource_id=user.id, request=request)
     db.commit()
+    # The recovery codes stay in this response only — the alert says that
+    # 2FA was enabled, never what the codes are.
+    notify.two_factor_changed(user, request, enabled=True)
     return {"enabled": True, "recovery_codes": raw_codes}
 
 
@@ -111,6 +115,7 @@ def disable_totp(
     user.totp_recovery_codes = None
     log_activity(db, actor=user, action="2fa_disabled", resource_type="user", resource_id=user.id, request=request)
     db.commit()
+    notify.two_factor_changed(user, request, enabled=False)
     return {"enabled": False}
 
 
@@ -246,6 +251,12 @@ def restore_item(
         request=request,
     )
     db.commit()
+    # Restoring a staff record hands someone their account back — that's an
+    # access change, so it goes to @QuataAlertsBot like any other one.
+    if resource == "staff":
+        notify.user_lifecycle(
+            "user.reactivated", row, request, action="Restored from trash"
+        )
     return {"ok": True}
 
 

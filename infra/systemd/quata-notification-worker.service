@@ -1,0 +1,69 @@
+# QUATA Digital — notification worker unit (@QuataAlertsBot).
+#
+# Install:
+#   sudo cp infra/systemd/quata-notification-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now quata-notification-worker
+#
+# Logs:
+#   journalctl -u quata-notification-worker -f
+#
+# What it does, once a minute:
+#   • delivers events queued while Telegram was unreachable;
+#   • reclaims events a killed process left stuck mid-send;
+#   • samples CPU / RAM / disk / database / queue health and raises
+#     ❌ SYSTEM ALERT on the way down, ✅ on the way back (every 5th cycle);
+#   • probes NOTIFY_HEALTHCHECK_URL to catch an API crash the app itself
+#     can't report;
+#   • sends the daily business summary at the configured hour;
+#   • prunes delivery records past NOTIFICATION_LOG_RETENTION_DAYS.
+#
+# Alerts are delivered in-process by the API the moment an event is
+# published, so this worker is NOT on the critical path for a notification
+# to arrive. It is the safety net that makes delivery survive restarts and
+# outages, plus the home of everything scheduled. Losing it degrades
+# reliability and stops the daily report; it does not stop alerting.
+#
+# Environment comes from the same /etc/quata-digital.env the API uses, so
+# the worker sees the identical DATABASE_URL, bot token and thresholds.
+[Unit]
+Description=QUATA notification worker (@QuataAlertsBot delivery, monitoring, daily summary)
+After=network-online.target postgresql.service quata-digital-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quata
+Group=quata
+WorkingDirectory=/home/Quata-Digital/backend
+EnvironmentFile=/etc/quata-digital.env
+
+ExecStart=/home/Quata-Digital/backend/.venv/bin/python -m app.scripts.notification_worker \
+    --interval 60
+
+Restart=always
+RestartSec=10
+
+# A crash-looping worker must not machine-gun the administrators. The
+# monitor's hourly dedupe keys already cap alert volume per condition;
+# this caps restart churn so the log stays readable.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# Modest ceilings — this process does very little work.
+MemoryMax=256M
+TasksMax=50
+
+# Hardening. Note ProtectSystem=strict + no ReadWritePaths: the worker
+# only ever reads config and writes to the database over the network. It
+# has no business touching the filesystem.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+
+[Install]
+WantedBy=multi-user.target

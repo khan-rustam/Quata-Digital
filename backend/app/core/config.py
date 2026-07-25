@@ -123,6 +123,54 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_BASE_URL: Optional[str] = None  # override for Azure / compatible gateways
 
+    # ---------- QUATA Notification Service (@QuataAlertsBot) ----------
+    # Every QUATA platform publishes events here; only this service talks to
+    # Telegram. Empty token => the service records + queues events but never
+    # dispatches (safe default for dev and for a fresh prod box).
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_API_BASE: str = "https://api.telegram.org"
+    # Bootstrap recipients, comma-separated Telegram chat ids. Used only to
+    # seed the `notification_recipients` table on first boot — after that the
+    # admin manages recipients from the UI and this value is ignored.
+    #
+    # CHAT_IDS is where alerts go (groups are negative, e.g. -1001234567890).
+    # ADMIN_USER_IDS is the same thing for individual administrators' private
+    # chats — kept as a separate variable so "the ops group" and "the people"
+    # can be provisioned and revoked independently. Both seed the same
+    # allow-list table; the split is operational, not technical.
+    TELEGRAM_DEFAULT_CHAT_IDS: str = ""
+    TELEGRAM_ADMIN_USER_IDS: str = ""
+    # Master kill-switch honoured ahead of the DB toggle, so an operator can
+    # silence the bot from the env without database access.
+    NOTIFY_ENABLED: bool = True
+    NOTIFY_TIMEOUT_SECONDS: int = 10
+    NOTIFY_MAX_ATTEMPTS: int = 5
+    # Rolling window used to dedupe an event whose publisher didn't supply an
+    # explicit dedupe key.
+    NOTIFY_DEDUPE_WINDOW_SECONDS: int = 300
+    # 💰 LARGE TRANSACTION ALERT fires above this (in the event's own
+    # currency — publishers send a normalised XAF amount). Editable at
+    # runtime from the admin; this is the fallback.
+    NOTIFY_LARGE_TX_THRESHOLD: float = 1_000_000.0
+    # Per-platform ingest credentials for the other QUATA products, as
+    # `platform:key` pairs. e.g.
+    #   NOTIFY_INGEST_KEYS=["quatapay:abc123","quatafood:def456"]
+    # A platform with no key configured cannot publish over HTTP.
+    NOTIFY_INGEST_KEYS: List[str] = []
+    # Require `X-Quata-Signature` (HMAC-SHA256 of "<timestamp>.<body>" keyed
+    # with the platform's ingest key) in addition to the key header.
+    NOTIFY_REQUIRE_SIGNATURE: bool = False
+    NOTIFY_SIGNATURE_SKEW_SECONDS: int = 300
+    # Retention for the delivery audit log.
+    NOTIFICATION_LOG_RETENTION_DAYS: int = 180
+    # Absolute URL the notification worker probes to detect an API outage
+    # the app itself can't report (crash, OOM kill, hung worker). Empty =
+    # the watchdog is off. Deliberately explicit rather than derived from
+    # PUBLIC_BASE_URL — that origin may front the website, not the API, and
+    # a watchdog pointed at the wrong host is worse than none.
+    # e.g. https://api.quatadigital.com/health/ready
+    NOTIFY_HEALTHCHECK_URL: str = ""
+
     # ---------- Observability ----------
     SENTRY_DSN: Optional[str] = None
     SENTRY_ENV: Optional[str] = None
@@ -183,6 +231,22 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() in {"production", "prod"}
+
+    @property
+    def notify_ingest_keys(self) -> dict:
+        """`NOTIFY_INGEST_KEYS` parsed into ``{platform_slug: key}``.
+
+        Entries without a `:` separator, or with an empty key, are dropped —
+        a malformed entry must never silently become "any key works".
+        """
+        out: dict[str, str] = {}
+        for entry in self.NOTIFY_INGEST_KEYS:
+            platform, sep, key = (entry or "").partition(":")
+            platform = platform.strip().lower()
+            key = key.strip()
+            if sep and platform and key:
+                out[platform] = key
+        return out
 
     @property
     def ai_enabled(self) -> bool:

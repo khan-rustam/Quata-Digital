@@ -1,8 +1,13 @@
 # QUATA Digital — retention prune cron template.
 #
 # The backend exposes POST /api/v1/admin/retention/prune. Calling it
-# nightly bounds the activity_logs + page_views tables to the retention
-# windows configured in settings (90 days + 180 days by default).
+# nightly bounds the activity_logs + page_views + notification_events
+# tables to the retention windows configured in settings (90 / 180 / 180
+# days by default).
+#
+# The notification worker already prunes notification_events on its own
+# schedule, so this endpoint is belt-and-braces for that table — safe to
+# run either way, and the only route if the worker isn't installed.
 #
 # Install:
 #   sudo crontab -e

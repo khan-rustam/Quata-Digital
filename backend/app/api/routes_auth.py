@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models import PasswordResetToken, User
 from app.schemas.auth import LoginIn, MeOut, TokenOut
 from app.services.email import send_email
+from app.services.notifications import local_events as notify
 from app.services.security_extras import (
     consume_recovery_code,
     decrypt_totp_secret,
@@ -50,10 +51,23 @@ def login(payload: TwoFactorLoginIn, request: Request, db: Session = Depends(get
         # exists, and return the same generic error for missing/closed
         # accounts so neither can be enumerated.
         verify_password(payload.password, _DUMMY_PW_HASH)
+        # 🚨 Someone is probing an address that isn't (or is no longer) a
+        # QUATA account. The response stays generic; the administrators
+        # don't have to be kept in the dark.
+        notify.suspicious_login(
+            payload.email.lower(),
+            request,
+            "Login attempted against an unknown or closed account",
+        )
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
 
     if is_locked(user):
         retry_in = int((user.locked_until - datetime.now(timezone.utc)).total_seconds())
+        notify.suspicious_login(
+            user.email,
+            request,
+            "Login attempted against a locked account",
+        )
         raise HTTPException(
             status.HTTP_423_LOCKED,
             f"Account locked. Try again in {max(retry_in, 1)} seconds.",
@@ -70,10 +84,15 @@ def login(payload: TwoFactorLoginIn, request: Request, db: Session = Depends(get
             request=request,
             details={"attempts": user.failed_login_attempts},
         )
+        attempts = user.failed_login_attempts
         db.commit()
+        notify.admin_login_failed(user, request, attempts)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
 
     if not user.is_active:
+        notify.suspicious_login(
+            user.email, request, "Correct password on a disabled account"
+        )
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account disabled")
 
     # 2FA challenge if enabled
@@ -95,12 +114,42 @@ def login(payload: TwoFactorLoginIn, request: Request, db: Session = Depends(get
             return {"two_factor_required": True}
 
     reset_failed_attempts(user)
-    log_activity(db, actor=user, action="login", resource_type="auth", request=request)
+    # Publish before the new login row is written so the new-device /
+    # new-location comparison runs against *previous* sessions only.
+    notify.admin_logged_in(db, user, request)
+    # Record the country alongside the login so the *next* sign-in can tell
+    # whether it came from somewhere new. Without a CDN country header this
+    # is simply absent and the comparison falls back to the IP network.
+    _country = notify.request_country(request)
+    log_activity(
+        db,
+        actor=user,
+        action="login",
+        resource_type="auth",
+        request=request,
+        details={"country": _country} if _country else None,
+    )
     db.commit()
     token = create_access_token(
         user.id, password_changed_at=user.password_changed_at
     )
     return TokenOut(access_token=token).model_dump()
+
+
+@router.post("/logout")
+def logout(request: Request, db: Session = Depends(get_db),
+           user: User = Depends(get_current_user_lenient)):
+    """Record an admin sign-out.
+
+    Sessions are stateless JWTs, so this does not invalidate the token — the
+    client discards it. The endpoint exists so a logout is auditable and
+    reaches @QuataAlertsBot; a security timeline showing only sign-ins is
+    half a timeline. Lenient auth so a user mid-onboarding can still leave.
+    """
+    log_activity(db, actor=user, action="logout", resource_type="auth", request=request)
+    db.commit()
+    notify.admin_logged_out(user, request)
+    return {"ok": True}
 
 
 @router.get("/me", response_model=MeOut)
@@ -159,6 +208,8 @@ def forgot_password(payload: ForgotPasswordIn, request: Request, db: Session = D
             request=request,
         )
         db.commit()
+        # Only that a reset was requested — the token itself never leaves email.
+        notify.password_reset_requested(user, request)
         link = f"{settings.FRONTEND_URL}/admin/reset-password?token={raw}"
         try:
             send_email(
@@ -217,4 +268,5 @@ def reset_password(payload: ResetPasswordIn, request: Request, db: Session = Dep
         request=request,
     )
     db.commit()
+    notify.password_changed(user, request, via="password reset link")
     return {"ok": True}

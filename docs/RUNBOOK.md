@@ -19,6 +19,7 @@ Companion docs:
 | Service | Process | Port (loopback) | Manager |
 |---|---|---|---|
 | Backend (FastAPI / uvicorn) | `quata-digital-backend` | `127.0.0.1:8500` | systemd |
+| Notification worker (@QuataAlertsBot) | `quata-notification-worker` | — | systemd |
 | Frontend (Next.js `next start`) | `Quata-Digi-F` | `127.0.0.1:3500` | PM2 |
 | Reverse proxy | Caddy or Nginx | `:443` | system-managed |
 
@@ -37,6 +38,7 @@ Companion docs:
 | Email | SMTP2GO (or whatever provider is wired in `.env`) |
 | Bot protection | hCaptcha — site key + secret in `.env` |
 | Errors | Sentry — DSN in `.env` |
+| Alerting | Telegram @QuataAlertsBot — see [NOTIFICATIONS.md](NOTIFICATIONS.md); console at `/admin/alerts` |
 
 ### Health endpoints
 
@@ -158,6 +160,52 @@ pm2 restart Quata-Digi-F --update-env
 | Email not arriving | SMTP credentials rotated or provider down | provider dashboard, then `journalctl -u quata-digital-backend \| grep -i smtp` |
 | hCaptcha "verification failed" everywhere | Site key / secret mismatch | confirm both `HCAPTCHA_SITE_KEY` (backend) and `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` (frontend) match what's at hcaptcha.com |
 | WebSocket disconnects | Reverse proxy doesn't upgrade `/ws` | confirm Caddy/Nginx has `Upgrade`/`Connection` headers passed for `/ws/messages` |
+| Telegram alerts stopped | Bot token, recipients, or the worker | `/admin/alerts` header → bot connection + queued/failed counts; then **Send test notification** |
+| ❌ SYSTEM ALERT flood | A real incident, or a crash-looping process | alerts are deduped hourly per condition, so a flood means *several distinct* conditions — read the Event line on each |
+
+Alerting is itself a dependency worth watching: **silence is ambiguous**. If
+no QUATA alert has arrived in a day, confirm the pipeline is alive with
+**Send test notification** rather than assuming nothing happened. The daily
+business summary doubles as a heartbeat — a missing report at the configured
+hour means the worker is down.
+
+---
+
+## 4a. Telegram alerting (@QuataAlertsBot)
+
+Full reference: [NOTIFICATIONS.md](NOTIFICATIONS.md). On-call essentials:
+
+```bash
+systemctl status quata-notification-worker      # is the safety net running?
+journalctl -u quata-notification-worker -n 50   # what did it last do?
+```
+
+**Alerts still send without the worker.** The API delivers in-process the
+moment an event is published; the worker only handles retries, monitoring
+sweeps and the daily summary. A dead worker degrades reliability — it does
+not stop alerting.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| No alerts at all | No bot token, or no active recipient | `/admin/alerts` header shows which; add the token under **Site settings → Integrations**, recipients under **Alert centre → Recipients** |
+| Events show `suppressed` | A toggle, the priority floor, or no recipient matched | Open the log entry — the exact reason is recorded |
+| Events stuck `pending` | Telegram unreachable, or worker down | `systemctl status quata-notification-worker`; events retry with backoff and are never lost |
+| Events `failed` | Permanent rejection (bad chat id, bot blocked) | Open the entry for the Telegram error; fix the recipient, then **Retry failed** |
+| A platform gets `401` on ingest | Wrong key / slug, or clock skew when signing | Check `NOTIFY_INGEST_KEYS` and NTP on the publishing host |
+| Duplicate alerts | Publisher isn't sending a stable `dedupe_key` | Fix the publisher — see [sdk/README.md](../sdk/README.md) |
+
+**Emergency mute.** To silence the bot immediately without a deploy, turn off
+*Telegram notifications* under **Alert centre → Delivery**. Events keep being
+recorded and audited, so nothing is lost — they simply aren't sent. Set
+`NOTIFY_ENABLED=false` in the env (requires restart) if you need a mute that
+survives someone flipping the toggle back on.
+
+Publish an alert from a script (used by the backup cron):
+
+```bash
+cd /home/Quata-Digital/backend && .venv/bin/python -m app.scripts.notify_event \
+    infra.database_backup_failed --payload '{"error":"..."}' --priority critical
+```
 
 ---
 

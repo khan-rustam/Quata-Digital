@@ -14,6 +14,11 @@ from .analytics import PageView
 from .media_asset import MediaAsset
 from .newsletter import NewsletterSubscriber
 from .newsletter_broadcast import NewsletterBroadcast
+from .notification import (
+    NotificationEvent,
+    NotificationRecipient,
+    NotificationSetting,
+)
 from .page_content import PageContent
 from .page_content_version import PageContentVersion
 from .site_setting import SiteSetting
@@ -51,6 +56,9 @@ __all__ = [
     "MediaAsset",
     "NewsletterSubscriber",
     "NewsletterBroadcast",
+    "NotificationEvent",
+    "NotificationRecipient",
+    "NotificationSetting",
     "PageContent",
     "PageContentVersion",
     "SiteSetting",

@@ -19,7 +19,11 @@ QuataDigital/
 │  ├─ RUNBOOK.md                 On-call / deploy / rollback / incidents
 │  ├─ ADMIN_USER_MANUAL.md       Non-technical admin guide
 │  ├─ SCALING.md                 When to graduate from single-VPS
+│  ├─ NOTIFICATIONS.md           @QuataAlertsBot — ecosystem-wide alerting
 │  └─ BUSINESS_QUESTIONS.md      Open content questions (what's still placeholder)
+├─ sdk/                          Drop-in notification clients for the other QUATA platforms
+│  ├─ python/quata_notify.py     Zero-dependency Python client
+│  └─ typescript/quata-notify.ts Zero-dependency Node client
 ├─ BOSS_ACTIONS.md               Boss-only outstanding items
 ├─ REMAINING_ITEMS.md            Single-page launch readiness dashboard
 ├─ deploy.sh                     One-shot VPS redeploy (systemd + PM2)
@@ -48,6 +52,7 @@ backend uses **SQLAlchemy 2 + Alembic**, the canonical FastAPI equivalent.
 | Real-time | WebSocket `/ws/messages` | Per-process `Hub`; switch to Redis pub/sub for multi-worker (see SCALING). |
 | Rate limiting | slowapi | Redis storage when `REDIS_URL` set, else in-process. |
 | Email | pluggable (`console` / `smtp` / `disabled`) | SMTP2GO recommended for prod. |
+| Alerting | QUATA Notification Service → **@QuataAlertsBot** | One bot for all six platforms. Async, deduplicated, retried, audited. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md). |
 | Bot protection | hCaptcha (server-side verify) | No-op when keys absent. |
 | Observability | python-json-logger + Sentry SDK | JSON logs by default in prod; Sentry off until DSN supplied. |
 | Uploads | Local disk under `UPLOAD_DIR/yyyy/mm/folder` | Pluggable; swap to S3 by replacing `services/uploads.py`. |
@@ -143,6 +148,7 @@ POST   /api/v1/auth/login                        Public — sign in (TOTP-aware)
 GET    /api/v1/auth/me                           Me + permissions + 2FA status
 POST   /api/v1/auth/forgot-password              Public — request reset link (rate-limited)
 POST   /api/v1/auth/reset-password               Public — consume reset token
+POST   /api/v1/auth/logout                       Record sign-out (audit + alert)
 
 # --- Self-service (any signed-in user) ---
 PATCH  /api/v1/me                                Update profile fields
@@ -220,6 +226,17 @@ GET    /api/v1/admin/trash/{resource}            products|blog|pages|jobs|applic
 POST   /api/v1/admin/trash/{resource}/{id}/restore
 GET    /api/v1/admin/retention/preview           How many activity / pageview rows would be pruned
 POST   /api/v1/admin/retention/prune             Hard-delete past the retention windows
+
+# --- QUATA Notification Service (@QuataAlertsBot) ---
+POST   /api/v1/notify/events                     Platform ingest (X-Quata-Platform + X-Quata-Key)
+GET    /api/v1/notify/health                     Public — is the service accepting events
+GET    /api/v1/admin/alerts/settings             Toggles, thresholds, bot status, stats
+POST   /api/v1/admin/alerts/settings/bulk
+GET/POST/PUT/DELETE  /api/v1/admin/alerts/recipients[/{id}]   Authorised Telegram chats
+POST   /api/v1/admin/alerts/test                 Send a real test notification
+GET    /api/v1/admin/alerts/logs[/{event_id}]    Delivery audit trail
+POST   /api/v1/admin/alerts/logs/{id}/retry | /api/v1/admin/alerts/retry-failed
+GET    /api/v1/admin/alerts/digest/preview | POST /digest/send
 
 # --- WebSocket ---
 WS     /ws/messages?token=<jwt>                  Real-time admin messaging push
