@@ -5,10 +5,10 @@ it matters; simple rows for the append-only lists shown on the staff profile.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
-from sqlalchemy import String, Integer, Text, ForeignKey, Date, DateTime, Boolean
+from sqlalchemy import String, Integer, Text, ForeignKey, Date, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin

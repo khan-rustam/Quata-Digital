@@ -1,12 +1,12 @@
 from ipaddress import ip_address, ip_network
-from typing import Annotated, Iterable
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import decode_token, decode_token_full
+from app.core.security import decode_token_full
 from app.db.session import get_db
 from app.models import User
 

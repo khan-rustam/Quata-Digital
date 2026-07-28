@@ -18,11 +18,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import hash_password
 from app.models import (
-    AttendanceLog,
     BlogPost,
     BusinessUnit,
     Department,
-    Device,
     Job,
     Page,
     Product,

@@ -17,7 +17,7 @@ needs the return value back, it can `.result(timeout=...)` on the Job.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Callable
 
 from app.core.config import settings
 

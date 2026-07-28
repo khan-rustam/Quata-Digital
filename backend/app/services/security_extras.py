@@ -8,14 +8,12 @@ import io
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import pyotp
 import qrcode
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.config import settings
-from app.core.security import hash_password
 
 
 # ---------------- Account lockout ----------------

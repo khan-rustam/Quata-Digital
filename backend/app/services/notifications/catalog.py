@@ -18,7 +18,6 @@ catalogue catches up. It just won't get a curated label or priority.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 # ---------------------------------------------------------------------------

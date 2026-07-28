@@ -1,8 +1,6 @@
 """2FA enrolment + notification prefs + soft-delete restore."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -12,7 +10,6 @@ from app.api.deps import (
     get_current_user,
     get_current_user_lenient,
     log_activity,
-    require_permission,
 )
 from app.core.security import verify_password
 from app.db.session import get_db

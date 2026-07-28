@@ -11,7 +11,7 @@ from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import PasswordResetToken, User
-from app.schemas.auth import LoginIn, MeOut, TokenOut
+from app.schemas.auth import MeOut, TokenOut
 from app.services.email import send_email
 from app.services.notifications import local_events as notify
 from app.services.security_extras import (

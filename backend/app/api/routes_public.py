@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import log_activity, get_client_ip
@@ -271,7 +271,7 @@ def public_search(q: str = Query(default="", min_length=1, max_length=120), db: 
     ranking when the live DB is Postgres. Falls back to lowercase LIKE on
     SQLite (dev / portable mode) so the dev experience matches.
     """
-    from sqlalchemy import or_, func, text
+    from sqlalchemy import or_, func
 
     is_postgres = db.bind is not None and db.bind.dialect.name == "postgresql"
 

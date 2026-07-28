@@ -18,11 +18,10 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Iterable, Optional
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings as env_settings
 from app.db.session import SessionLocal
 from app.models import SiteSetting
 

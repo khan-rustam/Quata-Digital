@@ -12,7 +12,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import cast, func, String as SqlString
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import log_activity, require_permission
@@ -41,10 +41,6 @@ from app.models import (
 )
 from app.schemas.common import (
     ActivityOut,
-    ApplicationOut,
-    LeaveOut,
-    AttendanceOut,
-    RoleOut,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin-extra"])
@@ -1984,7 +1980,6 @@ def send_broadcast(
     when set, for previews). Records a NewsletterBroadcast row regardless of
     outcome so the team has a full audit trail."""
     from app.services.email import send_email
-    from app.core.config import settings as _settings
 
     # Defence in depth: strip control chars from the editor input before
     # touching the audit row or the SMTP body.

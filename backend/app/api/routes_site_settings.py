@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, log_activity, require_permission
+from app.api.deps import log_activity, require_permission
 from app.db.session import get_db
 from app.models import SiteSetting, User
 from app.services.site_settings import (

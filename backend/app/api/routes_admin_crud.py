@@ -4,13 +4,12 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import or_
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, log_activity, require_permission, user_permissions
+from app.api.deps import log_activity, require_permission, user_permissions
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import (
@@ -61,7 +60,6 @@ from app.services.email import (
     notify_applicant_hired,
     notify_applicant_rejected,
     notify_applicant_shortlisted,
-    notify_leave_decided,
 )
 from app.services.notifications import local_events as notify
 
