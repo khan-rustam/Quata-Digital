@@ -1,0 +1,119 @@
+# QuataDigital — production stack.
+#
+# docker-compose.yml is the DEV stack: it hardcodes POSTGRES_PASSWORD=quata and
+# DEFAULT_ADMIN_PASSWORD=ChangeMe!2026, publishes the database to the host, and
+# points the frontend at localhost. It must never be deployed.
+#
+#   cp backend/.env.example .env && $EDITOR .env
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
+#
+# Every secret here comes from the environment via ${VAR:?}, so the stack refuses
+# to start misconfigured rather than silently coming up with a known password.
+# Postgres stays on the internal network; api and web bind to loopback for nginx.
+
+name: quatadigital-prod
+
+x-api-image: &api-image
+  build:
+    context: ./backend
+  image: quatadigital/api:${IMAGE_TAG:-latest}
+
+x-api-env: &api-env
+  APP_ENV: ${APP_ENV:-production}
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:?set POSTGRES_DB}
+  REDIS_URL: redis://redis:6379/0
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks: [internal]
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [internal]
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    <<: *api-image
+    command: ["alembic", "upgrade", "head"]
+    env_file: [.env]
+    environment: *api-env
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+    restart: "no"
+    profiles: ["tools"]
+
+  backend:
+    <<: *api-image
+    restart: unless-stopped
+    env_file: [.env]
+    environment: *api-env
+    depends_on:
+      db: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    networks: [internal]
+    logging: *logging
+
+  notification-worker:
+    <<: *api-image
+    restart: unless-stopped
+    command: ["python", "-m", "app.scripts.notification_worker", "--interval", "60"]
+    env_file: [.env]
+    environment: *api-env
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+    logging: *logging
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # BUILD-time: NEXT_PUBLIC_* are inlined into the client bundle, so the
+        # dev file's http://localhost values would ship to real browsers.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL}
+    image: quatadigital/web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on: [backend]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    networks: [internal]
+    logging: *logging
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
