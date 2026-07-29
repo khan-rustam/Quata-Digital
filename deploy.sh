@@ -98,7 +98,7 @@ rollback_hint() {
     if [[ -n "$DB_SNAPSHOT" ]]; then
       echo -e "  ${C_BOLD}gunzip -c $DB_SNAPSHOT | psql \"\$DATABASE_URL\"${C_RESET}"
     fi
-    echo -e "  ${C_BOLD}systemctl restart quata-digital-backend && pm2 restart Quata-Digi-F${C_RESET}"
+    echo -e "  ${C_BOLD}systemctl restart quata-digital-backend && pm2 restart QuataDigital-F${C_RESET}"
   fi
 }
 trap rollback_hint EXIT
@@ -170,7 +170,7 @@ fi
 
 # ---------- Frontend ----------
 if [[ "$SCOPE" == "all" || "$SCOPE" == "frontend" ]]; then
-  step "FRONTEND  →  next.js :3500 (PM2 / Quata-Digi-F)"
+  step "FRONTEND  →  next.js :3500 (PM2 / QuataDigital-F)"
   cd "$PROJECT_DIR/frontend"
 
   # The VPS uses pnpm (CI uses `npm ci` against the tracked
@@ -196,10 +196,10 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "frontend" ]]; then
   pnpm build
   ok "next build complete"
 
-  info "pm2 restart Quata-Digi-F"
-  pm2 restart Quata-Digi-F --update-env
+  info "pm2 restart QuataDigital-F"
+  pm2 restart QuataDigital-F --update-env
   pm2 save
-  ok "Quata-Digi-F restarted"
+  ok "QuataDigital-F restarted"
 
   # Wait for next-server to actually accept connections (avoids 502 on smoke test)
   info "waiting for next-server to come back up"
@@ -238,7 +238,7 @@ if [[ $all_ok -eq 1 ]]; then
   echo -e "  ${C_GREEN}${C_BOLD}✔ DEPLOY OK${C_RESET}  ·  scope=${C_BOLD}${SCOPE}${C_RESET}  ·  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 else
   echo -e "  ${C_RED}${C_BOLD}✘ DEPLOY HAD FAILURES${C_RESET}  ·  scope=${C_BOLD}${SCOPE}${C_RESET}  ·  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo -e "  ${C_DIM}Investigate via:  journalctl -u quata-digital-backend -n 50  /  pm2 logs Quata-Digi-F${C_RESET}"
+  echo -e "  ${C_DIM}Investigate via:  journalctl -u quata-digital-backend -n 50  /  pm2 logs QuataDigital-F${C_RESET}"
 fi
 echo -e "${C_GOLD}${C_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 echo
