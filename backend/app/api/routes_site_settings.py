@@ -318,8 +318,19 @@ def admin_test_email(
 ):
     """Send a sample email to verify the configured SMTP backend works. The
     boss pastes their own address, clicks Send test, and confirms it lands.
-    Logged in the activity feed regardless of outcome."""
-    from app.services.email import send_email
+    Logged in the activity feed regardless of outcome.
+
+    Pass `"channel": "careers"` to test the recruitment path instead of the
+    default one. This matters: hiring mail is sent by `_send_careers_email`,
+    which overrides the From address to CAREERS_EMAIL_FROM and may
+    authenticate as a different account (CAREERS_SMTP_USER). Providers reject
+    a From address that isn't a verified sender on the authenticating account,
+    so the careers path can fail while this default test passes — and hiring
+    mail is precisely where a silent failure hurts, because the candidate is
+    the only one who would notice.
+    """
+    from app.core.config import settings
+    from app.services.email import _send_careers_email, send_email
 
     target = (payload or {}).get("to", "").strip()
     if not target or "@" not in target:
@@ -327,17 +338,36 @@ def admin_test_email(
             status.HTTP_400_BAD_REQUEST,
             "Provide a valid email address in the 'to' field.",
         )
-    subject = "QUATA — SMTP test email"
+    channel = ((payload or {}).get("channel") or "default").strip().lower()
+    if channel not in {"default", "careers"}:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "channel must be 'default' or 'careers'.",
+        )
+    is_careers = channel == "careers"
+    subject = (
+        "QUATA — careers SMTP test email" if is_careers
+        else "QUATA — SMTP test email"
+    )
     body = (
         "This is a test email from the QUATA admin panel.\n\n"
-        f"If you can read this, your SMTP configuration is working.\n\n"
-        f"Triggered by: {user.full_name} <{user.email}>\n"
-        f"At: {datetime.now(timezone.utc).isoformat()}\n"
+        + (
+            "It was sent through the RECRUITMENT path — the same From address "
+            "and credentials used for shortlist / offer / rejection emails.\n\n"
+            f"From: {settings.CAREERS_EMAIL_FROM}\n\n"
+            if is_careers
+            else "If you can read this, your SMTP configuration is working.\n\n"
+        )
+        + f"Triggered by: {user.full_name} <{user.email}>\n"
+        + f"At: {datetime.now(timezone.utc).isoformat()}\n"
     )
     ok = False
     err: Optional[str] = None
     try:
-        ok = send_email(to=target, subject=subject, body=body)
+        if is_careers:
+            ok = _send_careers_email(to=target, subject=subject, body=body)
+        else:
+            ok = send_email(to=target, subject=subject, body=body)
     except Exception as exc:  # noqa: BLE001
         err = f"{type(exc).__name__}: {str(exc)[:240]}"
 
@@ -348,16 +378,25 @@ def admin_test_email(
         resource_type="site_setting",
         resource_id="email",
         request=request,
-        details={"to": target, "ok": ok, "error": err},
+        details={"to": target, "ok": ok, "error": err, "channel": channel},
     )
     db.commit()
     if not ok:
         return {
             "ok": False,
+            "channel": channel,
             "error": err
-            or "Email backend returned False — check EMAIL_BACKEND, SMTP host/credentials, or Mail provider status.",
+            or (
+                "Careers email backend returned False. The recruitment path "
+                f"sends as {settings.CAREERS_EMAIL_FROM!r}; most providers "
+                "reject a From address that is not a verified sender on the "
+                "authenticating account. Check that address is verified, or "
+                "set CAREERS_SMTP_USER/CAREERS_SMTP_PASSWORD for it."
+                if channel == "careers" else
+                "Email backend returned False — check EMAIL_BACKEND, SMTP host/credentials, or Mail provider status."
+            ),
         }
-    return {"ok": True, "to": target}
+    return {"ok": True, "to": target, "channel": channel}
 
 
 @router.post("/admin/site-settings/bulk")

@@ -221,7 +221,7 @@ def notify_applicant_shortlisted(
     interview_location: str | None,
     documents: str | None,
     message: str | None = None,
-) -> None:
+) -> bool:
     """Tell a shortlisted candidate they've advanced, with interview details.
 
     Sends to the candidate and copies the careers mailbox. Best-effort: a
@@ -242,7 +242,7 @@ def notify_applicant_shortlisted(
     if message:
         lines += ["", message]
     lines += ["", "We look forward to meeting you.", "", "— The QUATA Recruitment Team"]
-    _send_careers_email(
+    delivered = _send_careers_email(
         to=applicant_email,
         subject=f"You've been shortlisted — {job_title} at QUATA Digital",
         body="\n".join(lines),
@@ -257,6 +257,10 @@ def notify_applicant_shortlisted(
                 f"Interview: {interview_when or '—'} · {interview_location or '—'}"
             ),
         )
+    # Reports on the CANDIDATE's copy — that is the one whose absence is a
+    # real problem. The careers-mailbox copy is an internal cc; failing it
+    # alone should not make the caller tell an admin the candidate wasn't told.
+    return delivered
 
 
 def notify_applicant_hired(
@@ -266,7 +270,7 @@ def notify_applicant_hired(
     job_title: str,
     start_when: str | None,
     message: str | None = None,
-) -> None:
+) -> bool:
     """Congratulate a hired candidate and give them their start date."""
     lines = [
         f"Hi {applicant_name},",
@@ -284,7 +288,7 @@ def notify_applicant_hired(
         "",
         "— The QUATA Recruitment Team",
     ]
-    _send_careers_email(
+    delivered = _send_careers_email(
         to=applicant_email,
         subject=f"Offer — {job_title} at QUATA Digital",
         body="\n".join(lines),
@@ -299,6 +303,7 @@ def notify_applicant_hired(
                 f"Start date: {start_when or '—'}"
             ),
         )
+    return delivered
 
 
 def notify_applicant_rejected(
@@ -307,7 +312,7 @@ def notify_applicant_rejected(
     applicant_name: str,
     job_title: str,
     message: str | None = None,
-) -> None:
+) -> bool:
     """Send a courteous 'not moving forward' note to the candidate."""
     body = message or (
         f"Hi {applicant_name},\n\n"
@@ -318,7 +323,7 @@ def notify_applicant_rejected(
         f"future roles that match your skills. We wish you the very best.\n\n"
         f"— The QUATA Recruitment Team"
     )
-    _send_careers_email(
+    delivered = _send_careers_email(
         to=applicant_email,
         subject=f"Update on your application — {job_title} at QUATA Digital",
         body=body,
@@ -330,6 +335,7 @@ def notify_applicant_rejected(
             subject=f"[QUATA Careers] Rejected — {applicant_name} ({job_title})",
             body=f"{applicant_name} <{applicant_email}> was rejected for {job_title}.",
         )
+    return delivered
 
 
 def notify_leave_decided(applicant_email: str, applicant_name: str, status: str, start: str, end: str) -> None:

@@ -545,6 +545,11 @@ function SmtpTestPanel() {
   const [target, setTarget] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [result, setResult] = React.useState<{ ok: boolean; error?: string } | null>(null);
+  // Recruitment mail goes out as CAREERS_EMAIL_FROM and may authenticate as a
+  // different account, so it can fail while the default sender works. Testing
+  // only the default would have declared SMTP healthy while every shortlist,
+  // offer and rejection email silently went nowhere.
+  const [channel, setChannel] = React.useState<"default" | "careers">("default");
 
   async function send() {
     setSubmitting(true);
@@ -554,7 +559,7 @@ function SmtpTestPanel() {
         "/admin/site-settings/test-email",
         {
           method: "POST",
-          body: JSON.stringify({ to: target.trim() }),
+          body: JSON.stringify({ to: target.trim(), channel }),
         },
       );
       setResult({ ok: !!r.ok, error: r.error });
@@ -580,8 +585,37 @@ function SmtpTestPanel() {
             Verify that the SMTP backend is reachable and your sender domain is
             verified. The test uses the active configuration in the backend
             (env-vars first, then anything you may have wired through admin).
+            Pick <strong>Recruitment</strong> to test the exact sender used for
+            shortlist, offer and rejection emails — it authenticates
+            separately, so it can fail while the default sender works.
           </div>
         </div>
+      </div>
+      <div
+        role="radiogroup"
+        aria-label="Which sender to test"
+        className="flex flex-wrap gap-1.5"
+      >
+        {([
+          ["default", "Default sender"],
+          ["careers", "Recruitment (careers@)"],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={channel === value}
+            onClick={() => { setChannel(value); setResult(null); }}
+            className={
+              "min-h-9 rounded-lg border px-3 text-xs font-medium transition-colors " +
+              (channel === value
+                ? "border-primary bg-brand-soft text-primary"
+                : "border-border text-muted-foreground hover:text-foreground")
+            }
+          >
+            {label}
+          </button>
+        ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto] items-end">
         <Input

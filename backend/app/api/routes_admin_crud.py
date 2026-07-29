@@ -334,6 +334,11 @@ def update_application_status(
     db.commit()
     db.refresh(a)
 
+    # None when this status change sends no mail; True/False once one was
+    # attempted. Reported back so the admin learns the candidate wasn't
+    # actually told — see `notification_sent` on the response below.
+    notification_sent: bool | None = None
+
     if payload.notify:
         interview_when = (
             a.interview_at.strftime("%A, %d %B %Y at %H:%M")
@@ -343,7 +348,7 @@ def update_application_status(
         start_when = a.start_date.strftime("%A, %d %B %Y") if a.start_date else None
         try:
             if payload.status == "shortlisted":
-                notify_applicant_shortlisted(
+                notification_sent = notify_applicant_shortlisted(
                     applicant_email=a.email,
                     applicant_name=a.full_name,
                     job_title=job_title,
@@ -353,7 +358,7 @@ def update_application_status(
                     message=payload.message,
                 )
             elif payload.status == "hired":
-                notify_applicant_hired(
+                notification_sent = notify_applicant_hired(
                     applicant_email=a.email,
                     applicant_name=a.full_name,
                     job_title=job_title,
@@ -361,7 +366,7 @@ def update_application_status(
                     message=payload.message,
                 )
             elif payload.status == "rejected":
-                notify_applicant_rejected(
+                notification_sent = notify_applicant_rejected(
                     applicant_email=a.email,
                     applicant_name=a.full_name,
                     job_title=job_title,
@@ -369,6 +374,18 @@ def update_application_status(
                 )
         except Exception:  # noqa: BLE001 — email is best-effort
             log.exception("hiring email failed for application %s (%s)", app_id, payload.status)
+            notification_sent = False
+
+        # A silent failure here is the worst outcome: the status moves, the
+        # admin sees success, and the candidate is never told. `send_email`
+        # swallows SMTP errors and returns False rather than raising, so
+        # without this the outcome was invisible on both sides — which is
+        # exactly how "I sent the update and nobody received it" happened.
+        if notification_sent is False:
+            log.error(
+                "hiring notification NOT delivered for application %s (%s) to %s",
+                app_id, payload.status, a.email,
+            )
 
     return ApplicationOut(
         id=a.id,
@@ -377,6 +394,7 @@ def update_application_status(
         job_title=a.job.title if a.job else "—",
         status=a.status,
         created_at=a.created_at,
+        notification_sent=notification_sent,
     )
 
 

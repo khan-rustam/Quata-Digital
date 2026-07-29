@@ -298,11 +298,23 @@ export function ApplicationDetailSlideOver({
   async function patchStatus(body: Record<string, unknown>, successMsg: string, close?: () => void) {
     if (!applicationId) return;
     try {
-      await action(`/admin/applications/${applicationId}`, {
+      const res = (await action(`/admin/applications/${applicationId}`, {
         method: "PATCH",
         body: JSON.stringify(body),
-      });
-      toast.success(successMsg);
+      })) as { notification_sent?: boolean | null } | undefined;
+
+      // The stage always moves; the email is best-effort and SMTP failures
+      // come back as a flag rather than an error. Say so plainly — reporting
+      // an unqualified success here is how an offer went out to nobody and
+      // looked like it had been sent.
+      if (res?.notification_sent === false) {
+        toast.error(
+          "Status updated — but the email was not sent",
+          "The candidate has not been notified. Check the SMTP settings, then use Resend.",
+        );
+      } else {
+        toast.success(successMsg);
+      }
       close?.();
       onChanged();
     } catch (err) {

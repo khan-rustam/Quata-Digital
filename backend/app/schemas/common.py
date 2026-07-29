@@ -132,6 +132,13 @@ class ApplicationOut(BaseModel):
     job_title: str
     status: str
     created_at: datetime
+    # Whether the candidate email for this status change actually went out.
+    # None when the change sent no mail (notify off, or a stage with no
+    # candidate template). False means the status moved but the candidate was
+    # NOT told — SMTP swallows its errors and returns False rather than
+    # raising, so without this the admin saw plain success and only found out
+    # when nobody replied.
+    notification_sent: bool | None = None
 
     class Config:
         from_attributes = True

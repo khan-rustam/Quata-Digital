@@ -94,3 +94,56 @@ def test_status_update_without_notify_skips_email(client, admin_headers):
     assert client.get(
         f"/api/v1/admin/applications/{app_id}", headers=admin_headers
     ).json()["status"] == "interviewed"
+
+
+def test_status_change_reports_whether_the_candidate_email_went_out(
+    client, admin_headers, monkeypatch
+):
+    """A failed send must be reported, not swallowed.
+
+    Regression guard for a silent failure: `send_email` catches SMTP errors
+    and returns False rather than raising, the notify helpers ignored that
+    return, and the route's try/except therefore never fired. An offer could
+    move the candidate to "hired" while the email reached nobody, and the
+    admin saw an unqualified success — which is how a hire notification went
+    out to no one and looked like it had been sent.
+    """
+    import app.services.email as email_mod
+
+    app_id = _make_application(client, admin_headers, "silent.fail@example.com")
+
+    # Every transport attempt fails, exactly as a bad SMTP credential would.
+    monkeypatch.setattr(email_mod, "send_email", lambda **kw: False)
+
+    r = client.patch(
+        f"/api/v1/admin/applications/{app_id}",
+        headers=admin_headers,
+        json={"status": "hired", "start_date": "2026-08-01", "notify": True},
+    )
+    assert r.status_code == 200, r.text
+    # The stage still moves — mail is best-effort and must not roll it back.
+    assert r.json()["status"] == "hired"
+    # ...but the caller is told the candidate was NOT reached.
+    assert r.json()["notification_sent"] is False
+
+    # And a working transport reports success.
+    monkeypatch.setattr(email_mod, "send_email", lambda **kw: True)
+    r = client.patch(
+        f"/api/v1/admin/applications/{app_id}",
+        headers=admin_headers,
+        json={"status": "rejected", "notify": True},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["notification_sent"] is True
+
+
+def test_status_change_without_notify_reports_no_attempt(client, admin_headers):
+    """notify=false sends nothing, so there is no delivery result to report."""
+    app_id = _make_application(client, admin_headers, "no.notify@example.com")
+    r = client.patch(
+        f"/api/v1/admin/applications/{app_id}",
+        headers=admin_headers,
+        json={"status": "hr_review", "notify": False},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["notification_sent"] is None
