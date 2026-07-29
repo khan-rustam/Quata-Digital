@@ -59,4 +59,7 @@ quata-redeploy.log
 
 # Uploads (live content)
 uploads/
-!uploads/.gitkeep
+# backend/uploads is a symlink into /var/lib/quata (runtime data lives
+# outside the checkout so a `git clean` cannot delete user files).
+# The old !uploads/.gitkeep exception can no longer be satisfied.
+backend/uploads

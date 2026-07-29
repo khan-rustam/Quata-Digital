@@ -1,0 +1,13 @@
+# pnpm settings. `allowBuilds` maps package -> boolean; `true` lets that
+# dependency run its build / postinstall scripts. Packages absent from the map
+# count as "unreviewed" and, with `strictDepBuilds` (default true), fail the
+# install with ERR_PNPM_IGNORED_BUILDS — which is where this project's deploy
+# was stopping, before the build even started.
+#
+# Both are transitive dependencies rather than direct ones, so neither appears
+# in package.json and nothing there pointed at the cause:
+#   sharp          — Next.js production image optimization
+#   unrs-resolver  — native module resolver
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
