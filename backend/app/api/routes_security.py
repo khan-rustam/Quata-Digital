@@ -66,7 +66,8 @@ def begin_totp_enrol(
     log_activity(db, actor=user, action="2fa_enrol_started", resource_type="user", resource_id=user.id, request=request)
     db.commit()
 
-    uri = totp_uri(secret, user.email)
+    # Name over email so the entry reads "Quata-Digital (Rustam)".
+    uri = totp_uri(secret, user.full_name or user.email)
     return {
         "secret": secret,
         "otpauth_uri": uri,

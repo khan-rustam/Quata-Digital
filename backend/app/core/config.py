@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     PASSWORD_MIN_LENGTH: int = 10
 
     # ---------- 2FA ----------
-    TOTP_ISSUER: str = "QUATA Digital"
+    TOTP_ISSUER: str = "Quata-Digital"
     # Roles for which 2FA enrolment is mandatory before any admin action.
     # ``"*"`` means every role must enrol (company policy: all staff on 2FA).
     # Use ``role_requires_2fa()`` rather than testing membership directly so
