@@ -142,7 +142,15 @@ export async function buildMetadata(
 
   const result: Metadata = { ...fallback };
 
-  if (meta.title) result.title = meta.title;
+  // `absolute`, NOT a plain string. The engine's rule-based title generator
+  // already appends the brand when it is missing (`"{page} | {brand}"` in
+  // page_discovery._gen_title), so an engine title is a COMPLETE title. Assigning
+  // it as a plain string let each app's own `title.template` brand it a second
+  // time: quatatrade.com/fees rendered "Fees | QuataTrade · QuataTrade" and the
+  // homepage "QuataTrade — Crypto to cash. Protected. · QuataTrade", losing the
+  // page's `title.absolute` in the process. `absolute` is exactly the documented
+  // escape hatch: it "ignores title.template set in parent segments".
+  if (meta.title) result.title = { absolute: meta.title };
   if (meta.meta_description) result.description = meta.meta_description;
 
   if (meta.canonical) {
