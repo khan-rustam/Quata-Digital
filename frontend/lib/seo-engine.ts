@@ -1,5 +1,5 @@
 /**
- * seo-engine.ts — QUATA SEO Engine client (tenant: quatadigital)
+ * seo-engine.ts — QUATA SEO Engine client (tenant: quata-digital)
  *
  * Zero external dependencies. All functions are fail-open: any network
  * error, timeout, or unexpected response returns null so the calling page
@@ -22,7 +22,7 @@ import type { Metadata } from "next";
 const ENGINE_URL =
   process.env.SEO_ENGINE_URL ?? "https://apiseo.quatadigital.com";
 
-const TENANT = process.env.SEO_TENANT_SLUG ?? "quatadigital";
+const TENANT = process.env.SEO_TENANT_SLUG ?? "quata-digital";
 
 const API_KEY = process.env.SEO_API_KEY ?? "";
 
