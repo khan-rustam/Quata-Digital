@@ -7,16 +7,26 @@
  *   pm2 startup        # one-time, to install the systemd shim
  *
  * Reload (zero-downtime):
- *   pm2 reload Quata-Digi-F
+ *   pm2 reload QuataDigital-F
  *
  * Logs:
- *   pm2 logs Quata-Digi-F
+ *   pm2 logs QuataDigital-F
+ *
+ * The app name MUST match what deploy.sh restarts ("QuataDigital-F") and the
+ * name already live in PM2. It used to say "Quata-Digi-F" here, which meant
+ * `pm2 start` from this file would create a SECOND app on port 3500 beside the
+ * running one. That exact mismatch is what broke ntaccul on 2026-07-30: two PM2
+ * entries for one port, the deploy reloading the one that could not bind, and
+ * the stale process serving on while every deploy reported success.
  */
 module.exports = {
   apps: [
     {
-      name: "Quata-Digi-F",
-      cwd: "/home/Quata-Digital/frontend",
+      name: "QuataDigital-F",
+      // Post-relocation path. This said /home/Quata-Digital/frontend, which has
+      // not existed since the move to /var/www/Projects — starting from this
+      // file would have failed outright.
+      cwd: "/var/www/Projects/Quata-Digital/frontend",
       // Cluster mode + `reload` gives us rolling restarts.
       script: "npm",
       args: "start",
