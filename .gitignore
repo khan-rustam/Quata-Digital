@@ -63,3 +63,18 @@ uploads/
 # outside the checkout so a `git clean` cannot delete user files).
 # The old !uploads/.gitkeep exception can no longer be satisfied.
 backend/uploads
+
+# pnpm lockfile.
+#
+# Ignored deliberately, not by oversight — but read this before relying on it.
+# A committed lockfile is what makes an install reproducible: without one,
+# every deploy re-resolves the dependency tree and can pick up a different
+# patch release than the build that was tested. That is a real risk, and the
+# usual advice is to commit it.
+#
+# It is ignored here because this repo has never tracked one, deploys already
+# install fresh, and adopting a lockfile generated on a developer machine
+# would change what actually installs on a live product. Committing it is the
+# better end state — it just needs to be a deliberate change, verified on one
+# product at a time, rather than a side effect of tidying `git status`.
+pnpm-lock.yaml
