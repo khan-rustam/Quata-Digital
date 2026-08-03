@@ -196,6 +196,24 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "frontend" ]]; then
   pnpm build
   ok "next build complete"
 
+  # next.config sets `output: "standalone"`. Next emits the self-contained
+  # server but does NOT copy the client assets into that tree — that is the
+  # caller's job. Without this the standalone server boots and 404s every
+  # CSS/JS chunk and everything under public/.
+  if [ -f .next/standalone/server.js ]; then
+    info "syncing standalone assets (.next/static + public/)"
+    rm -rf .next/standalone/.next/static .next/standalone/public
+    if ! cp -r .next/static .next/standalone/.next/static; then
+      fail "failed to copy .next/static into the standalone tree"
+      exit 1
+    fi
+    if [ -d public ] && ! cp -r public .next/standalone/public; then
+      fail "failed to copy public/ into the standalone tree"
+      exit 1
+    fi
+    ok "standalone assets synced"
+  fi
+
   info "pm2 restart QuataDigital-F"
   pm2 restart QuataDigital-F --update-env
   pm2 save

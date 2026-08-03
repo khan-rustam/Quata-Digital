@@ -27,9 +27,20 @@ module.exports = {
       // not existed since the move to /var/www/Projects — starting from this
       // file would have failed outright.
       cwd: "/var/www/Projects/Quata-Digital/frontend",
-      // Cluster mode + `reload` gives us rolling restarts.
-      script: "npm",
-      args: "start",
+      // frontend/next.config sets `output: "standalone"`, which Next does not
+      // support under `next start` (what `npm start` runs) — it warns on every
+      // boot and serves a .next/ tree that the next build overwrites beneath
+      // the live process. Point pm2 at the standalone server instead.
+      //
+      // The standalone server reads PORT + HOSTNAME from the env below rather
+      // than CLI flags, and it calls process.chdir(__dirname) itself. Note
+      // this makes HOSTNAME actually take effect: `next start` ignored it and
+      // bound 0.0.0.0, so the app will now bind 127.0.0.1 as declared here —
+      // which is what nginx proxies to.
+      //
+      // deploy.sh copies .next/static + public/ in after each build; Next
+      // does not do that itself and without it every client asset 404s.
+      script: ".next/standalone/server.js",
       exec_mode: "cluster",
       instances: 2,
       autorestart: true,
