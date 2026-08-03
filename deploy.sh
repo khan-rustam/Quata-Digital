@@ -9,6 +9,34 @@
 # Logs to /var/log/quata-redeploy.log so you can `tail -f` from another tab.
 
 set -euo pipefail
+
+# ---------- self-protection: survive `git pull` rewriting this file ----------
+# bash reads a script lazily, by byte offset, so when the pull below updates
+# deploy.sh the running shell keeps reading the NEW file at its OLD offset —
+# a mix of both versions. The practical failure is that any step the update
+# ADDS never runs while the deploy still reports success (observed
+# 2026-08-03: the commit adding the standalone asset sync deployed without
+# ever syncing). Stage 1 re-execs from a throwaway copy the pull cannot
+# touch; stage 2 (just after the pull) hands over to the new version.
+#
+# QD_SELF must be resolved ONCE: after `exec bash <copy>`, BASH_SOURCE points
+# at the copy, so recomputing would make QD_SELF equal QD_SELF_COPY and
+# silently disable both the stage-2 check and the cleanup trap.
+if [[ -z "${QD_SELF:-}" ]]; then
+  QD_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)/$(basename "${BASH_SOURCE[0]}")"
+fi
+export QD_SELF
+
+if [[ "${QD_REEXEC:-}" != "1" ]]; then
+  _qd_copy="$(mktemp -t quatadigital-deploy.XXXXXX)"
+  cp "$QD_SELF" "$_qd_copy"
+  export QD_REEXEC=1 QD_SELF_COPY="$_qd_copy"
+  exec bash "$_qd_copy" "$@"
+fi
+if [[ -n "${QD_SELF_COPY:-}" && "$QD_SELF_COPY" != "$QD_SELF" ]]; then
+  trap 'rm -f "$QD_SELF_COPY"' EXIT
+fi
+
 SCOPE="${1:-all}"
 LOG=/var/log/quata-redeploy.log
 PROJECT_DIR="/home/Quata-Digital"
@@ -110,6 +138,24 @@ if git pull --ff-only origin main; then
 else
   fail "git pull failed — fix conflicts and retry"
   exit 1
+fi
+
+# Stage 2 of the self-protection at the top. If that pull changed deploy.sh,
+# the copy we are running is stale and every step below is the OLD logic.
+# Hand over to the pulled version exactly once (QD_REEXEC_PULLED guards the
+# loop); the re-run's `git pull` is a no-op.
+if [[ "${QD_REEXEC_PULLED:-}" != "1" ]] \
+   && ! cmp -s "$QD_SELF" "${QD_SELF_COPY:-/dev/null}"; then
+  info "deploy.sh changed in this pull — restarting with the new version"
+  _qd_new="$(mktemp -t quatadigital-deploy.XXXXXX)"
+  cp "$QD_SELF" "$_qd_new"
+  # exec replaces the process so the EXIT trap never fires — drop the old
+  # copy by hand first.
+  if [[ -n "${QD_SELF_COPY:-}" && "$QD_SELF_COPY" != "$QD_SELF" ]]; then
+    rm -f "$QD_SELF_COPY"
+  fi
+  export QD_REEXEC_PULLED=1 QD_SELF_COPY="$_qd_new"
+  exec bash "$_qd_new" "$@"
 fi
 
 # ---------- Backend ----------
