@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,6 +24,9 @@ from app.api.routes_security import router as security_router
 from app.api.routes_self import router as self_router
 from app.api.routes_site_settings import router as site_settings_router
 from app.api.routes_uploads import router as uploads_router
+from app.api.routes_whatsapp import router as whatsapp_router
+from app.api.routes_admin_whatsapp import router as whatsapp_admin_router
+from app.api.routes_admin_templates import router as whatsapp_templates_router
 from app.api.routes_ws import router as ws_router
 from app.core.config import settings
 from app.core.logging_config import configure_logging, configure_sentry
@@ -29,6 +34,7 @@ from app.core.rate_limit import limiter, rate_limit_handler
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.db.session import SessionLocal, engine
 from app.models import Base
+from app.services.whatsapp.dispatch import accounts_configured as _wa_accounts_configured
 from app.seeds.seed import run_seed
 
 
@@ -39,6 +45,19 @@ configure_sentry()
 # before lifespan so the failure surfaces during process start, not on the
 # first request.
 settings.assert_production_safe()
+# Same idea, one guard that must hold in every environment: QCP delivery
+# configured with the signature floor off leaves the Meta webhook
+# unauthenticated. See `Settings.assert_whatsapp_signature_floor`.
+#
+# The account probe is passed in because configuration must not read rows
+# (`app.db.session` imports this settings module). It answers False on any
+# database error, so it can never stop an unmigrated box booting — and it is
+# the trigger that matters here: Meta posts inbound and status callbacks
+# regardless of `WHATSAPP_ENABLED`, so a dormant box with credentials is
+# still a real number behind an unauthenticated door.
+settings.assert_whatsapp_signature_floor(
+    accounts_configured=_wa_accounts_configured()
+)
 
 
 _startup_time = time.monotonic()
@@ -109,6 +128,18 @@ async def lifespan(app: FastAPI):
             seed_bootstrap_recipients(db)
     except Exception:  # noqa: BLE001
         pass
+    # QCP (WhatsApp) — bootstrap the two accounts and the four known products.
+    # Everything seeded is inert: accounts land is_active=False with no
+    # credentials, products land is_enabled=False with no API key, so QCP
+    # cannot take traffic from a product still sending its own. Additive
+    # only, and wrapped so a QCP problem can never stop the API booting.
+    try:
+        from app.seeds.whatsapp_seed import seed_whatsapp
+
+        with SessionLocal() as db:
+            seed_whatsapp(db)
+    except Exception:  # noqa: BLE001
+        pass
     try:
         from app.services.notifications import monitor
 
@@ -145,6 +176,40 @@ app = FastAPI(
 # Rate limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+
+# Validation errors on the QCP surface must not quote what was rejected.
+#
+# FastAPI's default 422 body carries `input` — the offending value verbatim.
+# On these paths that value is a Meta access token, an app secret, a webhook
+# verify token, a product API key, or the `variables` of a message, which on
+# the authentication route is a login OTP. Pasting a token one character too
+# long therefore returned the whole token in the response body, and from
+# there into the reverse-proxy log, the browser's network history and any
+# error tracker in between. The success paths on these routes are careful to
+# return presence, length and a digest and nothing else; the refusal beside
+# them handed over the value.
+#
+# Only the echo is removed. `loc`, `type` and `msg` stay, so the operator is
+# still told exactly which field was refused and why — the message is what
+# makes a refusal actionable, the value is what makes it a disclosure.
+_NO_ECHO_PREFIXES = (
+    f"{settings.API_PREFIX}/admin/qcp",
+    f"{settings.API_PREFIX}/whatsapp",
+)
+
+
+async def _validation_error_handler(request, exc):
+    errors = jsonable_encoder(exc.errors())
+    if request.url.path.startswith(_NO_ECHO_PREFIXES):
+        for error in errors:
+            if isinstance(error, dict) and "input" in error:
+                error.pop("input", None)
+                error["redacted"] = True
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
+app.add_exception_handler(RequestValidationError, _validation_error_handler)
 
 # Defence-in-depth response headers (CSP/HSTS/X-Frame-Options/etc).
 app.add_middleware(
@@ -290,6 +355,9 @@ app.include_router(devices_router, prefix=settings.API_PREFIX)
 app.include_router(site_settings_router, prefix=settings.API_PREFIX)
 app.include_router(media_router, prefix=settings.API_PREFIX)
 app.include_router(notifications_router, prefix=settings.API_PREFIX)
+app.include_router(whatsapp_router, prefix=settings.API_PREFIX)
+app.include_router(whatsapp_admin_router, prefix=settings.API_PREFIX)
+app.include_router(whatsapp_templates_router, prefix=settings.API_PREFIX)
 app.include_router(pages_router, prefix=settings.API_PREFIX)
 app.include_router(admin_crud_router, prefix=settings.API_PREFIX)
 app.include_router(admin_extra_router, prefix=settings.API_PREFIX)

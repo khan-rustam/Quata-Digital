@@ -3,5 +3,11 @@
   "compilerOptions": {
     "types": ["@playwright/test", "node"]
   },
+  // The root config excludes `e2e` so `tsc --noEmit` on the app does not try
+  // to resolve @playwright/test. `extends` inherits that exclude, which meant
+  // this project excluded every file it includes — `tsc -p e2e/tsconfig.json`
+  // failed with TS18003 and no spec here was ever typechecked. Clearing it is
+  // what makes this project mean anything.
+  "exclude": [],
   "include": ["./**/*.ts", "../playwright.config.ts"]
 }

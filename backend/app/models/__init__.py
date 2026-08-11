@@ -22,6 +22,16 @@ from .notification import (
 from .page_content import PageContent
 from .page_content_version import PageContentVersion
 from .site_setting import SiteSetting
+from .whatsapp import (
+    WhatsAppAccount,
+    WhatsAppProduct,
+    WhatsAppTemplate,
+    WhatsAppConversation,
+    WhatsAppMessage,
+    WhatsAppRoutingRule,
+    WhatsAppDeliveryEvent,
+    WhatsAppAuditLog,
+)
 
 __all__ = [
     "Base",
@@ -62,4 +72,12 @@ __all__ = [
     "PageContent",
     "PageContentVersion",
     "SiteSetting",
+    "WhatsAppAccount",
+    "WhatsAppProduct",
+    "WhatsAppTemplate",
+    "WhatsAppConversation",
+    "WhatsAppMessage",
+    "WhatsAppRoutingRule",
+    "WhatsAppDeliveryEvent",
+    "WhatsAppAuditLog",
 ]

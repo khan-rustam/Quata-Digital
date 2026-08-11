@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 from typing import List, Optional
 
@@ -9,6 +10,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # these survive a `production` boot, the app refuses to start.
 PLACEHOLDER_SECRET_KEY = "change-me-in-production-please-make-this-very-long-and-random"
 PLACEHOLDER_ADMIN_PASSWORD = "ChangeMe!2026"
+
+log = logging.getLogger("quata.whatsapp")
 
 
 class ProductionConfigError(RuntimeError):
@@ -171,6 +174,19 @@ class Settings(BaseSettings):
     # e.g. https://api.quatadigital.com/health/ready
     NOTIFY_HEALTHCHECK_URL: str = ""
 
+    # ---------- QCP — Quata Communications Platform (WhatsApp) ----------
+    # The environment kill switch. `WHATSAPP_ENABLED=false` silences QCP no
+    # matter what the DB toggles say, which is the direct answer to the
+    # audited QuataPay failure mode (credentials in a production table = one
+    # admin form submission from live, with no redeploy). No secret defaults
+    # and no live values live here — account credentials are encrypted rows.
+    WHATSAPP_ENABLED: bool = False
+    WHATSAPP_GRAPH_BASE: str = "https://graph.facebook.com"
+    WHATSAPP_API_VERSION: str = "v21.0"
+    WHATSAPP_REQUIRE_SIGNATURE: bool = True
+    WHATSAPP_MAX_ATTEMPTS: int = 5
+    WHATSAPP_SIGNATURE_SKEW_SECONDS: int = 300
+
     # ---------- Observability ----------
     SENTRY_DSN: Optional[str] = None
     SENTRY_ENV: Optional[str] = None
@@ -271,6 +287,89 @@ class Settings(BaseSettings):
             for o in self.BACKEND_CORS_ORIGINS
             if not (o.startswith("http://localhost") or o.startswith("http://127."))
         ]
+
+    def assert_whatsapp_signature_floor(self, *, accounts_configured: bool = False) -> None:
+        """Refuse to start with the QCP webhook left unauthenticated.
+
+        ``WHATSAPP_REQUIRE_SIGNATURE`` is the floor a database row cannot
+        lower (``services/whatsapp/settings_store.require_signature``), and it
+        is the *only* authentication on ``POST /whatsapp/webhook/{slug}``.
+        Turned off, that endpoint accepts anything: forged inbound customer
+        messages, forged conversations on the Verify number, forged status
+        callbacks marking real OTPs delivered. Nothing checked it at boot, so
+        one line in a server env file undid it silently.
+
+        **The original check read the wrong switch.** It fired only on
+        ``WHATSAPP_ENABLED=true``, and the documented escape hatch was
+        therefore "set ``WHATSAPP_ENABLED=false``" — but that is the
+        *delivery* kill switch, and inbound ingestion does not consult it. A
+        box sitting dormant below the floor served an unauthenticated write
+        API and booted without complaint. Stated honestly, the default is
+        ``WHATSAPP_REQUIRE_SIGNATURE=True``, so a default install is safe and
+        reaching this state takes a deliberate edit; what makes it worth
+        closing is that the edit is the one the docs recommended.
+
+        So below the floor there are now three refusals and, failing those,
+        an announcement:
+
+        * ``WHATSAPP_ENABLED=true`` — delivery configured (the original);
+        * ``accounts_configured`` — a QCP account holds credentials, i.e.
+          there is a real number behind the open door. The caller supplies
+          this fact; config does not read the database;
+        * ``ENVIRONMENT=production`` — nothing legitimate runs the dev hatch
+          on a production box.
+
+        Note the third is an *additional* trigger, never the only one. A
+        guard that fires only in production is the failure mode this fleet
+        has already shipped — a production deployment whose ``is_production``
+        was false failed every guard behind that flag open — which is why the
+        first two are environment-independent.
+
+        With none of them true the hatch still works, because a developer
+        replaying an unsigned webhook locally against an unconfigured box is
+        the case it exists for. It is no longer silent: silence is what let
+        the gap sit.
+        """
+        if self.WHATSAPP_REQUIRE_SIGNATURE:
+            return
+
+        problems: List[str] = []
+        if self.WHATSAPP_ENABLED:
+            problems.append(
+                "WHATSAPP_REQUIRE_SIGNATURE=false while WHATSAPP_ENABLED=true."
+            )
+        if accounts_configured:
+            problems.append(
+                "WHATSAPP_REQUIRE_SIGNATURE=false while a QCP account holds "
+                "credentials. WHATSAPP_ENABLED=false does not cover this: it "
+                "is the delivery kill switch, and inbound webhook ingestion "
+                "does not read it."
+            )
+        if self.is_production:
+            problems.append(
+                "WHATSAPP_REQUIRE_SIGNATURE=false with ENVIRONMENT=production. "
+                "The unsigned-webhook escape hatch is for local development."
+            )
+        if problems:
+            raise ProductionConfigError(
+                "QCP refused to start:\n  - "
+                + "\n  - ".join(problems)
+                + "\n  That floor is the only authentication on POST "
+                "/whatsapp/webhook/{account_slug}; without it Meta's inbound "
+                "webhook is an unauthenticated write API. Set "
+                "WHATSAPP_REQUIRE_SIGNATURE=true."
+            )
+
+        # The text is in the message, not only in ``extra``: this fires once at
+        # boot, and it has to be readable in a plain-text log too — being
+        # invisible is the whole defect.
+        log.warning(
+            "whatsapp.signature_floor_disabled: WHATSAPP_REQUIRE_SIGNATURE=false, "
+            "so POST /whatsapp/webhook/{account_slug} is unauthenticated. "
+            "Allowed only because no QCP account holds credentials and this is "
+            "not production. Set WHATSAPP_REQUIRE_SIGNATURE=true before "
+            "configuring an account."
+        )
 
     def assert_production_safe(self) -> None:
         """Refuse to start when production config still uses placeholders.

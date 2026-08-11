@@ -10,6 +10,7 @@ import {
   Briefcase,
   Users,
   MessageSquare,
+  MessagesSquare,
   CalendarDays,
   Clock,
   Activity,
@@ -83,6 +84,7 @@ export const adminNavGroups = [
     title: "System",
     items: [
       { href: "/admin/alerts", label: "Alert centre", icon: BellRing, perm: "settings:manage" },
+      { href: "/admin/qcp", label: "QCP — WhatsApp", icon: MessagesSquare, perm: "settings:manage" },
       { href: "/admin/activity", label: "Activity logs", icon: Activity, perm: "activity:view" },
       { href: "/admin/trash", label: "Trash", icon: Trash2, perm: null },
       { href: "/admin/site-settings", label: "Site settings", icon: SlidersHorizontal, perm: "settings:manage" },

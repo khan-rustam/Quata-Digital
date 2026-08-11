@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.deps import log_activity, require_permission
+from app.api.deps import log_activity, require_permission, user_permissions
 from app.core.config import settings
 from app.db.session import get_db
 from app.services import hr_metrics
@@ -60,7 +60,40 @@ ALL_PERMISSIONS = [
     {"key": "analytics:view", "label": "View website analytics", "group": "system"},
     {"key": "newsletter:manage", "label": "Manage newsletter subscribers", "group": "content"},
     {"key": "settings:manage", "label": "Manage site settings (integrations, contact info, social)", "group": "system"},
+    # Reaches the whole fleet, not this website: switching the Quata Verify
+    # number on or off, minting/revoking a product's QCP gateway key, and
+    # granting a product the authentication purpose. Split out of
+    # ``settings:manage`` because a restricted Verify number locks QuataFood
+    # users out of their accounts — that login OTP has no email fallback.
+    {"key": "whatsapp:operate", "label": "Operate QCP WhatsApp numbers, gateway keys and the authentication grant", "group": "system"},
 ]
+
+
+def _assert_can_grant(actor: User, requested: List[str]) -> None:
+    """A role may not be given permissions its author does not itself hold.
+
+    Without this the roles editor is a self-service escalation: ``rbac:manage``
+    is held by every Admin, ``update_role`` refuses only the ``super_admin``
+    *row*, and ``*`` is a valid catalogue key — so an Admin could PUT its own
+    role with ``["*"]`` and ``require_permission`` would wave it through every
+    endpoint in the system on the next request. ``_assert_can_assign_role`` in
+    ``routes_admin_crud.py`` blocks handing an over-powered role to a *user*;
+    nothing blocked authoring one.
+
+    The wildcard is the deliberate bypass, exactly as it is everywhere else:
+    a Super Admin may grant anything, including ``*`` and
+    ``whatsapp:operate``.
+    """
+    held = user_permissions(actor)
+    if "*" in held:
+        return
+    escalating = sorted({p for p in requested if p not in held})
+    if escalating:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You cannot grant a permission you do not hold yourself: "
+            f"{escalating}",
+        )
 
 
 @router.get("/permissions")
@@ -108,6 +141,7 @@ def create_role(
     bad = [p for p in payload.permissions if p not in valid]
     if bad:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown permissions: {bad}")
+    _assert_can_grant(user, payload.permissions)
     role = Role(slug=payload.slug, name=payload.name, description=payload.description)
     db.add(role)
     db.flush()
@@ -150,6 +184,7 @@ def update_role(
         bad = [p for p in payload.permissions if p not in valid]
         if bad:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown permissions: {bad}")
+        _assert_can_grant(user, payload.permissions)
         # Replace permissions
         for p in list(role.permissions):
             db.delete(p)

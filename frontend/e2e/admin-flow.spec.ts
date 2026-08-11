@@ -25,7 +25,11 @@ test.describe("admin happy path", () => {
   test("login lands on the admin overview", async ({ page }) => {
     await page.goto("/admin/login");
     await page.getByLabel(/email/i).fill(ADMIN_EMAIL);
-    await page.getByLabel(/password/i).fill(ADMIN_PASSWORD);
+    // Not `getByLabel(/password/i)`: that is a strict-mode violation because
+    // it matches both `input#password` and the form's `Show password` toggle
+    // button (which carries that aria-label). It failed deterministically,
+    // with or without a backend.
+    await page.locator("#password").fill(ADMIN_PASSWORD);
     await page.getByRole("button", { name: /sign in/i }).click();
 
     // Either lands on overview, or hits the forced password reset / 2FA

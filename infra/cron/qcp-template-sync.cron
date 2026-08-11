@@ -1,0 +1,51 @@
+# QUATA Digital — QCP WhatsApp template reconciliation cron template.
+#
+# WHY THIS EXISTS
+#
+# QCP's template rows carry Meta's category, and Meta re-classifies templates
+# on its own schedule. A template that was AUTHENTICATION when it was approved
+# can become MARKETING underneath us — and a *marketing* template carrying a
+# login code is the exact condition that gets a number restricted. If that
+# number is Quata Verify, QuataFood's login OTP, payment-PIN reset and
+# phone-change verification all stop, and none of the three has an email
+# fallback: the user is locked out of the account entirely.
+#
+# Nothing noticed that on its own. The reconciliation existed but only ran
+# when an operator opened the console and pressed Sync.
+#
+# WHAT IT DOES
+#
+# POST /api/v1/admin/qcp/templates/sync-due reconciles every *live* account
+# that has not been reconciled within the interval (default 3600s), deciding
+# due-ness from the existing `template.sync` audit row. It is:
+#
+#   * idempotent — safe at any frequency; a call that finds nothing due is a
+#     single audit read and returns `{"due": 0}`;
+#   * dormant-safe — only accounts with `is_active` AND a stored access token
+#     are considered, so a fresh install dials Meta zero times;
+#   * incapable of enabling anything — it cannot activate an account, enable a
+#     product or start delivery. The only status it writes is the `disabled`
+#     of a template quarantine.
+#
+# It is deliberately NOT gated on the delivery master switch: catching a
+# re-classification matters most while sending is paused.
+#
+# The QCP worker (`python -m app.scripts.whatsapp_worker`) calls the same
+# function every 60 cycles. Either alone is enough; running both costs one
+# extra audit read per hour. Install this if the worker is not deployed, or as
+# a belt if it is.
+#
+# PERMISSION
+#
+# The endpoint is gated on `settings:manage` — NOT on `whatsapp:operate`, and
+# that is deliberate: reconciling with Meta reads and quarantines, it never
+# switches a number on. Issue a long-lived service token from /admin/staff for
+# a dedicated cron user holding `settings:manage` and nothing else.
+#
+# Install:
+#   sudo crontab -e
+#   # then paste the line below, replacing $ADMIN_TOKEN with that token.
+#
+# */15 * * * *  curl -fsS -X POST https://api.quatadigital.com/api/v1/admin/qcp/templates/sync-due \
+#                    -H "Authorization: Bearer $ADMIN_TOKEN" \
+#                    >> /var/log/quata-qcp-template-sync.log 2>&1

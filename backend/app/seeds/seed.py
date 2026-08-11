@@ -35,12 +35,28 @@ ROLES = [
         "slug": "super_admin",
         "name": "Super Admin",
         "description": "Unrestricted access to every module.",
-        "permissions": ["*"],
+        # ``whatsapp:operate`` is listed explicitly beside the wildcard even
+        # though ``*`` already covers it. It is the permission that switches
+        # on the number carrying the fleet's login codes, mints gateway keys
+        # and grants a product the authentication purpose, and this list is
+        # the only place a reader can see *who* legitimately holds it. The
+        # wildcard is a bypass, not a grant; if it is ever narrowed, the one
+        # role that should keep this must not lose it by accident.
+        "permissions": ["*", "whatsapp:operate"],
     },
     {
         "slug": "admin",
         "name": "Admin",
         "description": "Manage content, partners, careers, staff and devices.",
+        # Deliberately without ``whatsapp:operate``. ``settings:manage`` below
+        # still gets them the whole QCP console — the estate, credentials,
+        # templates, routing, registering and correcting a product. What it no
+        # longer gets them is switching a WhatsApp number on or off, minting or
+        # revoking a product's gateway key, and granting a product the
+        # authentication purpose. Those reach the fleet: a Meta restriction on
+        # the Quata Verify number locks QuataFood users out of their accounts,
+        # because its login OTP, payment-PIN reset and phone-change
+        # verification have no email fallback.
         "permissions": [
             "content:manage",
             "partners:manage",
