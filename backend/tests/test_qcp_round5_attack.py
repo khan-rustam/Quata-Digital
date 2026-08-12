@@ -603,6 +603,24 @@ def test_revoking_a_purpose_records_the_rules_it_strands(client, admin_headers):
         db.commit()
         rule_id = rule.id
 
+    # Mint a key and enable, or the product never reaches the purpose check:
+    # `is_enabled` defaults to FALSE and routing refuses `product_disabled`
+    # first, so the assertion below would pass for the wrong reason.
+    assert (
+        client.post(
+            f"{API}/admin/qcp/products/{slug}/api-key",
+            json={"justification": "round-5 revoke rehearsal"},
+            headers=admin_headers,
+        ).status_code
+        in (200, 201)
+    )
+    assert (
+        client.post(
+            f"{API}/admin/qcp/products/{slug}/enable", headers=admin_headers
+        ).status_code
+        == 200
+    )
+
     r = client.put(
         f"{API}/admin/qcp/products/{slug}/purposes",
         json={"purposes": ["engagement"]},
