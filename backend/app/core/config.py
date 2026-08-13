@@ -187,6 +187,14 @@ class Settings(BaseSettings):
     WHATSAPP_MAX_ATTEMPTS: int = 5
     WHATSAPP_SIGNATURE_SKEW_SECONDS: int = 300
 
+    # The AI support layer's own env floor, separate from WHATSAPP_ENABLED so
+    # an operator can stop the bot without stopping the products' OTPs and
+    # order updates. Default false: the AI ships answering nobody, and the
+    # admin toggle `whatsapp.ai_replies_enabled` cannot start it on its own.
+    # Read through `qcp_ai_replies_enabled` below, never with os.getenv —
+    # there is one switch and it has one reader.
+    QCP_AI_REPLIES_ENABLED: bool = False
+
     # ---------- Observability ----------
     SENTRY_DSN: Optional[str] = None
     SENTRY_ENV: Optional[str] = None

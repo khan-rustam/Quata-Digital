@@ -68,7 +68,41 @@ ROLES = [
             "analytics:view",
             "newsletter:manage",
             "settings:manage",
+            # No new power: ``settings:manage`` above is already one of
+            # ``conversations.WHATSAPP_AGENT_PERMISSIONS``, so an Admin can
+            # already be handed a customer thread. What this line buys is the
+            # ability to *delegate* it. ``_assert_can_assign_role`` refuses a
+            # role carrying a permission the actor does not itself hold, so
+            # without this the ``support`` role below could only ever be
+            # granted by the founder — which is the same silent dead end, one
+            # step further along.
+            "whatsapp:agent",
         ],
+    },
+    {
+        # The support desk. QUATA Digital has a Customer Support department
+        # (see ``DEPARTMENTS``) and had no role to put its people on: until
+        # now the only accounts that could answer a WhatsApp customer were
+        # Admins holding ``settings:manage``, i.e. people who can also edit
+        # the website, manage staff and rewrite RBAC. That is a bad trade for
+        # a job whose whole content is "reply to a customer".
+        #
+        # One permission, deliberately. ``whatsapp:agent`` claims a waiting
+        # conversation, reads it, replies and hands it back to automation. It
+        # reconfigures nothing — no number, no credential, no routing rule,
+        # no template — so staffing the desk is not an act of trust in
+        # anything else.
+        #
+        # Note what is *not* here: ``super_admin`` still does not carry it.
+        # ``require_permission`` honours ``*`` so the boss can read the
+        # queue, and ``conversations._is_whatsapp_agent`` deliberately does
+        # not, so the boss is refused at the moment of claiming. That is what
+        # stops a product parking customer threads on the founder, and
+        # granting the wildcard role this permission would quietly undo it.
+        "slug": "support",
+        "name": "Support Agent",
+        "description": "Answer WhatsApp customers on the QCP support desk.",
+        "permissions": ["whatsapp:agent"],
     },
     {
         "slug": "manager",

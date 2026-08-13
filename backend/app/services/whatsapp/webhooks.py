@@ -40,6 +40,16 @@ per request. The 403 is never withheld — only the row.
 
 This module never sends. It imports models, conversations, redaction, audit
 and credentials, and it must never import ``meta`` or ``dispatch``.
+
+**The AI turn.** After a genuinely new message is committed, the thread is
+handed to ``ai.turn.handle_inbound``, which owns everything that happens next
+— deciding, escalating to a human, and any reply. That is deliberately *not*
+this module's job: the rule above still holds, ingest still sends nothing,
+and the AI layer is reached through one call that is a no-op while the kill
+switch is off (which is how QCP ships). It is called after the commit because
+"has this customer asked the same thing three times" is a question about
+persisted rows, and it can never raise: a 500 here would have Meta redeliver
+the envelope and eventually disable the subscription for the whole WABA.
 """
 from __future__ import annotations
 
@@ -828,7 +838,68 @@ def _ingest_message(
         # conversation counter included.
         db.rollback()
         return False
+
+    _ai_turn(
+        db,
+        account=account,
+        conversation=conversation,
+        product_id=attributed_id,
+        text=body,
+        source_ip=source_ip,
+    )
     return True
+
+
+def _ai_turn(
+    db: Session,
+    *,
+    account: WhatsAppAccount,
+    conversation: WhatsAppConversation,
+    product_id: Optional[int],
+    text: Optional[str],
+    source_ip: Optional[str],
+) -> None:
+    """Hand a committed inbound message to the AI support layer.
+
+    Reached only for a message that is genuinely new — a redelivery returns
+    above — so Meta re-POSTing an envelope can never produce a second reply
+    or a second escalation.
+
+    Three properties this call has to keep, all of them here rather than in
+    the layer being called:
+
+    * **A no-op while the AI is off**, which is the shipping state. The layer
+      checks its own switch first; this import is late so a process that only
+      ingests never loads the model client to find that out.
+    * **It never raises.** Ingest owes Meta a 200; an exception here would
+      have the envelope redelivered and, if it persisted, the subscription
+      disabled for the entire WABA.
+    * **It commits what it wrote.** Ingest's own transaction has already been
+      committed above, so an escalation flag or an audit row this produces
+      would otherwise sit in a session that nothing flushes.
+
+    The redacted ``body`` is what is passed, not the raw text: whatever
+    ``redact_body`` masks (a security code the customer typed back) is not
+    something to feed a model either.
+    """
+    from .ai import turn  # noqa: PLC0415 — see the docstring
+
+    try:
+        outcome = turn.handle_inbound(
+            db,
+            account=account,
+            conversation=conversation,
+            product_id=product_id,
+            text=str(text or ""),
+            source_ip=source_ip,
+        )
+        if outcome.get("action") != "off":
+            db.commit()
+    except Exception:  # noqa: BLE001 — ingest must return 200 whatever happens
+        db.rollback()
+        # No detail: an exception from this path can carry the customer's own
+        # message back out, and a log line is a sink like any other.
+        log.warning("whatsapp.ai_turn_failed")
 
 
 # ---------------------------------------------------------------------------

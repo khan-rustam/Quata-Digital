@@ -66,6 +66,15 @@ ALL_PERMISSIONS = [
     # ``settings:manage`` because a restricted Verify number locks QuataFood
     # users out of their accounts — that login OTP has no email fallback.
     {"key": "whatsapp:operate", "label": "Operate QCP WhatsApp numbers, gateway keys and the authentication grant", "group": "system"},
+    # The support-desk entitlement, deliberately much smaller than the two
+    # above: claim a waiting WhatsApp conversation, read it, reply to the
+    # customer and hand it back to automation. It reconfigures nothing — no
+    # number, no credential, no routing rule — which is the whole point of
+    # having it, because until it existed the only people who could answer a
+    # customer were Admins holding ``settings:manage``.
+    # Matches ``conversations.WHATSAPP_AGENT_PERMISSIONS``; the console gates
+    # on that set, not on this string alone.
+    {"key": "whatsapp:agent", "label": "Answer QCP WhatsApp customers (agent console)", "group": "system"},
 ]
 
 

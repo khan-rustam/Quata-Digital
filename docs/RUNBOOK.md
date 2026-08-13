@@ -280,6 +280,51 @@ psql "$DATABASE_URL" -c "SELECT count(*), state FROM pg_stat_activity GROUP BY s
 
 Either bump the provider's connection limit or add explicit pool args in [`backend/app/db/session.py`](../backend/app/db/session.py) (`pool_size`, `max_overflow`, `pool_recycle`).
 
+### 5.9 The WhatsApp AI is saying something it should not — stop it
+
+**One switch, and it stops only the bot.** Human agents keep working, and the
+products' OTPs and order updates keep going out.
+
+```bash
+# On the API host. Fastest first: no database, no console, no deploy.
+QCP_AI_REPLIES_ENABLED=false     # then restart the API
+```
+
+The switch is `settings_store.ai_replies_enabled()` and it is three gates that
+must **all** agree, so any one of them stops it:
+
+| Gate | Where | Effect of turning it off |
+|---|---|---|
+| `QCP_AI_REPLIES_ENABLED` | env | Stops every AI reply. Nothing else. |
+| `WHATSAPP_ENABLED` | env | Stops **all** of QCP, OTPs included. Do not use this to silence the bot. |
+| `whatsapp.ai_replies_enabled` | Admin → Site settings → WhatsApp | Stops every AI reply, no restart needed. |
+
+The DB toggle alone can never *start* it — env is a floor, the same shape as
+`whatsapp.delivery_enabled`.
+
+What stopping it does **not** do:
+
+- It does not stop human agents. Claim, reply, release and hand-back all keep
+  working, and the agent console (`/admin/qcp/agent`) is unaffected.
+- It does not silence customers into a void: with the AI off, ingest simply
+  does nothing, and threads sit in the agent queue as they always did.
+- It does not stop *drafting for an agent*. That is a **separate** switch,
+  `whatsapp.ai_suggestions_enabled`, also defaulting off. A draft is shown to a
+  human who sends it themselves — but if the concern is "the model's words must
+  not reach a customer at all", turn **both** off.
+
+A missing `OPENAI_API_KEY` is not a kill switch and is not treated as one: with
+the AI switched on and no key, every conversation is escalated to a human
+rather than left unanswered.
+
+**Escalations nobody picked up.** The AI hands over on money, KYC, fraud,
+complaints, legal threats, distress, a request for a person, an unreadable
+language, and anything it is not confident about. Those threads are visible at
+`GET /admin/qcp/agent/queue/escalations` (add `?overdue_only=true`) and on the
+Agent tab, marked overdue after 15 minutes. `POST
+/admin/qcp/agent/queue/escalations/sweep` writes one audit alert per ignored
+escalation — one per escalation, not one per sweep, so it is safe to poll.
+
 ---
 
 ## 6. Backups & restore

@@ -212,6 +212,37 @@ if [[ "$SCOPE" == "all" || "$SCOPE" == "backend" ]]; then
   else
     warn "quata-notification-worker not installed — see infra/systemd/ and docs/NOTIFICATIONS.md"
   fi
+
+  # QCP WhatsApp worker — retry sweep, stuck reclaim, and the two jobs that
+  # send nothing: the escalation SLA chase and the AI configuration check.
+  # Same venv and code as the backend, so the same rule applies: restart on
+  # the same deploy or it keeps running the old build.
+  #
+  # Non-fatal for the same reason as above — a message is handed off
+  # in-process the moment `dispatch.send` accepts it, so this worker is not
+  # on the critical path for delivery. It IS the only thing that enforces
+  # the 15-minute escalation SLA (`python -m app.scripts.whatsapp_worker`
+  # calls `handover.flag_unanswered`; nothing else does unless a human opens
+  # the agent console), so the warning below is worth reading rather than
+  # scrolling past.
+  if systemctl list-unit-files quata-whatsapp-worker.service &>/dev/null &&
+     systemctl is-enabled quata-whatsapp-worker &>/dev/null; then
+    info "restart QCP whatsapp worker"
+    systemctl restart quata-whatsapp-worker || true
+    sleep 2
+    QCP_WORKER_STATUS=$(systemctl is-active quata-whatsapp-worker || true)
+    if [[ "$QCP_WORKER_STATUS" == "active" ]]; then
+      ok "quata-whatsapp-worker.service: ${C_GREEN}active${C_RESET}"
+    else
+      warn "QCP worker status: $QCP_WORKER_STATUS (nothing is chasing an"
+      warn "  escalation nobody picked up — the 15-minute SLA is unenforced)"
+      journalctl -u quata-whatsapp-worker -n 20 --no-pager || true
+    fi
+  else
+    warn "quata-whatsapp-worker not installed — nothing enforces the QCP escalation"
+    warn "  SLA. Install infra/systemd/quata-whatsapp-worker.service, or add the"
+    warn "  cron alternative documented at the top of that file."
+  fi
 fi
 
 # ---------- Frontend ----------

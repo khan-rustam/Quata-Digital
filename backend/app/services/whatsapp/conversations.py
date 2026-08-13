@@ -61,11 +61,18 @@ number free-form is refused regardless — see ``routing.resolve_route``
 check 5 and ``ck_whatsapp_messages_no_freeform_on_verify``.)
 
 **Handover.** ``assign()`` puts a human agent on the thread;
-``return_to_ai()`` takes them off. Note the column: v1 uses ``assignee_id``
-(the real FK to ``users``). ``assigned_agent`` is the AI-routing seam and
-v1 writes NULL to it and never reads it, so "return to AI" means *clear the
-human assignee and reopen*, which is exactly the state automation picks a
-thread up from.
+``return_to_ai()`` takes them off. Two columns, and they answer different
+questions: ``assignee_id`` is the real FK to ``users`` — *which person* — and
+``assigned_agent`` is the AI-routing seam — *is automation allowed to speak*.
+The seam is now live: ``handover.escalate()`` writes ``'pending_human'`` to
+it, and the three verbs here that end a wait (``assign``, ``return_to_ai``,
+``close_conversation``) clear it. NULL on both is the state automation picks
+a thread up from, which is why "return to AI" means *clear both and reopen*
+rather than naming an agent.
+
+Nothing here decides whether the AI may answer — ``handover.decide()`` does,
+and it reads ``assignee_id`` first, so a human claiming a thread silences the
+bot on the very next message rather than eventually.
 """
 from __future__ import annotations
 
@@ -575,6 +582,20 @@ def service_window_open(conversation: WhatsAppConversation, *, now: Optional[dat
 # Lifecycle
 # ---------------------------------------------------------------------------
 
+def _clear_handover(conversation: WhatsAppConversation) -> None:
+    """End any pending wait for a human — see ``handover.clear_handover``.
+
+    Imported late, and only here, because the dependency runs the other way:
+    ``handover`` is built on this module (it reads the service window, the
+    states and ``_as_aware``), so a module-level import would be a cycle.
+    The three verbs below that end a wait — a human taking the thread,
+    handing it back, and closing it — are the only clearers of the AI seam.
+    """
+    from .handover import clear_handover
+
+    clear_handover(conversation)
+
+
 def open_conversation(db: Session, conversation: WhatsAppConversation) -> WhatsAppConversation:
     conversation.state = STATE_OPEN
     db.flush()
@@ -583,9 +604,17 @@ def open_conversation(db: Session, conversation: WhatsAppConversation) -> WhatsA
 
 def close_conversation(db: Session, conversation: WhatsAppConversation) -> WhatsAppConversation:
     """Close the thread and drop the unread badge. The assignee is kept so
-    the log still answers "who handled this?"."""
+    the log still answers "who handled this?".
+
+    A pending handover is cleared, because closing *is* the answer to "does
+    this need a human?". Left set, one escalation would strand the thread on
+    the AI's do-not-touch list for good: the customer's next message reopens
+    the row (``touch_inbound``) still flagged, and automation would hold a
+    brand-new question waiting for a human nobody has been asked for.
+    """
     conversation.state = STATE_CLOSED
     conversation.unread_count = 0
+    _clear_handover(conversation)
     db.flush()
     return conversation
 
@@ -640,6 +669,11 @@ def assign(
     ):
         raise ValueError("unknown_agent")
     conversation.assignee_id = user.id
+    # A human now holds this thread, so the AI stops — immediately, on the
+    # very next decision, because ``handover.decide`` reads ``assignee_id``
+    # before it reads anything else. Clearing the seam here is what takes the
+    # thread off the "waiting for a human" report as well: somebody came.
+    _clear_handover(conversation)
     if conversation.state == STATE_CLOSED:
         conversation.state = STATE_OPEN
     db.flush()
@@ -647,13 +681,19 @@ def assign(
 
 
 def return_to_ai(db: Session, conversation: WhatsAppConversation) -> WhatsAppConversation:
-    """Take the human off the thread and reopen it.
+    """Take the human off the thread and reopen it — automation may resume.
 
-    ``assigned_agent`` (the AI-routing seam) is deliberately left untouched:
-    v1 never writes it, so nothing downstream can start depending on a
-    half-defined value.
+    Both halves of the handover are cleared: ``assignee_id`` (the real human)
+    and ``assigned_agent`` (the AI seam's pending-human flag). Clearing only
+    the first would hand the thread back to nobody — ``handover.decide``
+    would keep holding it for a human who has explicitly just let it go.
+
+    The seam is still NULL in the state this leaves behind, which is exactly
+    the state automation picks a thread up from; ``handover.escalate`` is the
+    only writer of a non-NULL value.
     """
     conversation.assignee_id = None
+    _clear_handover(conversation)
     if conversation.state != STATE_OPEN:
         conversation.state = STATE_OPEN
     db.flush()

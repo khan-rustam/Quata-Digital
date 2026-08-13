@@ -1,0 +1,87 @@
+# QUATA Digital — QCP WhatsApp worker unit.
+#
+# Install:
+#   sudo cp infra/systemd/quata-whatsapp-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now quata-whatsapp-worker
+#
+# Logs:
+#   journalctl -u quata-whatsapp-worker -f
+#
+# WHY THIS EXISTS
+#
+# `app/scripts/whatsapp_worker.py` has described this unit in its docstring
+# since it was written, and the unit was never committed. Nothing on the box
+# started the process, so four jobs existed only as functions:
+#
+#   • retry sweep       — deliver messages queued while Meta was unreachable;
+#   • stuck reclaim     — un-wedge messages a killed worker left in `sending`;
+#   • escalation chase  — the one that matters. The AI support layer refuses
+#     to talk about somebody's money or identity and fetches a human instead.
+#     `handover.flag_unanswered` reports every escalation nobody picked up
+#     inside the 15-minute SLA, and until this unit existed the only thing
+#     that called it was a human opening the agent console and pressing a
+#     button. At 21:00 nobody opens it, so a customer who was *told* a person
+#     was coming waited until somebody happened to look — a worse outcome
+#     than never having answered at all;
+#   • config check      — reports an AI switched on that cannot route a reply
+#     (`ai.misconfigured`, one row an hour while the condition lasts).
+#
+# DORMANCY
+#
+# This unit starts nothing and enables nothing. The last two jobs send no
+# messages at all, and on today's dormant QCP install — both numbers
+# inactive, no credentials, all four products disabled — the chase finds no
+# escalations and writes zero rows, and the config check returns immediately
+# because the AI switch is off. The sweep is behind the delivery master
+# switch (`WHATSAPP_ENABLED` AND the admin toggle), which is also off.
+#
+# CRON ALTERNATIVE
+#
+# If you would rather not run a long-lived process:
+#
+#   */5 * * * * cd /home/Quata-Digital/backend && \
+#       .venv/bin/python -m app.scripts.whatsapp_worker --once
+#
+# `--once` runs cycle 1, which includes both the chase and the config check.
+# Note the SLA is 15 minutes, so anything slower than every 5 minutes spends
+# most of the budget waiting.
+#
+# Environment comes from the same /etc/quata-digital.env the API uses.
+[Unit]
+Description=QUATA QCP WhatsApp worker (retry sweep, stuck reclaim, escalation SLA, AI config check)
+After=network-online.target postgresql.service quata-digital-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quata
+Group=quata
+WorkingDirectory=/home/Quata-Digital/backend
+EnvironmentFile=/etc/quata-digital.env
+
+ExecStart=/home/Quata-Digital/backend/.venv/bin/python -m app.scripts.whatsapp_worker \
+    --interval 60
+
+Restart=always
+RestartSec=10
+
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+MemoryMax=256M
+TasksMax=50
+
+# Hardening. As with the notification worker: ProtectSystem=strict and no
+# ReadWritePaths, because this process only reads config and talks to the
+# database and the Graph API over the network.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+
+[Install]
+WantedBy=multi-user.target

@@ -31,6 +31,12 @@ _FACADE = {
     "get_message": ("dispatch", "get_message"),
     "sweep_pending": ("dispatch", "sweep_pending"),
     "stats": ("dispatch", "stats"),
+    # The AI support layer's one public verb: draft a reply for a human to
+    # edit and send. It sends nothing. Exposed on the facade because the agent
+    # console lives outside this package and may not import a submodule (see
+    # ``tests/test_whatsapp_boundaries``), and resolved lazily like the rest,
+    # so a process that only ingests never imports the model client.
+    "suggest_reply": ("ai.respond", "suggest_reply"),
     # No ``sync_registry`` entry. It named ``registry.sync_registry``, which
     # never existed: ``registry.py`` is the routing-rule write surface, and
     # products are upserted by ``app/seeds/whatsapp_seed.py`` and registered

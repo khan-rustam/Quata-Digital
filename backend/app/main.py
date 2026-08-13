@@ -26,6 +26,7 @@ from app.api.routes_site_settings import router as site_settings_router
 from app.api.routes_uploads import router as uploads_router
 from app.api.routes_whatsapp import router as whatsapp_router
 from app.api.routes_admin_whatsapp import router as whatsapp_admin_router
+from app.api.routes_admin_agent import router as whatsapp_agent_router
 from app.api.routes_admin_templates import router as whatsapp_templates_router
 from app.api.routes_ws import router as ws_router
 from app.core.config import settings
@@ -357,6 +358,7 @@ app.include_router(media_router, prefix=settings.API_PREFIX)
 app.include_router(notifications_router, prefix=settings.API_PREFIX)
 app.include_router(whatsapp_router, prefix=settings.API_PREFIX)
 app.include_router(whatsapp_admin_router, prefix=settings.API_PREFIX)
+app.include_router(whatsapp_agent_router, prefix=settings.API_PREFIX)
 app.include_router(whatsapp_templates_router, prefix=settings.API_PREFIX)
 app.include_router(pages_router, prefix=settings.API_PREFIX)
 app.include_router(admin_crud_router, prefix=settings.API_PREFIX)

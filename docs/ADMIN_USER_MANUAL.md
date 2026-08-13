@@ -136,7 +136,8 @@ Most resources soft-delete (products, blog posts, pages, jobs, applications, par
 | Role | What they can do |
 |---|---|
 | **super_admin** | Everything. Reserved for the founder + CTO. **Required** to enrol 2FA. |
-| **admin** | All content, partners, careers, staff, RBAC, devices, activity, analytics, newsletter. |
+| **admin** | All content, partners, careers, staff, RBAC, devices, activity, analytics, newsletter. Can also answer WhatsApp customers. |
+| **support** | **Answer WhatsApp customers, and nothing else.** See §6.9. |
 | **manager** | Partners, careers, staff, analytics. No RBAC, no devices. |
 | **team_lead** | Partners, careers (read + edit). |
 | **staff / intern / contractor** | Self-service only — log in, request leave, clock in/out, edit own profile. |
@@ -145,7 +146,31 @@ To change permissions per role: `/admin/roles`. Tick / untick the permission box
 
 The `super_admin` role is **immutable** — you can't change its permissions and you can't delete it. By design.
 
-The 9 permission keys are: `content:manage`, `partners:manage`, `careers:manage`, `staff:manage`, `rbac:manage`, `devices:manage`, `activity:view`, `analytics:view`, `newsletter:manage`.
+The 12 permission keys are: `content:manage`, `partners:manage`, `careers:manage`,
+`staff:manage`, `rbac:manage`, `devices:manage`, `activity:view`,
+`analytics:view`, `newsletter:manage`, `settings:manage`, `whatsapp:operate`,
+`whatsapp:agent`. (`*` — "everything" — exists too, and only the founder holds it.)
+
+Two of those reach beyond this website into the whole QUATA fleet, so they are
+kept separate on purpose:
+
+- **`whatsapp:operate`** switches the WhatsApp numbers on and off, issues a
+  product's gateway key, and grants a product the right to send login codes.
+  Only the founder holds it. If a number gets restricted by Meta, QUATAFOOD
+  users cannot log in at all — that login code has no email backup.
+- **`whatsapp:agent`** is the support desk and nothing more: pick up a waiting
+  customer, read the conversation, reply, hand it back. It changes no setting,
+  no number, no key. This is what the **support** role is.
+
+**Staffing the support desk:** invite the person as normal (§4.1) and pick the
+**support** role. An Admin can do this; you do not need the founder. They will
+be asked to enrol 2FA on first login like everybody else.
+
+**The founder can read the queue but cannot pick a conversation up.** That is
+deliberate, not a bug — a master key is not the same as being on shift, and it
+stops a customer conversation being parked on the boss's name where nobody
+works it. If the founder genuinely needs to answer customers, give that person
+a second account on the **support** role.
 
 ---
 
@@ -239,6 +264,108 @@ and this website into Telegram. Needs the `settings:manage` permission.
 ### 6.8 My settings
 
 `/admin/settings`. Update your profile (name, phone, avatar, job title), change your password, and enrol or disable 2FA. Notification preferences also live here.
+
+### 6.9 WhatsApp support desk (QCP)
+
+**Status today: switched off.** Both WhatsApp numbers are inactive, no product
+is connected, and the AI is off. Nothing in this section is sending or
+answering anything right now. It is written so that whoever switches it on
+knows what has to be true first.
+
+**What it is.** QUATA runs two WhatsApp numbers and they do different jobs:
+
+- **Quata Verify** — login codes and security codes only. No support, no
+  marketing, no AI, ever. Meta restricts a number that mixes the two, and if
+  Verify gets restricted, QUATAFOOD users cannot log in.
+- **QUATA** — everything else: support, order updates, promotions, and the AI.
+
+**What the AI is allowed to do.** Answer simple, general questions (opening
+hours, where to download an app, how something works). The moment a customer's
+message touches **money, an identity check, a refund, a complaint, fraud or
+anything legal**, it stops, does not answer, and puts the conversation in the
+human queue. It also stops if the customer asks for a person, if it is unsure,
+if the same question comes back a third time, or if the message is in a
+language other than English or French. It never quotes a balance, an order
+status or a verification decision, because it does not look those up — it
+would be guessing, and a guess about somebody's money is worse than silence.
+
+#### Before you switch it on — the three things that must be true
+
+If any of these is missing, the feature will appear to be "broken" when it is
+actually just unconfigured. In order:
+
+1. **A support agent exists.** At least one person on the **support** role
+   (§5), otherwise a conversation handed to a human lands in a queue nobody
+   can open.
+2. **A routing rule exists — in *both* languages.** An AI reply is a message,
+   and every message needs a routing rule saying which number carries it.
+   At `/admin/qcp/routing`, create a rule for the intent
+   **`ai_support_reply`** on the QUATA (engagement) number, for the product
+   concerned, and cover **English and
+   French**. A rule created for English only will answer anglophone customers
+   and silently ignore every francophone one. A single rule with the language
+   left blank ("any language") covers both.
+3. **The switches are on.** The AI has its own switch, separate from message
+   delivery, so you can stop the bot without stopping login codes. Engineering
+   sets `QCP_AI_REPLIES_ENABLED` in the environment; you then turn on the AI
+   toggle in the QCP console. Both must agree — a toggle alone cannot start it.
+
+**If you switch the AI on and it answers nobody**, it is almost always step 2,
+and you no longer have to go looking. The agent console (`/admin/qcp/agent`)
+shows a red banner reading **"AI replies are on, but the AI can answer nobody"**,
+naming each product and each missing language, with a link straight to
+`/admin/qcp/routing`. Read the language list rather than skimming it: a product
+listed as missing `fr` only is answering your English-speaking customers and
+ignoring every French-speaking one.
+
+The same condition is also recorded in the QCP overview (`/admin/qcp`) under
+**Routing denials** as an **`ai.misconfigured`** row, written automatically by
+the background worker (below) once an hour while the problem lasts — not once a
+minute, so it stays readable. The banner is the one to act on; the audit row is
+the record that it was happening while nobody was looking at the console.
+
+#### Working the queue
+
+`/admin/qcp/agent` — the agent console.
+
+- **Waiting on a human** lists conversations nobody has picked up, longest wait
+  at the top. Rows past 15 minutes are flagged **overdue**.
+- **Claim** takes a conversation. Two agents clicking at once is handled —
+  exactly one of you gets it, the other is told who has it.
+- **Reply** sends as QUATA. Conversations on the Quata Verify number are shown
+  but cannot be replied to, on purpose.
+- **Hand back to AI** returns the thread to automation once you are done. If
+  the AI is switched off, the console tells you so at that moment, so you do
+  not hand a customer back to nobody.
+- **Suggest** asks the AI to draft a reply *for you to edit and send*. It is a
+  separate switch from the AI answering customers by itself, and it withholds
+  any draft containing a figure.
+
+**Nobody answered? Something now notices.** A background worker
+(`quata-whatsapp-worker`, run by engineering) checks every minute for
+conversations handed to a human and left unclaimed past 15 minutes, and records
+an alert for each one — once per customer, not once per check. This is what
+stops a customer escalated at 21:00 sitting until morning. It runs whether or
+not message delivery is switched on, and it sends nothing itself. **If that
+worker is not running, nothing chases an ignored customer** — same rule as the
+missing daily Telegram summary in §6.7: tell engineering.
+
+That worker is a separate service from the API and has to be installed once
+(`infra/systemd/quata-whatsapp-worker.service`, or the cron alternative
+documented at the top of that file). Until it is, the 15-minute rule above is
+not enforced by anything at all. Every deploy now prints its status, so the
+quickest check is to ask engineering what the last deploy said about
+`quata-whatsapp-worker` — "not installed" is the answer to watch for.
+
+#### Things worth knowing
+
+- Turning the AI off does not close the queue, stop agents replying, or stop
+  login codes. They are separate switches on purpose.
+- Every refusal is recorded with a reason. "The AI said nothing" always has an
+  answer on the QCP overview screen; it is never a mystery.
+- The support role cannot change any of the settings in this section. Only an
+  Admin (console settings) or the founder (numbers, keys, login-code rights)
+  can.
 
 ---
 

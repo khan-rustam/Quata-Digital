@@ -26,6 +26,7 @@ import {
   Copy,
   FileCheck2,
   Gauge,
+  Headset,
   Inbox,
   Loader2,
   Lock,
@@ -225,6 +226,7 @@ export type QcpTemplate = {
 const TABS = [
   { href: "/admin/qcp", label: "Overview", icon: Gauge },
   { href: "/admin/qcp/conversations", label: "Conversations", icon: Inbox },
+  { href: "/admin/qcp/agent", label: "Agent", icon: Headset },
   { href: "/admin/qcp/templates", label: "Templates", icon: FileCheck2 },
   { href: "/admin/qcp/routing", label: "Routing", icon: Waypoints },
   { href: "/admin/qcp/products", label: "Registry", icon: Blocks },

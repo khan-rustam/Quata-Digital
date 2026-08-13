@@ -745,9 +745,11 @@ def return_conversation_to_ai(
 ):
     """Take the human off the thread and reopen it for automation.
 
-    v1 clears ``assignee_id`` only. ``assigned_agent`` is the AI-routing
-    seam and is deliberately left NULL — nothing downstream may start
-    depending on a half-defined value.
+    Clears **both** halves of the handover: ``assignee_id`` (the human) and
+    ``assigned_agent`` (the AI-routing seam, which ``handover.escalate``
+    sets to ``pending_human`` while a thread waits for a person). NULL on
+    both is the state automation picks a thread up from, so clearing only
+    the first would hand the thread back to nobody.
     """
     _require_enabled(db, product)
     row = conversations.return_to_ai(db, _owned(db, product, conversation_id))

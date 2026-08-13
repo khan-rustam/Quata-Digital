@@ -213,6 +213,43 @@ DEFAULT_SETTINGS: list[dict] = [
         "is_secret": False,
         "sort_order": 20,
     },
+
+    # ---- QCP (WhatsApp) — the AI support layer's two switches ----
+    # Seeded with no value, which every reader treats as OFF. The row exists
+    # so the admin console can *find* the switch; creating it does not turn
+    # anything on, and neither does flipping it on its own — both switches are
+    # floored by an environment variable (`QCP_AI_REPLIES_ENABLED`) that a
+    # database write cannot reach.
+    {
+        "key": "whatsapp.ai_replies_enabled",
+        "group": "whatsapp",
+        "label": "AI replies to customers",
+        "description": (
+            "When ON *and* QCP_AI_REPLIES_ENABLED=true in the environment, the "
+            "support AI may answer engagement-number conversations by itself. "
+            "OFF is the kill switch: every AI reply stops immediately and human "
+            "agents are unaffected. Never affects Quata Verify, which the AI "
+            "may not send on at all."
+        ),
+        "field_type": "toggle",
+        "is_secret": False,
+        "sort_order": 10,
+    },
+    {
+        "key": "whatsapp.ai_suggestions_enabled",
+        "group": "whatsapp",
+        "label": "AI drafts for agents",
+        "description": (
+            "When ON, an agent may ask the console for a suggested reply to "
+            "edit and send themselves. Nothing is sent automatically. This is a "
+            "different switch from 'AI replies to customers' on purpose — "
+            "drafting for a human and answering a customer unattended are not "
+            "the same risk."
+        ),
+        "field_type": "toggle",
+        "is_secret": False,
+        "sort_order": 11,
+    },
 ]
 
 
