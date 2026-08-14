@@ -60,13 +60,34 @@ REDACTED — identifies a person:
   and an order number is four, so *length cannot tell them apart* — the rule
   is about the words around the number, not its size. A 4–8 digit run is a
   secret when code/OTP/PIN/*mot de passe*/*vérification* wording sits next to
-  it, when the message is essentially nothing but the number, or when we sent
-  that customer an authentication message minutes earlier
+  it, when the customer says it **failed** ("ne marche pas", "ne marche
+  toujours pas", "ne fonctionne plus", "expiré", "j'ai essayé", "invalid",
+  "I tried" — an order is late or wrong, it is not refused or expired, and
+  nobody tries one), when the number **stands alone in its own segment**, or
+  when we sent that customer an authentication message minutes earlier
   (``after_auth_message``). A run bound to *commande*/order/``#``/*facture*
-  wording stays. Where the two are genuinely ambiguous the number goes: a
-  lost order reference costs one clarifying question, and a leaked OTP costs
-  an account — this fleet's codes arrive over WhatsApp and QuataFood login
-  has no email fallback behind them.
+  wording stays, and so does one welded to a product's prefix (``CMD-4417``).
+  Where the two are genuinely ambiguous the number goes: a lost order
+  reference costs one clarifying question, and a leaked OTP costs an account
+  — this fleet's codes arrive over WhatsApp and QuataFood login has no email
+  fallback behind them.
+
+  "Stands alone" is measured **in its segment, not in the message**. The
+  earlier rule asked whether the whole message was nothing but the number,
+  capped at six other words, and that forwarded the commonest shape there is:
+  the customer explains the problem in a sentence and *then* pastes the code
+  ("bonjour je n'arrive pas a me connecter a mon compte depuis ce matin.
+  483920"). Nine words of explanation is not context about the number — the
+  full stop, the newline or the colon that introduced it is. A segment that
+  carries another digit too is a sentence about numbers ("3 cartons a 25000"),
+  not a pasted value, and is left alone.
+
+  The three signals are ranked by **distance**, not by which side of the
+  number they sit on, and a word that names a thing outranks failure wording
+  at the same distance. That is what keeps "ma commande 4417 ne marche pas"
+  intact while "ma commande 4417 est en retard et en plus 483920 ne marche
+  pas" — where *commande* is thirty characters behind the code — sends the
+  two numbers different ways.
 
 KEPT — identifies a thing:
 
@@ -92,10 +113,15 @@ Known limits, stated rather than hidden:
   question. Only the labelled form is removed.
 * **A 9-digit order number would be redacted.** No product on this fleet
   issues one; if one ever does, this rule is where it is fixed.
-* **A 4–8 digit reference sent with no words at all is redacted** — a bare
-  "4417" reads exactly like a bare OTP, and the tie is broken towards the
-  secret on purpose. The customer is asked to say what it refers to; nothing
-  is lost but one turn.
+* **A 4–8 digit reference standing alone in its segment is redacted** — a
+  bare "4417" reads exactly like a bare OTP, and the tie is broken towards
+  the secret on purpose. The customer is asked to say what it refers to;
+  nothing is lost but one turn. The price of measuring this per segment
+  rather than per message is that "je voudrais savoir ou en est ma commande.
+  4417" now loses its reference, because the word naming it is in the
+  previous sentence. That is the tie-break being paid, in the direction it
+  already pointed. Writing it in one clause ("ou en est ma commande 4417")
+  keeps it, and so does any product prefix.
 * **A code written adjacent to another number with only spaces or dots
   between them is not seen as a code.** ``_DIGIT_RUN`` is greedy, so
   "commande 4417. 483920" is one eleven-digit run and matches neither the
@@ -112,6 +138,26 @@ Known limits, stated rather than hidden:
   "12 08 2026 14 30" — is masked as an identifier, because it is twelve
   digits in three or more groups. Written the way people actually write it
   ("12/08/2026 a 14h30") the separators end the run and nothing is touched.
+* **Three or more references listed with commas** — "mes commandes 4417,
+  12345, 88214" — are masked as one grouped identifier, for the same reason
+  and by the same rule as the spaced date above: the run now spans commas, so
+  it is nine or more digits in three groups. Listed with a word between them
+  ("4417 et 12345") they survive. This is the price of closing the comma
+  hole, and it is paid in the direction the tie-break already points.
+* **The comma is spanned; the slash is not.** ``/`` was deliberately left out
+  of ``_DIGIT_RUN``: it is how a date is written, and spanning it would turn
+  "12/08/2026" into an eight-digit run for the code rule to judge. The cost,
+  measured rather than assumed: a code split on a slash or an apostrophe
+  ("code 483/920") is two three-digit runs, both under ``CODE_MIN_DIGITS``,
+  and survives. Every separator a Cameroonian actually uses — space, no-break
+  space, dot, dash, comma — is spanned and covered by a test.
+* **Nine or more digits written one digit at a time** — "1 0 9 8 7 6 5 4 3" —
+  survives. ``_classify_run`` requires every group to be two digits or more
+  before it calls a multi-group run an identifier, and that requirement is
+  what keeps two adjacent short references ("4417 5 12345") readable. A
+  customer does not type their CNI one digit at a time; the trade was made in
+  favour of the shape that occurs. Verified, not assumed — the shapes that
+  *do* occur, "109 876 543" and a CEMAC RIB, are both masked and both pinned.
 
 None of this touches storage. ``whatsapp_messages`` still holds what the
 customer actually wrote, under the thread's own access rules — this module
@@ -151,9 +197,13 @@ CODE_MIN_DIGITS = 4
 CODE_MAX_DIGITS = 8
 
 # How far either side of the number the binding word may sit. Long enough for
-# "the code you sent me was 483920", short enough that a word from the
-# previous sentence does not bind a number in this one.
-CODE_CONTEXT_BEFORE = 48
+# a whole clause — "j'ai demande un nouveau code de connexion il y a dix
+# minutes et je viens de recevoir 483920" puts sixty characters between the
+# word and the code, and at 48 the word did not reach it. It is the *clause*
+# that bounds this scan, not the character count (see ``_binding_word``), and
+# a nearer word still wins whatever is further back, so reaching across a
+# clause costs nothing and stopping short of one leaks.
+CODE_CONTEXT_BEFORE = 80
 CODE_CONTEXT_AFTER = 32
 
 # How few other words a message may carry before it counts as "the customer
@@ -224,7 +274,14 @@ _REFERENCE_WORD = re.compile(
     r"dossiers?|tables?|chambres?|rooms?|"
     r"prix|price|montant|total|combien|co[uû]te|cost|"
     r"fcfa|xaf|cfa|francs?|"
-    r"minutes?|heures?|jours?|dates?)\b)"
+    # *minutes*, *heures* and *jours* used to be here and were removed. This
+    # list is consulted only for a run of four to eight digits, and no
+    # duration is four digits long — so they never protected a real number,
+    # while "j'ai demande un code il y a dix minutes ... 483920" had
+    # *minutes* out-rank *code* on distance and forward the OTP. Worse, the
+    # reference verdict is final, so it also skipped the authentication-window
+    # backstop. *dates* stays: a date really can be eight digits.
+    r"dates?)\b)"
 )
 
 # The weakest of the three signals: the customer saying the number *failed*.
@@ -234,9 +291,18 @@ _REFERENCE_WORD = re.compile(
 # not work, and says so in a full sentence, which is more words than the
 # lone-number tie-break allows. It never outranks a word that names a thing at
 # the same distance; see ``_binding_word``.
+#
+# French negation takes a filler: "ne marche **toujours** pas", "ne fonctionne
+# **plus**", "ça ne marche **plus du tout**". Matching only the bare "ne
+# marche pas" read all three as no failure wording at all and forwarded the
+# code — and those are the phrasings a customer reaches for precisely when a
+# code has failed *repeatedly*, which is when they come here. Up to two words
+# may sit between the verb and the negation, and *plus*/*jamais* close it as
+# well as *pas*.
 _CODE_FAILURE = re.compile(
     r"(?i)(?:"
-    r"\bne\s+(?:marche|fonctionne)\s+pas\b|\b(?:marche|fonctionne)\s+pas\b|"
+    r"\bne\s+(?:marche|fonctionne)\s+(?:\w+\s+){0,2}?(?:pas|plus|jamais)\b|"
+    r"\b(?:marche|fonctionne)\s+(?:\w+\s+){0,2}?(?:pas|plus)\b|"
     r"\brefus\w*|\binvalid\w*|\bexpir\w*|\bessay\w*|\bessai\w*|\brejet\w*|"
     r"\bincorrect\w*|"
     r"\b(?:does|did)\s+not\s+work\b|\b(?:doesn|didn)\s?[’']?\s?t\s+work\b|"
@@ -255,6 +321,26 @@ _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
 # est en retard, commande #4417" is one thought — and neither is a colon,
 # which is how a code is usually introduced ("security code: 483920").
 _CLAUSE_END = re.compile(r"[.?!;\n]")
+
+# Where a *pasted value* begins and ends. The clause enders, plus the colon —
+# a colon does not end a thought, it introduces a value ("voici ce que j'ai
+# recu : 483920"), so for the purpose of "is this number standing on its own?"
+# it opens a new segment. It stays out of ``_CLAUSE_END`` because the binding
+# scan needs to see across it: "security code: 483920" is one thought and the
+# word must still reach the number.
+_SEGMENT_END = re.compile(r"[.?!;:\n]")
+
+# A run of digits welded to a word — ``CMD-4417``, ``INV-2024-88``, ``4417A``.
+# The letters are a product's prefix, so the run is a reference to a thing and
+# the lone-number tie-break must not claim it. Two letters minimum, because a
+# single letter beside digits is as often a unit as a prefix.
+#
+# ``\Z`` and ``\A``, never ``$`` and ``^``: Python's ``$`` also matches *before*
+# a trailing newline, so "…sur l'application\n483920" — a customer's sentence
+# and then the pasted code on the next line — read as a word welded to the
+# number and forwarded the code. That is this rule's own worst case.
+_ATTACHED_BEFORE = re.compile(r"([^\W\d_]{2,})[-/_]?\Z")
+_ATTACHED_AFTER = re.compile(r"\A[-/_]?([^\W\d_]{2,})")
 
 
 def _binding_word(text: str, start: int, end: int) -> str | None:
@@ -301,15 +387,55 @@ def _binding_word(text: str, start: int, end: int) -> str | None:
     return winner
 
 
+def _is_attached_to_a_word(text: str, start: int, end: int) -> bool:
+    """Is this run welded to a word, the way ``CMD-4417`` is?
+
+    A product prefix names the thing the number refers to, so a welded run is
+    a reference and the guesses below must not claim it. This is checked
+    *after* the binding words, so ``PIN4839`` and ``code483920`` are still
+    codes: a prefix that is itself credential wording is not a product's.
+    """
+    for pattern, side in (
+        (_ATTACHED_BEFORE, text[:start]),
+        (_ATTACHED_AFTER, text[end:]),
+    ):
+        match = pattern.search(side)
+        if match and not _CODE_WORD.search(match.group(1)):
+            return True
+    return False
+
+
 def _is_lone_number(text: str, start: int, end: int) -> bool:
-    """The customer sent us a number and hardly anything else.
+    """The number is standing on its own, with no words to say what it is.
 
     That is the shape of a pasted one-time password: a code arrives, the
     customer copies it into the support thread, sometimes with "ça ne marche
     pas" after it. It is also, unavoidably, the shape of an order number typed
     on its own — see the tie-break in the module docstring.
+
+    **Alone in its segment, not alone in the message.** Measuring across the
+    whole message capped the customer at six words of explanation, and an
+    explanation is why they are writing: "bonjour je n'arrive pas a me
+    connecter a mon compte depuis ce matin. 483920" is nine words and a
+    pasted code, and it was forwarded verbatim. What marks the paste is that
+    the number sits in a segment of its own — after a full stop, a newline or
+    the colon that introduced it — not that the message is short.
+
+    The other digits check keeps its old scope-mate meaning: a segment that
+    also carries another number is a sentence about numbers ("3 cartons a
+    25000"), not a pasted value.
     """
-    rest = text[:start] + " " + text[end:]
+    before = text[:start]
+    boundaries = list(_SEGMENT_END.finditer(before))
+    if boundaries:
+        before = before[boundaries[-1].end() :]
+
+    after = text[end:]
+    boundary = _SEGMENT_END.search(after)
+    if boundary:
+        after = after[: boundary.start()]
+
+    rest = before + " " + after
     if any(ch.isdigit() for ch in rest):
         return False
     return len(_WORD.findall(rest)) <= CODE_LONE_MAX_WORDS
@@ -328,8 +454,13 @@ def _is_code(
         return False
     if binding == "code":
         return True
-    # Nothing bound it. We know a code reached this customer minutes ago, so
-    # an unbound number in their next message is one.
+    # No words bound it, so the guesses below decide — unless the run carries
+    # a product's prefix, which is a word saying "reference" with no space in
+    # it.
+    if _is_attached_to_a_word(text, start, end):
+        return False
+    # We know a code reached this customer minutes ago, so an unbound number
+    # in their next message is one.
     if after_auth_message:
         return True
     return allow_lone and _is_lone_number(text, start, end)

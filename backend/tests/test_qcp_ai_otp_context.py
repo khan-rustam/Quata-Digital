@@ -441,8 +441,16 @@ def test_an_english_code_is_redacted_exactly_like_a_french_one(db, world, ai_on)
     assert "4417" in model.sent
 
 
+# Round 9 changed this sample, not the test. It used to read "j'ai essaye
+# 483920 plusieurs fois ce matin", and the failure-wording tie-break added in
+# round 9 now claims *essaye* — so the control below ("this number survives
+# without the authentication context") stopped being true and the test could
+# no longer prove what it was written to prove. The number was leaking in the
+# quiet case, which is the bug round 9 fixed; what is needed here is a sample
+# that is still genuinely unbound, so the authentication context is the only
+# thing that can decide it.
 AMBIGUOUS = (
-    "Bonjour, ou est ma livraison ? j'ai essaye 483920 plusieurs fois ce matin"
+    "Bonjour, ou est ma livraison ? j'ai note 483920 quelque part ce matin"
 )
 
 
@@ -576,3 +584,155 @@ def test_redaction_is_still_idempotent():
     once = pii.redact_customer_text("mon code 483920 et ma commande 4417")
     twice = pii.redact_customer_text(once)
     assert once == twice
+
+
+# ===========================================================================
+# 7. Round 10 — the three shapes round 9 still forwarded
+#
+# Sections 1–6 were re-run and passed before any of this was written, so the
+# rule they pin was working. These are the shapes they did not cover, each
+# observed leaking against the round-9 redactor.
+# ===========================================================================
+
+# 7a. The commonest real shape of all: the customer explains the problem in a
+#     full sentence and then pastes the code on its own, on a new line or
+#     after a full stop or a colon. Round 9 looked for "a number and hardly
+#     anything else" across the *whole message*, capped at six other words, so
+#     any explanation longer than six words forwarded the code — and an
+#     explanation is why the customer is writing.
+PASTED_AFTER_AN_EXPLANATION = (
+    # French
+    "bonjour je n'arrive pas a me connecter a mon compte depuis ce matin. 483920",
+    "svp aidez moi je suis bloque depuis hier soir sur l'application\n483920",
+    "voici ce que le systeme m'a envoye : 483920",
+    "bonjour, je vous ecris car je n'arrive plus a entrer dans mon compte.\n483920",
+    # the separator hole again, this time against the rule being added
+    "bonjour je n'arrive pas a me connecter a mon compte depuis ce matin. 483 920",
+    # English
+    "hi, i cannot log into my account since this morning, please help.\n483920",
+    "here is what the system sent to my phone this morning: 483920",
+    "hello, i have been locked out of my account since yesterday evening. 483920",
+)
+
+
+@pytest.mark.parametrize("text", PASTED_AFTER_AN_EXPLANATION)
+def test_a_code_pasted_after_an_explanation_never_leaves_the_country(text):
+    """A number standing alone in its own clause is a pasted value.
+
+    Not "alone in the message" — nobody sends only the code, they send the
+    complaint and then the code. The clause it sits in is what says it was
+    pasted rather than typed into a sentence.
+    """
+    assert_not_forwarded(pii.redact_customer_text(text), "483920", f"pasted {text!r}")
+
+
+# 7b. French negation with anything between the verb and the *pas*. Round 9
+#     matched "ne marche pas" and "ne fonctionne pas" only, so the ordinary
+#     "ne marche toujours pas" and "ne fonctionne plus" — which is how a
+#     Cameroonian customer actually reports a code that keeps failing — read
+#     as no failure wording at all.
+FRENCH_NEGATION = (
+    "483920 mais ca ne marche toujours pas depuis ce matin",
+    "483920 ne fonctionne plus depuis hier soir sur mon telephone android",
+    "le numero 483920 ne marche plus du tout quand je le tape dans l'application",
+    "483920 ne fonctionne toujours pas alors que je viens de le recevoir a l'instant",
+)
+
+
+@pytest.mark.parametrize("text", FRENCH_NEGATION)
+def test_french_negation_with_an_adverb_is_still_failure_wording(text):
+    assert_not_forwarded(pii.redact_customer_text(text), "483920", f"negation {text!r}")
+
+
+def test_the_english_equivalent_of_that_negation_was_and_stays_covered():
+    """Held behaviour — the control for 7b, so the fix is not English-only."""
+    for text in (
+        "483920 is still not working after several attempts this morning",
+        "483920 does not work when i type it into the app on my phone",
+    ):
+        assert_not_forwarded(pii.redact_customer_text(text), "483920", text)
+
+
+# 7c. The cost of 7a, refused. An alphanumeric reference is a *thing* — the
+#     module docstring has always said so — but round 9's lone-number rule
+#     read the digits of "CMD-4417" as a bare number and masked the only
+#     handle the model had. Widening the rule in 7a makes that worse, not
+#     better, so it is pinned here in both directions.
+ATTACHED_REFERENCES = (
+    ("CMD-4417", "4417"),
+    ("CMD-4417 non livree", "4417"),
+    ("INV-2024-88 non payee", "2024-88"),
+    ("bonjour, je n'ai toujours rien recu depuis une semaine.\nCMD-4417", "4417"),
+    ("hello, nothing has arrived since last week.\nCMD-4417", "4417"),
+)
+
+
+@pytest.mark.parametrize("text,reference", ATTACHED_REFERENCES)
+def test_a_reference_glued_to_its_prefix_is_a_thing_not_a_code(text, reference):
+    assert reference in pii.redact_customer_text(text), (
+        f"{reference!r} was masked — the model has no handle on the question"
+    )
+    assert reference in pii.redact_customer_text(text, after_auth_message=True), (
+        f"{reference!r} was masked inside the authentication window"
+    )
+
+
+# 7d. Controls for 7a. Widening "alone in the message" to "alone in its
+#     clause" must not start eating the numbers a support layer exists to act
+#     on — a price, a quantity and a delay all sit in clauses of their own.
+STILL_SURVIVES_AFTER_THE_WIDENING = (
+    ("je veux acheter 3 cartons a 25000 chacun", "25000"),
+    ("ma livraison 4417 est en retard depuis 3 jours", "4417"),
+    ("bonjour, combien coute la livraison a Bamenda pour 25000 francs ?", "25000"),
+    ("hello, how much is delivery to Bamenda for 25000 francs?", "25000"),
+    ("bonjour, ou en est ma commande 4417 svp", "4417"),
+    ("hello, where is my order 4417 please", "4417"),
+    ("bonjour, ma commande 4417 est en retard et je voudrais savoir pourquoi", "4417"),
+)
+
+
+@pytest.mark.parametrize("text,kept", STILL_SURVIVES_AFTER_THE_WIDENING)
+def test_the_widened_rule_does_not_eat_the_question(text, kept):
+    assert kept in pii.redact_customer_text(text), (
+        f"{kept!r} was masked and the AI can no longer answer {text!r}"
+    )
+
+
+# 7e. A time unit is not a thing with a number on it. "il y a dix minutes"
+#     sat between the word *code* and the code, and because the ranking is
+#     nearest-wins, *minutes* claimed the number as a reference — which also
+#     meant the reference verdict returned before the authentication-window
+#     backstop could be consulted, so the code leaked even inside the window.
+#     No duration is four to eight digits long, and the reference words are
+#     only ever consulted for a run that is.
+TIME_WORD_MUST_NOT_CLAIM_A_CODE = (
+    "j'ai demande un nouveau code de connexion il y a dix minutes "
+    "et je viens de recevoir 483920",
+    "i requested a new login code ten minutes ago and i have just received 483920",
+    "le code recu il y a quelques heures est 483920 et il est refuse",
+)
+
+
+@pytest.mark.parametrize("text", TIME_WORD_MUST_NOT_CLAIM_A_CODE)
+def test_a_duration_does_not_make_a_code_a_reference(text):
+    assert_not_forwarded(pii.redact_customer_text(text), "483920", f"quiet {text!r}")
+    assert_not_forwarded(
+        pii.redact_customer_text(text, after_auth_message=True),
+        "483920",
+        f"inside the authentication window: {text!r}",
+    )
+
+
+DURATIONS_THAT_MUST_STILL_SURVIVE = (
+    ("Bonjour, ma commande est en retard depuis 25 minutes", "25"),
+    ("Hello, my delivery is 45 minutes late", "45"),
+    ("Bonjour, ma commande 4417 devait arriver il y a 2 jours", "4417"),
+    ("Bonjour, commande du 12/08/2026", "2026"),
+    ("Bonjour, ma facture de 2500 FCFA du 12/08/2026", "2500"),
+)
+
+
+@pytest.mark.parametrize("text,kept", DURATIONS_THAT_MUST_STILL_SURVIVE)
+def test_dropping_the_duration_words_does_not_eat_a_real_number(text, kept):
+    """Held behaviour — the control for 7e. A duration is one or two digits."""
+    assert kept in pii.redact_customer_text(text), f"{kept!r} was masked in {text!r}"
