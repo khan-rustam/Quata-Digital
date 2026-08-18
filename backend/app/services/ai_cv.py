@@ -12,6 +12,8 @@ and what still crosses the border after the filter.
 """
 from __future__ import annotations
 
+from app.services import ai_residency
+
 import json
 import logging
 import re
@@ -382,6 +384,16 @@ def analyze_cv(cv_text: str, job_title: str) -> dict:
     except ImportError as exc:  # pragma: no cover
         ai_events.unavailable("The openai package is not installed.")
         raise AiUnavailable("The openai package is not installed.") from exc
+
+    # Owner decision 2026-08-18 — the model runs on QUATA's own server. A CV
+    # carries more personal data than anything else this platform sends to a
+    # model, so a request that would leave the region is refused rather than
+    # sent. `base_url=... or None` below would silently default to OpenAI.
+    try:
+        ai_residency.check(settings.OPENAI_BASE_URL, settings.AI_DATA_RESIDENCY)
+    except ai_residency.ResidencyBreach as exc:
+        ai_events.unavailable(str(exc))
+        raise AiUnavailable(str(exc)) from exc
 
     client = OpenAI(
         api_key=settings.OPENAI_API_KEY,

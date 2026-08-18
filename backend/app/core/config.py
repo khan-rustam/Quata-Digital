@@ -125,6 +125,13 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_BASE_URL: Optional[str] = None  # override for Azure / compatible gateways
+    #: Where AI requests are allowed to go. Owner decision 2026-08-18: the
+    #: model runs on QUATA's own server, so customer WhatsApp messages and
+    #: applicants' CVs stay in Cameroon. `self_hosted` (the default) refuses
+    #: any call that would leave our network — including the silent fallback
+    #: to openai.com that an unset OPENAI_BASE_URL would otherwise cause.
+    #: Set to `external` to allow calls abroad deliberately.
+    AI_DATA_RESIDENCY: str = "self_hosted"
 
     # ---------- QUATA Notification Service (@QuataAlertsBot) ----------
     # Every QUATA platform publishes events here; only this service talks to

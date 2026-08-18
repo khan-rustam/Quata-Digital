@@ -127,6 +127,11 @@ def captured_prompt(monkeypatch):
 
     _FakeOpenAI.sent = []
     monkeypatch.setattr("openai.OpenAI", _FakeOpenAI)
+    # Owner decision 2026-08-18: the model runs on QUATA's own server, and
+    # `ai_residency` now refuses a call that would leave the region. The
+    # fake provider has to declare a self-hosted endpoint, because that is
+    # what production is configured to use.
+    monkeypatch.setattr(ai_cv.settings, "OPENAI_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.setattr(ai_cv, "ai_enabled", lambda: True)
     monkeypatch.setattr(ai_events, "request_succeeded", lambda **kw: None)
 

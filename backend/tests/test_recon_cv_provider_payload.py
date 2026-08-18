@@ -101,6 +101,10 @@ class _CapturingOpenAI:
 def provider_call(monkeypatch):
     _CapturingOpenAI.calls = []
     monkeypatch.setattr("openai.OpenAI", _CapturingOpenAI)
+    # Owner decision 2026-08-18: the model runs on QUATA's own server, and
+    # `ai_residency` refuses a call that would leave the region. A capturing
+    # substitute still has to declare where the model lives.
+    monkeypatch.setattr(ai_cv.settings, "OPENAI_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.setattr(ai_cv, "ai_enabled", lambda: True)
     monkeypatch.setattr(ai_events, "request_succeeded", lambda **kw: None)
     ai_cv.analyze_cv(CV, "Responsable Logistique")

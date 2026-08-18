@@ -32,6 +32,8 @@ QCP.
 """
 from __future__ import annotations
 
+from app.services import ai_residency
+
 import logging
 from dataclasses import dataclass
 
@@ -120,6 +122,18 @@ def complete(system_prompt: str, user_prompt: str) -> Completion:
         log.warning("qcp.ai: the openai package is not installed")
         return Completion(
             status=STATUS_NOT_CONFIGURED, model=model_name(), detail="openai_package_missing"
+        )
+
+    # Owner decision 2026-08-18 — the model runs on QUATA's own server. A
+    # request that would leave the declared region is refused here rather
+    # than sent, because `base_url=... or None` below would otherwise fall
+    # back to OpenAI in the United States without a word.
+    try:
+        ai_residency.check(env_settings.OPENAI_BASE_URL, env_settings.AI_DATA_RESIDENCY)
+    except ai_residency.ResidencyBreach as exc:
+        log.warning("qcp.ai: refused by data residency — %s", exc)
+        return Completion(
+            status=STATUS_NOT_CONFIGURED, model=model_name(), detail="residency_breach"
         )
 
     try:

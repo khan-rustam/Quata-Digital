@@ -255,6 +255,14 @@ def test_provider_never_logs_the_key_or_the_customer_prompt(monkeypatch, caplog)
 
     module.OpenAI = _Exploding
     monkeypatch.setitem(sys.modules, "openai", module)
+    # Owner decision 2026-08-18: the model runs on QUATA's own server, and
+    # `ai_residency` refuses a call that would leave the region BEFORE the
+    # client is built. This test is about what gets logged when the call
+    # itself fails, so it has to get past that gate — declare the
+    # self-hosted endpoint production is configured with.
+    monkeypatch.setattr(
+        provider.env_settings, "OPENAI_BASE_URL", "http://localhost:11434/v1"
+    )
 
     with caplog.at_level("DEBUG"):
         result = provider.complete("system prompt", pii)
