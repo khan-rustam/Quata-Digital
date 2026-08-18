@@ -105,10 +105,17 @@ class TestBothAiPathsAreGuarded:
 
     def test_the_cv_path_refuses_rather_than_calling_out(self, monkeypatch) -> None:
         from app.services import ai_cv
+        from app.services.notifications import ai_events
 
         monkeypatch.setattr(ai_cv, "ai_enabled", lambda: True)
         monkeypatch.setattr(ai_cv.settings, "OPENAI_BASE_URL", "https://api.openai.com/v1")
         monkeypatch.setattr(ai_cv.settings, "AI_DATA_RESIDENCY", "self_hosted")
+        # Swallow the notification. This test is about the refusal, not about
+        # publishing — and a real `ai.unavailable` event here lands inside the
+        # dedupe window, so `test_notifications` later sees its own event
+        # suppressed as a duplicate and fails. A test must not change what a
+        # later test observes.
+        monkeypatch.setattr(ai_events, "unavailable", lambda *a, **k: None)
 
         with pytest.raises(ai_cv.AiUnavailable):
             ai_cv.analyze_cv("Marie Ngoh, +237 690 11 22 33", "Operations Manager")
