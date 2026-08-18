@@ -36,7 +36,15 @@ PRODUCT_KEYS = {
     # is ever built, adding the keys back has to be a deliberate edit here.
 }
 
-REGISTRY_EXTRA_KEYS = {"routing_rules", "routing_rules_active", "templates", "messages"}
+REGISTRY_EXTRA_KEYS = {
+    "routing_rules", "routing_rules_active", "templates", "messages",
+    # Why this product sends nothing, in ``routing``'s own refusal codes.
+    # Registry-only: the counts beside it are what a reader would otherwise
+    # have to draw the conclusion from themselves, and drawing it wrongly is
+    # how "the switches are all on, QCP must be broken" happens. Pinned in
+    # ``test_qcp_onboarding.py``.
+    "blocked_by",
+}
 
 
 def test_overview_keys(client, admin_headers):

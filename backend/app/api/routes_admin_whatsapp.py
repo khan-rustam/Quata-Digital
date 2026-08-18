@@ -95,6 +95,7 @@ from app.schemas.whatsapp_admin import (
 from app.services.whatsapp import audit
 from app.services.whatsapp import conversations as conversations_service
 from app.services.whatsapp import credentials as wa_credentials
+from app.services.whatsapp import registry as registry_service
 from app.services.whatsapp import settings_store
 
 
@@ -622,6 +623,16 @@ def qcp_products(
         item["routing_rules_active"] = rules_active.get(p.id, 0)
         item["templates"] = templates_total.get(p.id, 0)
         item["messages"] = messages_total.get(p.id, 0)
+        # Why this product sends nothing, in the words its own sends are
+        # refused with. The counts above are inputs to that judgement, not the
+        # judgement: ``routing_rules_active: 3`` beside ``templates: 3`` reads
+        # like a working product right up until every send comes back
+        # ``template_not_approved`` because Meta has approved none of them.
+        # ``include_key_gate`` is on here and only here — this is the surface
+        # that can safely say a product holds no key.
+        item["blocked_by"] = registry_service.product_gates(
+            db, p, include_key_gate=True
+        )
         items.append(item)
 
     return {

@@ -46,7 +46,7 @@ from app.models import (
     WhatsAppTemplate,
 )
 
-from . import audit
+from . import audit, settings_store
 
 
 SEVERITY_ERROR = "error"
@@ -641,3 +641,188 @@ def coverage(db: Session, product: WhatsAppProduct) -> dict:
         "rules": len(rules),
         "active_rules": sum(1 for r in rules if r.is_active),
     }
+
+
+# ---------------------------------------------------------------------------
+# "Why does nothing send?" — the gates, named
+# ---------------------------------------------------------------------------
+#
+# Four independent gates stand between a registered product and a delivered
+# message, and they clear on wildly different timescales: minting a key is a
+# click, switching a product on is a click, switching the platform on is a
+# click and an env var — and a Meta template approval takes **days**, with
+# nothing an operator can do to shorten it.
+#
+# Reporting only ``ok: false`` therefore produces a specific, repeatable
+# failure: the operator re-checks the switches they can see, finds them all
+# on, and concludes QCP is broken. This is the same argument
+# ``settings_store.ai_reply_readiness`` makes about the AI switch — "a switch
+# that is on and does nothing is the worst state an operator can be left in" —
+# applied to the product onboarding path the owner's 2026-08-17 order runs
+# through, one product at a time.
+#
+# The codes are ``routing.REASONS``, not a second vocabulary. A product told
+# ``template_not_approved`` here is told ``template_not_approved`` by the send
+# it tries next, and an operator grepping the audit log for a denial finds the
+# word the console showed them. Deliberately *not* imported from ``routing``:
+# ``routing`` imports nothing from here and the dependency must stay that way,
+# so ``test_qcp_onboarding`` pins the two lists against each other instead.
+
+GATE_NO_API_KEY = "no_api_key"
+GATE_PRODUCT_DISABLED = "product_disabled"
+GATE_NO_ROUTE = "no_route"
+GATE_NO_ACCOUNT = "no_account_for_purpose"
+GATE_TEMPLATE_NOT_APPROVED = "template_not_approved"
+GATE_DELIVERY_DISABLED = "delivery_disabled"
+
+
+def _gate(code: str, message: str) -> dict:
+    return {"code": code, "message": message}
+
+
+def product_gates(
+    db: Session, product: WhatsAppProduct, *, include_key_gate: bool = False
+) -> list[dict]:
+    """Every gate this product is currently behind, in the order to clear them.
+
+    Returns **all** of them, not the first. An operator planning a migration
+    needs to know the template gate is shut *before* they spend an afternoon
+    on the three that clear in a click, because that one is measured in days
+    at Meta.
+
+    ``include_key_gate`` is the one asymmetry between the two surfaces that
+    call this. The product's own ``GET /whatsapp/health`` cannot report
+    ``no_api_key``: reaching it at all requires a key, and answering an
+    unauthenticated caller "that product exists but holds no key" would turn
+    health into a probe for which products are worth attacking. So the
+    operator's registry passes ``True`` and the gateway does not — and the
+    gate is still reported, rather than being the one nothing names.
+
+    Cheap enough for a list endpoint: three queries, none of them per rule.
+    """
+    gates: list[dict] = []
+    allowed = [str(p) for p in (product.allowed_purposes or [])]
+
+    if include_key_gate and not product.api_key_hash:
+        gates.append(
+            _gate(
+                GATE_NO_API_KEY,
+                "No API key has been minted, so this product cannot "
+                "authenticate at the gateway. Mint one — it is shown once and "
+                "cannot be recovered afterwards.",
+            )
+        )
+
+    if not product.is_enabled:
+        gates.append(
+            _gate(
+                GATE_PRODUCT_DISABLED,
+                "This product has not been migrated onto QCP. Every send it "
+                "makes is recorded as suppressed rather than delivered.",
+            )
+        )
+
+    # ``blocked_state`` drops a rule the world has invalidated underneath —
+    # an authentication rule left switched on after the grant was revoked
+    # carries no traffic, and counting it here would report a route that
+    # ``routing.resolve_route`` refuses.
+    live_rules = [
+        r
+        for r in db.query(WhatsAppRoutingRule)
+        .filter(WhatsAppRoutingRule.product_id == product.id)
+        .filter(WhatsAppRoutingRule.is_active == True)  # noqa: E712
+        .all()
+        if blocked_state(r, product)[0] is None
+    ]
+    if not live_rules:
+        gates.append(
+            _gate(
+                GATE_NO_ROUTE,
+                "No active routing rule resolves any intent for this product, "
+                "so every send is refused before a number is even chosen.",
+            )
+        )
+
+    active_purposes = {
+        purpose
+        for (purpose,) in db.query(WhatsAppAccount.purpose)
+        .filter(WhatsAppAccount.is_active == True)  # noqa: E712
+        .all()
+    }
+    # What the live rules actually need; with no live rules, everything this
+    # product is entitled to, so a product mid-setup still learns the number
+    # it will need is dark.
+    needed = {r.purpose for r in live_rules} or set(allowed)
+    missing = sorted(p for p in needed if p not in active_purposes)
+    if missing:
+        gates.append(
+            _gate(
+                GATE_NO_ACCOUNT,
+                "No WhatsApp number is switched on for the "
+                + ", ".join(f"'{p}'" for p in missing)
+                + " purpose, so nothing can carry this product's messages.",
+            )
+        )
+
+    # The slow one. Only asked of rules that could otherwise send today —
+    # a rule whose number is dark is already reported above, and naming it
+    # twice reads as two problems.
+    fallback_language = (product.default_locale or "en").strip() or "en"
+    unapproved = sorted(
+        {
+            r.template_intent
+            for r in live_rules
+            if r.purpose in active_purposes
+            and not _has_approved_template(
+                db,
+                purpose=r.purpose,
+                intent=r.template_intent,
+                language=(r.locale or fallback_language),
+            )
+        }
+    )
+    if unapproved:
+        gates.append(
+            _gate(
+                GATE_TEMPLATE_NOT_APPROVED,
+                "Meta has not approved a template for "
+                + ", ".join(unapproved)
+                + ". QCP refuses to send an unapproved template, and approval "
+                "is Meta's to give — it typically takes days and cannot be "
+                "shortened from here.",
+            )
+        )
+
+    if not settings_store.delivery_enabled():
+        gates.append(
+            _gate(
+                GATE_DELIVERY_DISABLED,
+                "WhatsApp delivery is switched off platform-wide, so no "
+                "product sends anything. This is the fleet kill switch plus "
+                "the admin toggle; both must agree before anything leaves.",
+            )
+        )
+
+    return gates
+
+
+def _has_approved_template(
+    db: Session, *, purpose: str, intent: str, language: str
+) -> bool:
+    """Is there an approved template for this intent on the *live* number?
+
+    Scoped by account rather than by ``whatsapp_templates.product_id``, which
+    is what ``routing._find_template`` does — a template lives on a number,
+    and the number is chosen from the rule's purpose, not from the product.
+    """
+    return (
+        db.query(WhatsAppTemplate.id)
+        .join(WhatsAppAccount, WhatsAppAccount.id == WhatsAppTemplate.account_id)
+        .filter(WhatsAppAccount.purpose == purpose)
+        .filter(WhatsAppAccount.is_active == True)  # noqa: E712
+        .filter(WhatsAppTemplate.intent == intent)
+        .filter(WhatsAppTemplate.language == language)
+        .filter(WhatsAppTemplate.status == "approved")
+        .first()
+        is not None
+    )

@@ -115,11 +115,29 @@ class ConversationHistoryOut(BaseModel):
 # Health
 # ---------------------------------------------------------------------------
 
+class GateOut(BaseModel):
+    """One reason nothing sends. ``code`` is stable; ``message`` is for a human.
+
+    The codes are ``routing.REASONS`` — the same words the send this product
+    tries next will be refused with, and the same words its denial is written
+    into ``whatsapp_audit_log`` under.
+    """
+
+    code: str
+    message: str
+
+
 class ProductHealthOut(BaseModel):
     """What a product is allowed to know about QCP's readiness.
 
     Deliberately says *whether* a purpose is reachable, never which number
     backs it.
+
+    ``ok`` is ``blocked_by == []`` and nothing else. It used to be
+    ``enabled AND delivery AND some purpose reachable``, which reported
+    healthy for a product with no routing rule and no approved template —
+    i.e. one whose every send is refused. A health check that is green while
+    nothing sends is worse than no health check.
     """
 
     ok: bool
@@ -129,3 +147,7 @@ class ProductHealthOut(BaseModel):
     allowed_purposes: list[str]
     purpose_available: dict[str, bool]
     active_intents: list[str]
+    # Never carries ``no_api_key``: a caller without a key never reaches this
+    # endpoint, and confirming a keyless product exists is a probe. That gate
+    # is reported on the admin registry instead.
+    blocked_by: list[GateOut] = []

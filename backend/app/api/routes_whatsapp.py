@@ -74,12 +74,20 @@ from app.schemas.whatsapp import (
     ConversationAssignIn,
     ConversationHistoryOut,
     ConversationOut,
+    GateOut,
     MessageAcceptedOut,
     MessageOut,
     MessageSendIn,
     ProductHealthOut,
 )
-from app.services.whatsapp import audit, conversations, routing, settings_store, webhooks
+from app.services.whatsapp import (
+    audit,
+    conversations,
+    registry,
+    routing,
+    settings_store,
+    webhooks,
+)
 
 
 log = logging.getLogger("quata.whatsapp")
@@ -808,6 +816,13 @@ def product_health(
     Says *whether* a purpose is reachable, never which number backs it — a
     product has no business knowing that, and telling it would hand a caller
     the vocabulary to start asking for one.
+
+    ``blocked_by`` names every gate standing in the way, in the order to
+    clear them, using ``routing``'s refusal codes — so a product integrating
+    against QCP during the migration is told "Meta has not approved a
+    template yet" rather than being left to infer it from a ``suppressed``
+    send. ``registry.product_gates`` is the one implementation; the admin
+    registry renders the same list with the key gate added.
     """
     allowed = [str(p) for p in (product.allowed_purposes or [])]
     available = {
@@ -831,8 +846,10 @@ def product_health(
         .all()
     ]
     delivery = settings_store.delivery_enabled()
+    gates = registry.product_gates(db, product)
     return ProductHealthOut(
-        ok=bool(product.is_enabled and delivery and any(available.values())),
+        ok=not gates,
+        blocked_by=[GateOut(**g) for g in gates],
         product=product.slug,
         enabled=product.is_enabled,
         delivery_enabled=delivery,
