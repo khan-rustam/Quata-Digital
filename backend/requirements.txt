@@ -4,7 +4,7 @@ uvicorn[standard]>=0.34.0
 sqlalchemy>=2.0.36
 alembic>=1.14.0
 pydantic>=2.10.5
-pydantic-settings>=2.7.0
+pydantic-settings>=2.15.0
 # Maintained JWT library. python-jose has been unmaintained since 2024
 # (CVE-2024-33663, CVE-2024-33664 — JWT-bomb / algorithm-confusion).
 PyJWT>=2.9.0
