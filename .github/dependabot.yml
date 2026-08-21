@@ -1,0 +1,11 @@
+# Point 20 of web-security-baseline: dependencies are scanned, not assumed.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: pip
+    directory: "/backend"
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5

@@ -34,6 +34,35 @@ PUBLIC_ALLOWED_EXTS = {
 WEBP_SOURCE_EXTS = {".png", ".jpg", ".jpeg"}
 
 
+# Point 16 of web-security-baseline. The extension and Content-Type checks below
+# are both attacker-controlled, so on their own they prove nothing: a caller can
+# name an HTML payload "logo.png" and declare "image/png". These leading bytes
+# cannot be renamed away.
+_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\xff\xd8\xff", "jpg"),
+    (b"\x89PNG\r\n\x1a\n", "png"),
+    (b"GIF87a", "gif"),
+    (b"GIF89a", "gif"),
+    (b"%PDF-", "pdf"),
+    (b"PK\x03\x04", "zip"),        # docx / xlsx are zip containers
+    (b"\xd0\xcf\x11\xe0", "ole"),  # legacy .doc / .xls
+)
+# Formats with no reliable signature. Allowed, but never on the strength of a
+# sniff — they stay text and are served as attachments.
+_SNIFFLESS_EXTS = {".txt", ".md", ".csv", ".rtf", ".svg"}
+
+
+def _sniff_kind(head: bytes) -> Optional[str]:
+    """Return a format name from the leading bytes, or None if unrecognised."""
+    for sig, kind in _MAGIC:
+        if head.startswith(sig):
+            return kind
+    # WebP is "RIFF....WEBP" — the size field sits between the two markers.
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
 def _safe_name(name: str) -> str:
     base = os.path.basename(name)
     base = re.sub(r"[^A-Za-z0-9._-]", "_", base)
@@ -150,6 +179,28 @@ def save_upload(file: UploadFile, folder: str = "general", *, public: bool = Fal
     # when opened directly in a browser tab. Public callers cannot upload it.
     if public and (ext == ".svg" or (file.content_type or "").lower() == "image/svg+xml"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "SVG uploads not allowed")
+
+    # Content sniff: the declared extension/MIME got us this far, now confirm
+    # the bytes agree. Read the head and rewind so the writer below is unaffected.
+    head = file.file.read(16)
+    file.file.seek(0)
+    if ext not in _SNIFFLESS_EXTS:
+        kind = _sniff_kind(head)
+        if kind is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "File content does not match any allowed type",
+            )
+        _EXT_FOR_KIND = {
+            "jpg": {".jpg", ".jpeg"}, "png": {".png"}, "gif": {".gif"},
+            "webp": {".webp"}, "pdf": {".pdf"},
+            "zip": {".docx", ".xlsx"}, "ole": {".doc", ".xls"},
+        }
+        if ext and ext not in _EXT_FOR_KIND.get(kind, set()):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"File content ({kind}) does not match extension {ext}",
+            )
 
     now = datetime.now(timezone.utc)
     # Never trust the caller-supplied folder in a filesystem path.
